@@ -1,0 +1,365 @@
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathpazo}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage[margin=1in]{geometry}
+\usepackage{caption}
+\usepackage[hidelinks]{hyperref}
+
+\linespread{1.05}
+\setlength{\emergencystretch}{3em}
+\captionsetup{font=small,labelfont=bf,skip=6pt}
+\setlist{itemsep=2pt,topsep=4pt,parsep=0pt}
+
+% ragged-right, weighted wrapping column for tabularx (multipliers must sum to #cols)
+\newcolumntype{R}[1]{>{\hsize=#1\hsize\raggedright\arraybackslash}X}
+
+% isotope macro: \nuc{Si}{28} -> ^{28}Si
+\newcommand{\nuc}[2]{\ensuremath{{}^{#2}\mathrm{#1}}}
+% arXiv hyperlink
+\newcommand{\arxiv}[1]{arXiv:\href{https://arxiv.org/abs/#1}{#1}}
+\newcommand{\Msun}{M_\odot}
+\newcommand{\gcc}{\ensuremath{\mathrm{g\,cm^{-3}}}}
+
+\title{Prediction-Target Conditioning and the Electron-Fraction Accuracy Floor for a Conservation-by-Construction GNN Emulator of Silicon Burning}
+\author{}
+\date{June 2026}
+
+\begin{document}
+\maketitle
+\vspace{-3em}
+\begin{center}
+\small\itshape
+Synthesis of two research runs (QSE structure / prediction-target conditioning; weak-interaction physics / $Y_e$ floor) and their adversarial audits. Corrections from both hostile-referee passes are incorporated directly into the text; figures, citations, and numerical bands below reflect the post-verification state.
+\end{center}
+\vspace{1.5em}
+
+\begin{abstract}
+\noindent The conservation-by-construction GNN emulator of silicon burning rests on a single architectural decision: how to parameterize the network output so that baryon number and charge are conserved exactly while the electron fraction $Y_e$ --- the quantity that controls core-collapse outcomes through $M_{\mathrm{ch}}^{\mathrm{eff}} \propto Y_e^2$ --- is computed accurately. This report synthesizes the two research runs that bound that decision and the two adversarial audits that verified them. The first run establishes the numerical conditioning of two candidate prediction targets against the quasi-statistical-equilibrium (QSE) structure of silicon burning; the second establishes the nuclear-physics accuracy floor on $Y_e$ set by the tabulated weak-interaction rates that drive its evolution. The two runs converge on one experiment --- the QSE-cancellation kill-test --- in which the accuracy floor from the second run supplies the pass/fail thresholds for the target choice in the first.
+
+\noindent The headline conclusions, post-audit, are five. (1) The signed-net-flux target mapped through a fixed stoichiometric matrix (Target~A) is the better-conditioned choice, provided its outputs live in a linear (or stably-invertible asinh) space and the near-equilibrated reaction subset is explicitly identified and masked. (2) Direct-$\Delta X$ prediction with a fixed null-space conservation projection (Target~B) conserves exactly by one linear operation but degrades the instant its output space becomes logarithmic --- the documented NuGNN failure mode --- so it must be built only in a linear space, as benchmark and fallback. (3) The decisive cross-domain resolution is to make the conserved quantity the network's native \emph{linear} output and keep any nonlinear transform internal/latent; this is precisely Target~A done correctly, validated in atmospheric photochemistry (Sturm \& Wexler) and combustion (CRNN / D\"oppel--Votsmeier). (4) The defensible $Y_e$ nuclear-physics floor is $\Delta Y_e \approx 5\times10^{-3}$ to $1.5\times10^{-2}$ end-to-end per trajectory, anchored on the FFN$\to$LMP rate-set shift; under the conservative assumption of systematic (linear) error accumulation appropriate to an autoregressive neural emulator, this translates to a per-step kill-test threshold of $|\Delta Y_e| \lesssim 3\times10^{-6}$. (5) Both citation bases survived hostile line-by-line verification with zero hallucinated load-bearing references; the required corrections concerned mislabeled inference, one wrong substitute number, an internally inconsistent floor band, and the executability of the kill-test against the public dataset --- all folded into the text below.
+
+\noindent The unifying message is that the project's central design tension and its accuracy gate are now quantified well enough to commit to the hybrid Target-A architecture, conditional on the kill-test, with the error-accumulation model measured rather than assumed.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+\section{Framing: one decision, two bounds}
+
+The emulator's headline differentiator is conservation by construction. Every nuclear reaction $j$ satisfies $\sum_i A_i \nu_{ij} = 0$ and, with lepton bookkeeping, the appropriate charge balance, so any update of the form $\Delta Y = \nu F$ lies exactly on the conservation manifold regardless of the error in the predicted flux $F$. But conservation is not accuracy: a trajectory can sit exactly on the manifold while drifting to the wrong point on it. Two questions therefore decide whether the differentiator is viable for silicon burning.
+
+The first is \textbf{conditioning}. In the QSE regime that defines silicon burning, can any conservation-respecting parameterization of the output recover $Y_e$ accurately, given that the dynamics are dominated by near-cancelling forward and reverse fluxes? The second is \textbf{tolerance}. How small must the per-step $Y_e$ error be before the emulator is no longer the dominant error source relative to the weak-interaction physics it is emulating? Run~1 answers the first; Run~2 answers the second; and the second sets the threshold for the first. The remainder of this report develops them in that order, then unifies them in the kill-test that operationalizes the go/no-go, and closes with the recommendations, novelty status, and the open questions that only local numerical experiments on the \texttt{bbq}/MESA data can resolve.
+
+\section{The QSE cancellation problem --- the physics that conditions the target}
+
+\subsection{Equilibrium structure}
+
+A photodisintegration channel becomes competitive when the reaction $Q$-value drops below $\approx 30\,k_B T$. With silicon-group $Q$-values of 8--12~MeV this occurs once temperature exceeds $\sim 3\times10^9$~K, with full QSE clusters established somewhat higher. The two primary sources differ slightly and should be attributed separately: Hix \& Thielemann 1999 (``Silicon Burning II'') give a threshold of \emph{approximately} $3\times10^9$~K, while the Thielemann, Nomoto \& Hashimoto review gives $\approx 3.3\times10^9$~K for establishment of the lower QSE cluster over $28 < A < 45$. The spread is a minor numerical disagreement, not a substantive one, but the emulator's conditioning analysis should carry both values rather than collapse them to one.
+
+Above this temperature the fast capture and photodisintegration pairs --- $(\gamma,\alpha)/(\alpha,\gamma)$, $(\gamma,p)/(p,\gamma)$, $(\gamma,n)/(n,\gamma)$ --- balance, and the abundance of any nucleus in QSE with $\nuc{Si}{28}$ is fixed by just three free abundances (free $n$, free $p$, $\nuc{Si}{28}$) plus the thermodynamic state:
+\begin{align*}
+Y_{\mathrm{QSE}}({}^{A}Z) &= \frac{C({}^{A}Z)}{C(\nuc{Si}{28})}\; Y(\nuc{Si}{28})\; Y_n^{\,N-14}\; Y_p^{\,Z-14}, \\[2pt]
+\text{with}\quad C({}^{A}Z) &= \frac{G({}^{A}Z)}{2^{A}}\left(\frac{\rho N_A}{\theta}\right)^{\!A-1} A^{3/2}\,\exp\!\left(\frac{B({}^{A}Z)}{k_B T}\right).
+\end{align*}
+As $Y(\nuc{Si}{28})$, $Y_p$, and $Y_n$ approach their NSE values, $Y_{\mathrm{QSE}} \to Y_{\mathrm{NSE}}({}^{A}Z) = C({}^{A}Z)\,Y_n^{N}\,Y_p^{Z}$, the global NSE result that depends on only two abundances. The membership diagnostic $r_{\mathrm{QSE}}({}^{A}Z) = \log[Y_{\mathrm{QSE}}/Y]$ is constant ($=0$ for the silicon group) across all members of a group, so distinct groups appear as offset plateaus --- the operational signature the kill-test will use to assign group membership.
+
+\subsection{Group structure across temperature, density, and \texorpdfstring{$Y_e$}{Ye}}
+
+A single NSE cluster exists for $T \gtrsim 6$~GK; as temperature falls it splits, first between $\nuc{He}{4}$ and $\nuc{C}{12}$ at $\sim 6$~GK and later between the silicon group and the iron-peak species at $\sim 4$~GK. In the project's 1.6--7.9~GK regime there are three pools: a light-particle pool ($n$, $p$, $\alpha$, and light nuclei), a silicon group ($A \approx 24$--45: $\nuc{Si}{28}$, $\nuc{S}{32}$, $\nuc{Ar}{36}$, $\nuc{Ca}{40}$, $\nuc{Ti}{44}$), and an iron-peak group ($A \approx 50+$: $\nuc{Cr}{48}$, $\nuc{Fe}{52}$, $\nuc{Ni}{56}$, $\nuc{Zn}{60}$). The two heavy groups are separated by the $Z = N = 20$ shell closures and the small $Q$-values and cross-sections that result.
+
+Critically, lower $Y_e$ delays the merging of the two heavy groups. At $Y_e = 0.498$ a merged group (within 10\%) forms once $X(\text{Si group})$ drops to 0.85, whereas at $Y_e = 0.46$ the iron-peak group reaches 90\% of its silicon-QSE abundance only after 70--75\% of the silicon-group mass is gone. The NSE transition in this density range is fairly sharp in temperature (the steep $\exp(B/k_B T)$ factor) but its location shifts with both $\rho$ and $Y_e$. The emulator must therefore reproduce a moving group boundary, not a fixed one --- a point that recurs in the bottleneck analysis below.
+
+\subsection{The cancellation hierarchy and the bottleneck reactions}
+
+Within a QSE group, the net flux of each internal reaction is driven toward zero while the gross forward and reverse fluxes remain enormous. The slow, well-conditioned net flow through the network is carried by a small number of \emph{bottleneck} reactions linking groups. The equilibria form a strict hierarchy: $(\gamma,n)/(n,\gamma)$ pairs equilibrate earliest (lowest $Q$-values; neutrons are not Coulomb-blocked), $(\gamma,p)/(p,\gamma)$ early, $(\gamma,\alpha)/(\alpha,\gamma)$ early-to-intermediate, and $(\alpha,p)/(p,\alpha)$ latest of the strong pairs --- the $(\alpha,p)/(p,\alpha)$ channel carries the dominant late net flow after group merger at 4--5~GK.
+
+The bottleneck reactions are $Y_e$-dependent, and the two regimes are reconciled by the $Y_e$-dependence of the group boundary itself:
+\begin{itemize}
+\item \textbf{High $Y_e$ ($\approx 0.498$):} the inter-group linkage is dominated by $\nuc{Sc}{45}(p,\gamma)\nuc{Ti}{46}$. Woosley, Arnett \& Clayton (1973), as reported by Hix \& Thielemann (1996), attribute $\sim$75\% of the flow to this single reaction, with ``perhaps a quarter of the flow going through less important reactions'' such as $\nuc{Ca}{42}(\alpha,\gamma)\nuc{Ti}{46}$ and $\nuc{Ti}{45}(n,\gamma)\nuc{Ti}{46}$. This $\sim$75\% fraction carries no attachment to specific thermodynamic conditions in the source and should be cited as a high-$Y_e$ result with conditions unspecified.
+\item \textbf{Low $Y_e$ ($\approx 0.46$):} the bridge shifts to proton capture on neutron-rich Ca, with an unbalanced upward flow by neutron capture from the silicon group. Hix \& Thielemann state explicitly that ``it is hard to see how the reaction $\nuc{Sc}{45}(p,\gamma)\nuc{Ti}{46}$ can be the link between QSE groups'' at $Y_e = 0.46$. No published numeric flux fraction exists for the low-$Y_e$ bridge; the description is qualitative only.
+\end{itemize}
+
+Both pictures are correct in their respective $Y_e$ regimes, which is itself a constraint: the emulator must respect the shift in the dominant bottleneck across the full $0.45 < Y_e < 0.5$ range. The structural fact that decides Target~A versus B is that the inter-group net flow concentrates in this handful of well-conditioned reactions (net $\approx$ gross), while the overwhelming majority of strong/EM reactions are near-equilibrated and carry tiny net flux relative to their gross fluxes.
+
+\subsection{Numerical-methods conditioning literature}
+
+The stiffness is quantified directly. Hix \& Meyer (2006) report that the overall stiffness ratio $S = \max|\mathrm{Re}\,\lambda|/\min|\mathrm{Re}\,\lambda| > 10^{15}$ ``is not uncommon in astrophysics,'' and that near equilibrium the production and destruction timescales become so short relative to the dynamical timestep that their difference is ``close to the numerical accuracy (i.e.\ 14 or more orders of magnitude).'' This stiffness is why nuclear networks are integrated implicitly --- Timmes (1999) recommends variable-order Bader--Deuflhard integration with the MA28 sparse solver as the best accuracy/efficiency balance; Longland et al.\ (2014) confirm Bader--Deuflhard and Gear methods are robust where Wagoner's two-step method is not --- and \texttt{bbq} itself uses the Bulirsch--Stoer (Bader--Deuflhard-class) algorithm at constant $T, \rho$.
+
+Two solver lineages show how to defeat cancellation without integrating the equilibrated reactions, and both inform the emulator's target design. The hybrid QSE/NSE network of Hix et al.\ (1998, 2007) evolves group-total abundances ($Y_{\mathrm{SiG}}$, $Y_{\mathrm{FeG}}$, $Y_{\alpha\mathrm{G}}$) plus a few light nuclei --- seven variables instead of fourteen for the $\alpha$-chain --- and reconstructs group members algebraically, giving order-of-magnitude speedups with no significant loss of accuracy. The Guidry explicit-integration lineage classifies three stiffness types: (i)~negative-population, (ii)~\emph{macroscopic} equilibration ($F^+ - F^- \to 0$ for an entire species equation), and (iii)~\emph{microscopic} equilibration (individual forward/reverse pairs $f^+ - f^- \to 0$). Asymptotic and quasi-steady-state methods remove (i)--(ii) but become non-competitive near equilibrium precisely because they cannot remove (iii); partial-equilibrium methods target (iii) directly, detecting equilibrated pairs and replacing their net flux with an algebraic equilibrium constraint. Their statement of the pathology is the canonical one: ``Near equilibrium the difference $F_i = F_i^+ - F_i^-$ can be orders of magnitude smaller than $F_i^+$ or $F_i^-$ and small numerical errors in $F_i^+$ or $F_i^-$ can produce large errors in the difference.'' The equilibration criterion is $|y_i - \bar{y}_i|/\bar{y}_i < \varepsilon$ with $\varepsilon$ of order $10^{-2}$.
+
+On the magnitude of the timescale separation, the defensible sourced anchors are the CNO figure of $\sim 10^{14}$ explicit integration steps (a $\sim 100$~s fastest $\beta$-decay rate over $\sim 10^{16}$~s of burning; Guidry et al.\ 2011, \arxiv{1112.4738}) and the rate-span statement that ``the fastest and slowest rates can differ by 10--20 orders of magnitude'' (Guidry et al.\ 2023, \arxiv{2312.09090}). The project's working ``6--8 orders of magnitude'' figure for the fast-equilibration versus slow-net-flow separation remains unsourced --- it is an internal estimate --- and must be measured directly from \texttt{bbq} trajectories as the ratio of the fastest equilibrated-pair rate to the slowest bottleneck net rate.
+
+This is the structural picture the target choice must accommodate: slow net flow concentrated in a few well-conditioned bottlenecks, fast equilibration spread across a near-cancelling majority, and a stiffness span exceeding any practical floating-point margin.
+
+\section{The two candidate prediction targets}
+
+\subsection{Target A --- signed net flux through the stoichiometric matrix}
+
+Target~A predicts the \emph{signed net} per-reaction flux $\varphi_r = f_r^+ - f_r^-$ as a single quantity and maps it to abundance changes through the stoichiometric matrix, $\Delta Y = \nu\varphi$. Conservation is exact via $\sum_i A_i \nu_{ij} = 0$, independent of the error in $\varphi$.
+
+The crucial distinction --- and the reason this is sound where the naive ``predict non-negative forward and reverse fluxes, then subtract'' option is not --- is that in Target~A the \emph{target itself} is the net flux. The model never forms the difference of two large \emph{learned} numbers; the cancellation between the enormous gross fluxes was already performed by the ground-truth solver that generated the training data. What remains is a \emph{dynamic-range} problem rather than a \emph{cancellation} problem: the vector of signed net fluxes spans from $O(\text{bottleneck flux})$ down to the round-off floor for fully-equilibrated reactions (Hix \& Meyer's ``14 or more orders of magnitude''), and the task is to represent small signed numbers accurately.
+
+The combustion/QSS literature handles exactly this case by not solving for the net flux of the equilibrated subset at all. The ML analog of the Guidry partial-equilibrium criterion ($\varepsilon \approx 0.01$) is to predict net flux only for the active (non-equilibrated, bottleneck) reactions and set the remainder to their constraint-implied values --- mirroring both the Hix QSE-reduced solver and the Guidry partial-equilibrium scheme.
+
+\subsection{Target B --- direct \texorpdfstring{$\Delta X$}{DeltaX} with a null-space projection}
+
+Target~B predicts $\Delta X$ directly --- the NuGNN-style target, which empirically works --- and projects onto the conservation manifold $\{\sum_i A_i\,\Delta Y_i = 0,\ \sum_i Z_i\,\Delta Y_i = 0\}$ via a fixed null-space layer. This is a single linear operator that conserves baryon number and charge exactly to machine precision. It is well-posed in a \emph{linear} output space. The difficulty is dynamic range: near equilibrium $\Delta X$ over a timestep is itself tiny for most isotopes (QSE members barely move while bottleneck-fed species change by $O(1)$), and a single linear output cannot simultaneously resolve $O(1)$ bottleneck changes and $O(10^{-20})$ trace changes. This is why every prior $\Delta X$ emulator reaches for a log or signed-log transform --- and that transform is precisely where exact linear conservation breaks.
+
+\subsection{The NuGNN precedent --- the cautionary tale for Target B in log space}
+
+NuGNN (Kim, Chae, Ko, Mumpower \& Smith 2026, \arxiv{2606.04491}) is the direct precedent and the decisive evidence against naive direct-$\Delta X$ with a hard conservation layer in a nonlinear output space. It predicts $\Delta X$ for a 690-isotope Type~I X-ray-burst network with signed-log preprocessing of the target labels. The authors note that $\sum_i \Delta X_i = 0$ could in principle be enforced via a physics-informed loss term or output activation ``as done in previous studies (Fan et al.\ 2022; Grichener et al.\ 2025; Zhang et al.\ 2025),'' but that ``in this study, we found that such approaches made the training unstable because the target labels were preprocessed into logarithmic form\ldots\ Enforcing the explicit conservation constraint requires transforming the network outputs back from the signed log representation to $\Delta X$\ldots\ In practice, this inverse transformation made the optimization unstable and degraded the training performance.'' NuGNN therefore relied on the model learning conservation implicitly, achieving ``errors of only a few percent'' and reproducing the final abundance patterns in-solver where its dense and convolutional baselines fail.
+
+The contrast with the Grichener NNN sharpens the point. The NNN uses a log-softmax composition head that enforces $\sum X_i = 1$ (normalization/mass) but \emph{not} charge conservation ($Y_e$), and it predicts the new composition $X$ rather than $\Delta X$ --- which hides the small-net-change problem inside a quantity of order the full abundance. Neither incumbent enforces baryon-and-charge conservation by construction, which is exactly the gap the project targets; NuGNN's experience defines the trap to avoid in closing it.
+
+\subsection{The linear-versus-nonlinear conservation clash, and its resolution}
+
+The asinh (inverse hyperbolic sine) transform of D\"oppel \& Votsmeier fits \emph{actual rates} --- smooth through zero and through sign changes --- rather than log-rates, avoiding both log's singularity at zero and its inability to represent sign. It is the natural transform for signed net fluxes. But the underlying clash is general: a conservation projection ($A^{\mathsf{T}}\Delta Y = 0$) is \emph{linear} in $\Delta Y$, whereas log, signed-log, and asinh output spaces are \emph{nonlinear}. Exact conservation requires summing in linear space; if the native output is nonlinear, one must invert the transform before projecting --- and that inversion is what destabilized NuGNN.
+
+The clean resolution from the literature is to make the \emph{conserved} quantity the network's native \emph{linear} output and keep the nonlinear transform internal/latent. Sturm \& Wexler (2020, 2022) build a fixed final linear layer equal to the stoichiometric/$A$-matrix acting on predicted fluxes, so atoms are conserved to machine precision by construction, stating that ``training ML algorithms on target fluxes $S$ rather than tendencies $\Delta C$ would allow for mass conservation to numerical precision.'' This \emph{is} Target~A's architecture: predict fluxes in a latent transformed space, multiply by the fixed stoichiometric matrix, and obtain $\Delta Y$ in linear space, conserved exactly. The same principle underlies the Chemical Reaction Neural Network (Ji \& Deng 2021), whose output-layer weights \emph{are} the stoichiometric coefficients (the original does not conserve atoms; D\"oppel et al.\ 2024 add an element-balance layer as a hard constraint, and Kircher \& Votsmeier 2025 add positivity-preserving projection with linear-interpolation backtracking). The combustion partial-equilibrium/QSS formalism (Mott 1999; Goussis 2012) is the chemistry-side analog of the silicon bottleneck picture: identify the equilibrated subset, solve only for the slow net flow.
+
+\subsection{Reaction-class conditioning}
+
+The following table estimates, by reaction class, where the gross-to-net flux disparity is severe (ill-conditioned, must be masked) and where the net flux is comparable to the gross flux (well-conditioned, must be predicted). The literature states the disparity only as ``orders of magnitude'' and gives no tabulated per-class ratio; the ratios below are inferences anchored on the sourced statements ($S > 10^{15}$ overall stiffness; $14+$ orders near-equilibrium cancellation; the $\sim$75\% high-$Y_e$ bottleneck fraction). Each cell carries its sourced/derived/inferred status.
+
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{@{}R{0.82}R{0.88}R{1.35}R{1.1}R{0.85}@{}}
+\toprule
+\textbf{Reaction class} & \textbf{Equilibrates first?} & \textbf{Approx.\ $T$ range balanced (this regime)} & \textbf{Est.\ gross/net ratio} & \textbf{Basis} \\
+\midrule
+$(\gamma,n)/(n,\gamma)$ & Earliest (lowest $Q$; neutrons not Coulomb-blocked) & balanced from $\gtrsim 3$~GK down to $\sim 3$~GK $n$-freezeout & very large ($\gg 10^3$; $\to$ accuracy floor near NSE) & H\&T 1996; inference \\
+$(\gamma,p)/(p,\gamma)$ & Early & $\gtrsim 3.5$~GK & very large in group interior; $O(1)$ for bottleneck $\nuc{Sc}{45}(p,\gamma)\nuc{Ti}{46}$ & H\&T 1996 ($\sim$75\% inter-group flux, high $Y_e$) \\
+$(\gamma,\alpha)/(\alpha,\gamma)$ & Early--intermediate & $\gtrsim 3.5$--4~GK & large interior; moderate for low-$Y_e$ feeders & H\&T 1996 \\
+$(\alpha,p)/(p,\alpha)$ & Latest strong pair; carries late net flow after merger & dominant net carrier at 4--5~GK late burning & nearer $O(1)$ for $\nuc{Ti}{44}(\alpha,p)\nuc{V}{47}$, $\nuc{Sc}{43}(\alpha,p)\nuc{Ti}{46}$, $\nuc{Ti}{45}(\alpha,p)\nuc{V}{48}$ & H\&T 1996 \\
+Inter-group bottleneck ($\nuc{Sc}{45}(p,\gamma)\nuc{Ti}{46}$ high $Y_e$; n-rich-Ca proton capture low $Y_e$) & Never (rate-limiting) & whole $\sim$3.3--5~GK QSE window & $O(1)$ --- net $\approx$ gross; \textbf{well-conditioned} & H\&T 1996 (qualitative low-$Y_e$ bridge) \\
+\bottomrule
+\end{tabularx}
+\captionof{table}{Estimated conditioning of each reaction class in the silicon-burning regime. ``Well-conditioned'' cells are the prediction targets; the remainder are candidates for masking.}
+\end{center}
+
+\noindent The operational message is that the well-conditioned targets are a small, $Y_e$-dependent set; the conditioning question is therefore equivalent to asking what fraction of the network falls into that set, which is what the kill-test measures.
+
+\section{The weak-interaction machinery --- what drives and bounds \texorpdfstring{$Y_e$}{Ye}}
+
+\subsection{The four tabulations and their division of labor}
+
+Four tabulations dominate this regime, partitioned by nuclear shell. The $Y_e$-controlling Fe-peak nuclei sit in the LMP ($pf$-shell) regime, which is the most consequential row for the emulator.
+
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{@{}R{0.95}R{0.85}R{1.0}R{0.9}R{1.3}@{}}
+\toprule
+\textbf{Tabulation} & \textbf{Mass range / shell} & \textbf{Nuclear model} & \textbf{$(T,\rho Y_e)$ grid} & \textbf{Key systematics vs.\ others} \\
+\midrule
+\textbf{FFN} --- Fuller, Fowler \& Newman (ApJS 42, 447, 1980; ApJS 48, 279, 1982a; ApJ 252, 715, 1982b; ApJ 293, 1, 1985) & $A = 21$--60 (226 nuclei), $sd{+}pf$ & Independent-particle model: single GT resonance + experimental low-lying transitions & $\rho Y_e = 10$--$10^{11}~\gcc$; $T = 10^7$--$10^{11}$~K ($\approx$0.01--100~GK) & Overestimates $pf$-shell EC by $\sim$1 order of magnitude (misplaced GT centroid; no GT quenching/fragmentation); paper IV (1985) introduced the effective-$\log(ft)$ interpolation scheme \\
+\textbf{Oda et al.\ 1994} (ADNDT 56, 231) & $A = 17$--39, $sd$-shell & Full $sd$-shell diagonalization, Wildenthal USD interaction & Same FFN grid ($10 \le \rho Y_e \le 10^{11}$, 0.01--30~GK) & Agrees well with FFN for $sd$-shell (ground-state-dominated); provides effective rates + $\langle\nu\rangle$ energies \\
+\textbf{LMP} --- Langanke \& Mart\'{\i}nez-Pinedo (NuPhA 673, 481, 2000; ADNDT 79, 1, 2001) & $A = 45$--65 ($>$100 nuclei), $pf$-shell & Large-scale shell-model diagonalization (KB3G-class) & Same FFN grid & EC rates $\sim$1 dex smaller than FFN; $\beta$-decay changes less; provides effective $\langle ft\rangle$ and average (anti)neutrino energies \\
+\textbf{Suzuki et al.\ 2016} (ApJ 817, 163) & $sd$-shell Urca pairs $A = 20, 23, 24, 25, 27$ & Shell model, USDB Hamiltonian, Coulomb corrections & Fine mesh for Urca densities & Aimed at O--Ne--Mg-core Urca cooling; companion $pf$-shell GXPF1J tables (later screening/Type~Ia papers) give EC smaller than KB3G and must be cited separately, not conflated with the 2016 $sd$-shell paper \\
+\bottomrule
+\end{tabularx}
+\captionof{table}{The four dominant weak-rate tabulations and their shell-model coverage. LMP covers the Fe-peak nuclei that control $Y_e$.}
+\end{center}
+
+Recent additions through 2026 ($sd$ Urca extensions; Chen \& Wang 2023 $pf$-shell; pn-QRPA sets covering 709--728 nuclei; the FT-pnRQRPA EDF set for 1652 nuclei) mostly use FFN-compatible grids; QRPA EC rates on $\nuc{Co}{55}$ are enhanced relative to the shell model at presupernova temperatures, but these matter chiefly for neutron-rich $A > 65$ nuclei outside the small networks.
+
+\subsection{Interpolation in practice}
+
+A direct tabulation of log-rates can produce large interpolation errors because the phase-space factor varies rapidly across the coarse grid cells. The standard remedy is the effective-$\log(ft)$ method (FFN 1985): the continuum capture phase-space factors and neutrino-loss integrals are expressed via standard Fermi integrals and removed from the rate, leaving a slowly varying effective $\log(ft)$ that is interpolated bilinearly in $\log T$ and $\log \rho Y_e$, after which the phase-space factor is reattached at the target point. Oda 1994 and LMP both provide effective $\langle ft\rangle$ tabulations expressly to support this.
+
+The code-level behaviors that the emulator inherits and must verify locally: MESA's \texttt{rates} module ships FFN~(1985), Oda~(1994), and LMP~(2000) with precedence LMP $>$ Oda $>$ FFN on a coarse grid (assuming complete ionization), and its own documentation flags the average neutrino energies for reactions not in the tables as ``mostly fantasies or inappropriate'' --- a direct caveat for the neutrino-loss output head. \texttt{pynucastro}'s \texttt{TabularRate} stores weak rates as functions of $(T, \rho Y_e)$ with bilinear interpolation (the \texttt{PythonNetwork} made consistent with the C++ path from v2.1, where it previously returned the nearest table entry) and edge-value extrapolation off-table with no error raised. \texttt{bbq} drives MESA's solver directly and so inherits MESA's weak-rate tables and interpolation exactly. The grid-point counts (on the order of $\sim$11 $\rho Y_e$ points and $\sim$12 $T$ points) and the \texttt{pynucastro} default precedence are flagged for local confirmation.
+
+\subsection{How weak rates enter the ODEs and the energy bookkeeping}
+
+Weak rates appear as the reaction terms in the abundance ODEs $dX_i/dt$ and change $Y_e$ directly: electron capture lowers $Y_e$, $\beta^-$ decay raises it. The energy bookkeeping is \emph{separated}: nuclear energy generation uses nuclear mass differences ($Q$-values), while neutrino losses are computed from the tabulated average neutrino energies $\langle E_\nu\rangle$ supplied per process per $(T, \rho Y_e)$ cell. Heger et al.\ 2001 emphasize that LMP neutrino energies during the post-silicon-burning phase ($T_9 \approx 5$) are generally \emph{larger} than FFN's, so the entropy/energy loss for a given amount of electron capture differs between tables --- making the $\langle E_\nu\rangle$ tabulation choice itself a source of floor uncertainty for the neutrino-loss head, and one that is larger in relative terms than the $Y_e$ floor. A timing subtlety matters for that head: \emph{during} silicon burning the neutrino losses are dominated by thermal/pair processes, not $\beta$-process neutrinos; $\beta$-process neutrinos dominate only in the post-Si, pre-collapse phase (Patton, Lunardini \& Farmer 2017).
+
+\subsection{The \texorpdfstring{$Y_e$}{Ye}-controlling nuclei}
+
+The controllers cluster in the Fe-peak $A = 45$--65 band --- exactly the LMP regime. Aufderheide et al.\ 1994 tabulated the top electron-capture nuclei averaged over the trajectory for $0.40 \le Y_e \le 0.50$; Heger et al.\ 2001 re-ranked these in self-consistent presupernova models, stage by stage.
+
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabularx}{\textwidth}{@{}R{0.95}R{1.1}R{1.0}R{0.95}@{}}
+\toprule
+\textbf{Evolutionary stage} & \textbf{Dominant EC nuclei (lower $Y_e$)} & \textbf{Dominant $\beta$-decay nuclei (raise $Y_e$)} & \textbf{Network membership} \\
+\midrule
+Oxygen burning ($T_9 \approx 1.5$--2.5) & $\nuc{S}{33}$, $\nuc{Cl}{35}$, $\nuc{Ar}{37}$ ($sd$-shell EC), $\nuc{Fe}{54,56}$ & ($\beta$ minor) & $sd$-shell EC $\to$ check Oda coverage; likely partly in \texttt{mesa\_80} \\
+Silicon burning ($T_9 \approx 3$--4) & $\nuc{Co}{55}$ (top), $\nuc{Ni}{56}$, $\nuc{Fe}{55}$, $\nuc{Fe}{54}$, $\nuc{V}{51}$, $\nuc{Cr}{53}$ & $\nuc{Mn}{56}$, $\nuc{Cr}{56}$, $\nuc{Fe}{59}$, $\nuc{Fe}{61}$, $\nuc{Co}{61,63}$ & Fe-peak $pf$-shell (LMP regime $A = 45$--65) \\
+Pre-collapse / $\beta$-equilibrium ($T_9 \approx 4$--10) & $\nuc{Co}{60}$ (EC rate greatly reduced FFN$\to$LMP), $\nuc{Co}{59}$, neutron-rich Fe/Mn & $\beta^-$ on neutron-rich Fe/Mn establishes transient $\beta$-equilibrium & Neutron-rich $\to$ partly \texttt{mesa\_151}; some beyond both nets \\
+\bottomrule
+\end{tabularx}
+\captionof{table}{The $Y_e$-controlling weak-interaction nuclei by evolutionary stage, with their likely membership in the softwired networks.}
+\end{center}
+
+$\nuc{Co}{55}$ is repeatedly identified as the single most important electron-capture nucleus (Heger et al.\ 2001, $25\,\Msun$): pre-revision, roughly half of $dY_e/dt$ came from $\nuc{Co}{55}$ and a quarter from $\nuc{Ni}{56}$, and with the LMP rates $\nuc{Ni}{56}$ becomes dominant while $dY_e/dt$ drops by about a factor of two. The $\nuc{Co}{60}$ electron-capture rate is ``greatly reduced'' from FFN to LMP and dominates the central $Y_e$ evolution from silicon depletion onward; the precise magnitude of the reduction is to be confirmed against the rate tables locally.
+
+The network-membership column is the load-bearing local check. \texttt{mesa\_151} ($>$127 isotopes) very likely contains the full stable and mildly-neutron-rich Fe-peak set including the LMP nuclei; \texttt{mesa\_80} likely contains the main controllers ($\nuc{Fe}{54,56}$, $\nuc{Ni}{56}$, $\nuc{Co}{55}$, $\nuc{Mn}{56}$) but is more likely to truncate the neutron-rich $\beta$-decay partners ($\nuc{Fe}{61}$, $\nuc{Co}{61,63}$) and the most neutron-rich EC nuclei. The explicit \texttt{mesa\_80}/\texttt{mesa\_151} isotope lists (Grichener et al.\ 2025, Appendix~A) must be checked directly. For external context, the GENEC GeValNet25 reduced network (Griffiths et al.\ 2025) explicitly adds $\nuc{Fe}{53}$, $\nuc{Fe}{55}$, $\nuc{Co}{55}$, and $\nuc{Co}{57}$ and uses the minimal $A = 56$ EC chain ($\nuc{Fe}{56} \to \nuc{Mn}{56} \to \nuc{Cr}{56}$) to mimic a much larger network.
+
+\subsection{The documented \texorpdfstring{$Y_e$}{Ye} effect of table swaps}
+
+Heger et al.\ 2001 quantify the sensitivity directly: going from the Woosley--Weaver FFN-EC + old-$\beta$-decay set to the LMP set raises central $Y_e$ at iron-core collapse by $\Delta Y_e = 0.005$--$0.015$ ($\approx$1--4\%, $\sim$3\% most common, larger for more massive stars), with ``about half of this change [a] consequence of including beta decay; the other half, the result of the smaller rates for electron capture.'' The Langanke--Mart\'{\i}nez-Pinedo review quotes the upper/central part of this range (0.01--0.015), consistent rather than contradictory. Paradoxically, iron-core masses are \emph{smaller} despite the larger $Y_e$, owing to reduced outer-core entropy. This single, well-sourced number is the anchor for the accuracy floor in the next section.
+
+\section{The \texorpdfstring{$Y_e$}{Ye} accuracy floor and the per-step error budget}
+
+\subsection{The propagation studies are not like-for-like}
+
+The floor is a synthesis across heterogeneous bounds, and the heterogeneity must be stated rather than flattened. The four studies usually cited together answer different questions at different evolutionary endpoints:
+\begin{itemize}
+\item \textbf{Heger 2001} is a weak-rate-\emph{set} comparison (FFN vs.\ LMP) carried to collapse onset --- the only like-for-like weak-physics anchor.
+\item \textbf{Fields 2018} varies \emph{thermonuclear} (strong) rates only, holds weak rates fixed, and stops at oxygen depletion (never reaching Si-depletion or collapse).
+\item \textbf{Sullivan 2016 / Pascal 2020 / Johnston 2022} vary electron-capture rates \emph{during} hydrodynamic collapse/infall, slightly past the emulator's $T_9 \le 7.9$ training ceiling.
+\item \textbf{Farmer 2016} varies network size and mass resolution, not weak rates.
+\end{itemize}
+
+Sullivan 2016 found that EC-rate variations consistent with charge-exchange and $\beta$-decay calibration produce a $+16/-4$\% range in inner-core mass at shock formation and a $\pm20$\% range in peak $\nu_e$-luminosity --- five times the spread from 32 progenitor models --- with the collapse most sensitive to \emph{reductions} in EC rates and to neutron-rich nuclei near the $N = 50$, $Z = 28$ closed shells. Pascal 2020 independently found the individual EC rates to be the most important uncertainty source, with EOS, mass model, and progenitor only marginal. Fields 2018, the only in-regime study, found central $Y_e$ among the narrowest distributions in its survey: a 95\% spread $\lesssim 1$\% at C-depletion and $\lesssim 0.25$\% at Ne-depletion, with central $Y_e \approx 0.492/0.493$ at O-depletion and an asymmetric negative tail extending to $\simeq -2$\% ($\Delta Y_e \approx -0.010$ at the extreme), driven by the thermonuclear $\nuc{O}{16}(\nuc{O}{16},n)\nuc{S}{31}$ rate. Even \emph{strong}-rate uncertainties therefore move bulk central $Y_e$ by only a few $\times 10^{-3}$, reaching $\sim 10^{-2}$ only in the extreme tail. There is a genuine and confirmed literature gap: \textbf{no published study propagates \emph{weak}-rate uncertainties through the presupernova O/Si-burning phase to a central-$Y_e$ band}, so the floor must bridge that gap by combining bounds.
+
+\subsection{The synthesized floor}
+
+The FFN$\to$LMP shift ($\Delta Y_e = 0.005$--$0.015$) is a one-time historical \emph{systematic} correction between two rate sets, not a propagated statistical uncertainty band. It is best read as an upper-bound \emph{sensitivity scale} --- ``weak-physics choices move central $Y_e$ at this magnitude'' --- and the residual uncertainty \emph{within} the modern shell-model (LMP / Suzuki / GXPF1J-class) rate set is unquantified in the literature and plausibly smaller. Anchored directly on the sourced number, the floor is
+\begin{equation*}
+\boxed{\;\Delta Y_e^{\,\mathrm{floor}} \approx 5\times10^{-3}\ \text{to}\ 1.5\times10^{-2}\quad\text{(end-to-end, per trajectory).}\;}
+\end{equation*}
+The working point $5\times10^{-3}$ is an engineering inference, not a literature-derived value. An emulator whose accumulated $Y_e$ error sits well below $\sim 5\times10^{-3}$ is no longer the dominant error source relative to the weak-rate physics itself.
+
+\subsection{The per-step budget under both accumulation models}
+
+Translating the end-to-end floor to a per-step budget over $N = 10^3$--$10^4$ burn steps requires stating the accumulation model explicitly, because the two models differ by $\sim$1.5 orders of magnitude. Using the working floor $F = 5\times10^{-3}$:
+
+\begin{center}
+\small
+\setlength{\tabcolsep}{10pt}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Accumulation model} & \textbf{Per-step $\delta$} & $\boldsymbol{N=10^3}$ & $\boldsymbol{N=10^4}$ \\
+\midrule
+Systematic / linear (biased per-step error) & $\delta = F/N$ & $5\times10^{-6}$ & $5\times10^{-7}$ \\
+Random walk / $\sqrt{N}$ (zero-mean per-step error) & $\delta = F/\sqrt{N}$ & $\sim 1.6\times10^{-4}$ & $\sim 5\times10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\captionof{table}{Per-step $Y_e$ error budget implied by the end-to-end floor under the two accumulation models.}
+\end{center}
+
+\noindent Because neural-network emulators typically exhibit \emph{biased} (non-zero-mean) per-step errors, the conservative gate assumes linear accumulation. The defensible target handed to the kill-test is therefore
+\begin{equation*}
+\boxed{\;\text{per-step } |\Delta Y_e| \lesssim 3\times10^{-6}\;}
+\end{equation*}
+(systematic-safe; an inference-labeled working value sitting inside the $5\times10^{-7}$--$5\times10^{-6}$ window), relaxing toward $\sim 5\times10^{-5}$--$10^{-4}$ \emph{only} if the emulator's per-step $Y_e$ residuals are empirically demonstrated to be zero-mean and serially uncorrelated. The provisional $10^{-5}$--$10^{-4}$ budget is confirmed under the random-walk assumption and is roughly 1.3 orders of magnitude too loose under systematic accumulation. The single most decision-relevant experiment in the whole exercise is therefore to \emph{measure} whether the per-step residual is zero-mean or biased along a full trajectory --- that choice alone is the largest lever on the pass/fail line.
+
+\subsection{The network-truncation floor (secondary, not charged to the emulator)}
+
+Farmer et al.\ 2016 find $\approx$30\% variations in central $Y_e$ and in the mass locations of the main burning shells across network choices, with a minimum of $\approx$127 isotopes needed to converge these at the $\approx$10\% level. A literal 30\% of $Y_e \approx 0.49$ ($=0.15$) is unphysical as an absolute shift; the percentages most likely refer either to a neutron-excess measure $\eta = 1 - 2Y_e$ ($\eta \approx 0.01$--0.04 in this regime, so $\sim$10--30\% maps to $\Delta Y_e$ of a few $\times 10^{-3}$ to $\sim 10^{-2}$) or to a relative-$Y_e$ variation when comparing a grossly inadequate small net to a converged one --- to be confirmed against Farmer's figures locally. Either way, the crucial point for target-setting is that the emulator need only reproduce its \emph{own} ground-truth network, so network truncation is \textbf{not} charged against the emulator. It does, however, cap the physical meaningfulness of a \texttt{mesa\_80}-trained emulator at the $\sim$10\% (Farmer) level regardless of emulator fidelity: \texttt{mesa\_151} ($>$127 isotopes) is near convergence, \texttt{mesa\_80} is below it.
+
+\section{The QSE-cancellation kill-test --- the unifying experiment}
+
+This is where the two runs meet. Run~2's per-step floor supplies the accuracy threshold that turns Run~1's conditioning question into a measurable go/no-go: \textbf{any reaction whose net flux contributes to $\Delta Y_e$ below $\sim 3\times10^{-6}$ is, for accuracy purposes, equilibrated} --- which directly sets the masking threshold for Target~A and the per-isotope error tolerance for Target~B. The kill-test must be run, on the \texttt{mesa\_80} and \texttt{mesa\_151} data, before the architecture is committed.
+
+\subsection{Goal}
+
+Quantify the cancellation severity across the regime and decide Target~A versus Target~B empirically rather than by appeal to the literature, which gives only ``orders of magnitude'' and never a distribution.
+
+\subsection{Data provenance --- what is computable, and what is not}
+
+This is the gating practical constraint and was the weakest part of the original kill-test design. The public Zenodo record 14873443 contains nine \emph{fixed} timesteps of Sobol-sampled states for \texttt{mesa\_80}/\texttt{mesa\_151}; it does \textbf{not} directly contain the quantities the kill-test needs, and the dependencies must be made explicit before any conclusion is drawn:
+\begin{itemize}
+\item The \textbf{cancellation ratio} $\kappa_r = |\varphi_r|/(f_r^+ + f_r^-)$ needs per-reaction \emph{gross} forward and reverse fluxes. A MESA/\texttt{bbq} net-flux solver outputs net $\dot{Y}$, not the separated $f_r^+$ and $f_r^-$; these must be \emph{recomputed externally} from REACLIB rates $\times$ abundances $\times$ screening.
+\item The \textbf{equilibrium deviation} $\delta_r$ needs the QSE/NSE equilibrium abundances $\bar{Y}$, which require an \emph{independent $C({}^{A}Z)$ QSE solver} the project must build (Hix \& Thielemann Eqs.\ 2--7).
+\item The proposed $(T_9, \rho, Y_e, dt)$ sampling grid does not match the nine-fixed-timestep Sobol public data and \emph{likely requires new \texttt{bbq} runs}.
+\item \textbf{Screening/detailed-balance artifacts must be screened first.} Grichener et al.\ 2025 (Appendix~B) document a real MESA bug in which the four-particle reaction $n + n + \nuc{He}{4} + \nuc{He}{4} \to \nuc{H}{3} + \nuc{Li}{7}$ had a rate 20--24 orders of magnitude too large, from an omitted phase-space factor when computing endo-energetic multi-body rates from detailed balance. Such artifacts corrupt $\kappa_r$ directly, and any near-equilibrium rate-table interpolation error can introduce a spurious $\kappa$ floor.
+\end{itemize}
+
+\subsection{Quantities to compute at each saved (state, timestep)}
+
+\begin{enumerate}
+\item For every reaction $r$: gross forward flux $f_r^+ = \rho N_A \langle\sigma v\rangle \prod Y_{\text{reactants}}$ and gross reverse $f_r^-$; net $\varphi_r$; and the cancellation ratio $\kappa_r \in [0,1]$ ($\kappa \to 0$ fully equilibrated / ill-conditioned; $\kappa \to 1$ net-dominated / well-conditioned).
+\item The equilibrium-deviation $\delta_r = \max_i |Y_i - \bar{Y}_i|/\bar{Y}_i$ over participating species, flagging $\delta_r < 0.01$ as equilibrated (Guidry criterion).
+\item Per-isotope $\Delta Y_i$ over the timestep, decomposed into contributing reaction net fluxes, and the isotope-level cancellation analog ($|\Delta Y_i|$ over the sum of absolute stoichiometric gross contributions).
+\item The condition number of the active-set stoichiometric matrix $S$ (active $=$ $\delta_r \ge 0.01$).
+\item The fraction of total $|\Delta Y_e|$ carried by the top-$k$ reactions, testing that net flow concentrates in the bottlenecks.
+\end{enumerate}
+
+\subsection{Sampling grid}
+
+\[
+\begin{aligned}
+T_9 &\in \{1.6,\,2.5,\,3.3,\,4.0,\,5.0,\,6.3,\,7.9\}\quad\text{(O-burning to near-NSE)},\\
+\rho &\in \{10^7,\,10^8,\,10^9\}\,\gcc,\\
+Y_e &\in \{0.45,\,0.48,\,0.498\},\\
+dt &\in \{10^{-6},\,10^{-3},\,1,\,10^2\}\,\text{s}.
+\end{aligned}
+\]
+Sampling prioritizes the QSE-active window 3.3--5~GK, where the cancellation is worst and the bottleneck picture is sharpest.
+
+\subsection{Pass/fail thresholds (provisional, to be calibrated against the floor)}
+
+These are engineering targets to be calibrated against the measured $\kappa_r$ distribution and the $Y_e$ floor, not derived constants:
+\begin{itemize}
+\item \textbf{Target~A viable} if, at the median timestep, $\{r : \kappa_r > 0.1\}$ captures $\ge 95$\% of $|\Delta Y_e|$ and of $|\Delta X|$ for the dominant isotopes --- a tractable active set carries the physics. \emph{Fail} ($\to$ Target~B or bottleneck-only A) if net flow spreads across more than $\sim$30\% of all reactions with $\kappa$ near the floor.
+\item \textbf{Target~B viable} if a linear (or stably-invertible asinh) $\Delta X$ output with null-space projection reproduces \texttt{bbq} $\Delta X$ to within the $Y_e$ floor \emph{without} the conservation layer destabilizing training. \emph{Fail} if conservation enforcement degrades training as in NuGNN.
+\item \textbf{Stoichiometric-map health} (affects A): $\mathrm{cond}(S_{\text{active}}) < 10^6$ pass; $> 10^8$ fail.
+\item \textbf{Cancellation-floor calibration:} report the full $\kappa_r$ distribution; reactions whose 10th-percentile $\kappa$ across the active set falls below the $Y_e$ floor expressed as a relative flux error are formally indistinguishable from equilibrated and must be masked.
+\end{itemize}
+
+\section{Recommendations --- the architecture decision}
+
+\noindent\textbf{Stage 0 --- Run the kill-test (the gate).} Resolve the data-provenance dependencies first (build the $C({}^{A}Z)$ QSE solver, recompute gross fluxes from REACLIB $\times$ screening, screen for detailed-balance artifacts, and confirm whether new \texttt{bbq} runs are needed), then measure the $\kappa_r$ distribution and the per-step $Y_e$ residual character. Hand the systematic-safe floor (per-step $|\Delta Y_e| \lesssim 3\times10^{-6}$) to this stage as the calibration target. Until the $|\text{net}|/\text{gross}$ distribution is measured on real \texttt{mesa\_80}/\texttt{mesa\_151} trajectories, neither target is locked in.
+
+\smallskip
+\noindent\textbf{Stage 1 --- Default to a hybrid Target~A.} Predict signed net flux in an asinh latent space for the \emph{active} (non-equilibrated) reaction set; detect equilibrated pairs with the $\varepsilon \approx 0.01$ partial-equilibrium criterion; map to $\Delta Y$ through the fixed stoichiometric matrix so that baryon number and charge are conserved exactly by construction. This mirrors the most successful solver precedents (Hix QSE-reduced; Guidry partial-equilibrium) and the most successful ML-surrogate precedents (Sturm--Wexler flux target; CRNN with element-balance layer).
+
+\smallskip
+\noindent\textbf{Stage 2 --- Build Target~B as benchmark and fallback,} in a \emph{linear} output space with an additive null-space projection onto $\{\sum_i A_i\,\Delta Y_i = 0,\ \sum_i Z_i\,\Delta Y_i = 0\}$. Do \emph{not} attempt conservation enforcement in signed-log space --- that is the documented NuGNN failure mode. If dynamic range forces a transform, test asinh and verify the projection still trains stably (a NuGNN-replication check).
+
+\smallskip
+\noindent\textbf{Stage 3 --- Benchmark both against \texttt{bbq}} on published metrics (per-timestep error $\le 1$\%; the NNN beat the 22-isotope approx21 baseline by 280--400\% for \texttt{mesa\_151} and 390--660\% for \texttt{mesa\_80} on $Y_e$). Compare per-isotope $\Delta X$ error \emph{distributions} (not just means), the conservation residual ($\approx$ machine-$\varepsilon$ for both by construction), and stability under autoregressive rollout --- NuGNN's discriminating test, in which only the conserving GNN reproduced the final abundance patterns when looped.
+
+\smallskip
+\noindent\textbf{Thresholds that change the recommendation.} If more than $\sim$90\% of reactions have $|\text{net}|/\text{gross}$ below the $Y_e$ floor at the median timestep, Target~A's reaction-space output is mostly noise $\to$ switch to Target~B or to a bottleneck-only Target~A. If the active-set stoichiometric matrix has $\mathrm{cond}(S_{\text{active}}) > 10^6$, flux errors amplify unacceptably $\to$ prefer Target~B. If asinh~$+$~linear-projection Target~B matches Target~A's rollout stability, choose Target~B for simplicity.
+
+\smallskip
+\noindent\textbf{The accuracy gate, separately.} Hand $|\Delta Y_e| \lesssim 3\times10^{-6}$ to the kill-test, \emph{measure} the accumulation model rather than assuming it, and treat the neutrino-loss head's floor as a distinct problem --- it inherits the $\langle E_\nu\rangle$ tabulation uncertainty, which is larger in relative terms than the $Y_e$ floor and depends on which weak-rate table is loaded.
+
+\smallskip
+\noindent\textbf{Local code-level checks to retire before sizing or training.} The \texttt{mesa\_80}/\texttt{mesa\_151} isotope lists and which $Y_e$-controllers each contains (especially the neutron-rich $\beta$-decay partners); which weak-rate tables \texttt{bbq}/MESA r23.05.1 actually loads for these networks and the off-grid-edge extrapolation behavior; MESA's average-neutrino-energy handling for the neutrino head; the precise meaning of Farmer 2016's ``30\%/10\%'' ($\eta$ versus $Y_e$); and the condition numbers of the \texttt{mesa\_80}/\texttt{mesa\_151} stoichiometric matrices (full and active-set), which have never been published and directly determine the flux-head output dimension.
+
+\section{Novelty status (June 2026)}
+
+A conservation-by-construction GNN emulator in the silicon-burning / CCSN-progenitor regime remains unclaimed as of June 2026. The two nearest neighbors confirm no exact match: NuGNN (Kim et al.\ 2026, \arxiv{2606.04491}, 3~June 2026) is a GNN on the bipartite isotope/reaction graph but for a 690-isotope Type~I X-ray-burst network, achieving ``errors of only a few percent,'' with \emph{no} hard conservation; the Grichener NNN (ApJS 279, 49) is a late-burning MESA emulator in the right regime but a dense fully-connected network, not a GNN, again without hard conservation. The distinctive combination --- hard baryon/charge conservation built into a graph architecture, the silicon-burning weak-interaction regime, and a quantified $Y_e$ accuracy floor --- is intact. NuGNN establishes that the GNN-on-reaction-network idea is now public, so speed of publication matters; lead with the two features NuGNN lacks (hard conservation by construction and the Si-burning weak-interaction regime). One caveat from the audit cycle: the dedicated independent novelty sweep for ``conservation-by-construction ML reaction-network surrogates'' was cut short by search-budget exhaustion, so the novelty claim should be treated as well-supported but not exhaustively swept, and re-checked against arXiv at each phase boundary.
+
+\section{Caveats and open questions requiring local experiments}
+
+The following are the load-bearing unknowns the literature cannot resolve; they are forward-looking experimental requirements, not corrections.
+\begin{itemize}
+\item \textbf{The load-bearing unknown:} the actual per-reaction $\kappa_r = |\text{net}|/(\text{gross}_f + \text{gross}_r)$ distribution for \texttt{mesa\_80}/\texttt{mesa\_151} across this regime. The literature gives only ``orders of magnitude,'' never a distribution.
+\item Whether the working ``6--8 orders of magnitude'' fast/slow timescale-separation figure holds for these networks (unsourced; measure as the ratio of the fastest equilibrated-pair rate to the slowest bottleneck net rate).
+\item The condition number of the \texttt{mesa\_80}/\texttt{mesa\_151} stoichiometric matrices, full and active-set --- never published.
+\item Whether MESA's softwired inverse (detailed-balance) rates reproduce equilibrium cleanly enough that $\kappa_r \to 0$ without a spurious floor, or whether rate-table interpolation (and Appendix-B-style multi-body-rate bugs) introduce one --- this must be screened before any kill-test conclusion.
+\item How many bottleneck reactions are simultaneously active and how that set evolves with $Y_e$ along a real trajectory (the literature names them only at fixed grid points).
+\item Whether asinh-latent flux prediction with a fixed stoichiometric layer actually trains stably on a nuclear network of this size --- no prior work has applied the Sturm--Wexler flux-target architecture at this scale.
+\item The empirical rollout stability of each target under autoregressive feedback at the project's timesteps.
+\item \textbf{The empirical accumulation model ($\sqrt{N}$ versus linear)} for the per-step $Y_e$ residual --- the single largest lever on the pass/fail line, to be measured rather than assumed.
+\item Items pending local code-level confirmation: the exact $\nuc{Co}{60}$ FFN$\to$LMP rate reduction; the fine-grained Fields 2018 $Y_e$ figures; the MESA weak-rate grid-point counts and \texttt{pynucastro} default table precedence; the $\eta$-versus-$Y_e$ interpretation of Farmer 2016's ``30\%''; and the \texttt{mesa\_80}/\texttt{mesa\_151} isotope lists themselves.
+\end{itemize}
+
+\section{Conclusion}
+
+The two research runs jointly resolve the central architectural question of the conservation-by-construction GNN emulator and bound the accuracy it must reach. On the conditioning side, the silicon-burning regime is dominated by quasi-statistical equilibrium, in which the net flux of a near-equilibrated reaction is the small difference of two enormous gross fluxes --- the cancellation pathology that the QSE literature has documented since Hix \& Thielemann 1996 and that the project must not walk into. Predicting non-negative forward and reverse fluxes and subtracting them is unsound for exactly this reason. The viable choices are to predict the \emph{signed net} flux directly and map it through a fixed stoichiometric matrix (Target~A), which never forms the difference of two large learned numbers and conserves exactly, or to predict $\Delta X$ directly and project onto the conservation manifold (Target~B), which conserves by one linear operation but breaks the instant its output goes logarithmic --- the failure NuGNN documented and abandoned. The decisive cross-domain lesson, from atmospheric photochemistry and combustion alike, is that the conserved quantity should be the network's native \emph{linear} output with any nonlinear transform kept internal; that is Target~A done correctly, and it is the recommended default, with the equilibrated subset masked via the Guidry partial-equilibrium criterion and Target~B built in linear space as benchmark and fallback.
+
+On the tolerance side, the weak-interaction physics that drives $Y_e$ --- the LMP-regime Fe-peak electron-capture and $\beta$-decay nuclei, led by $\nuc{Co}{55}$ --- sets a defensible nuclear-physics floor of $\Delta Y_e \approx 5\times10^{-3}$ to $1.5\times10^{-2}$ end-to-end per trajectory, anchored on the FFN$\to$LMP rate-set shift read as a sensitivity scale. Under the conservative assumption of systematic error accumulation appropriate to an autoregressive neural emulator, this becomes a per-step kill-test threshold of $|\Delta Y_e| \lesssim 3\times10^{-6}$, with the accumulation model itself the largest single lever on the gate and therefore something to measure rather than assume.
+
+These two bounds converge on one experiment. The QSE-cancellation kill-test, calibrated to the weak-physics floor and run against recomputed gross fluxes and an independently-solved QSE equilibrium on the public \texttt{mesa\_80}/\texttt{mesa\_151} data, converts both the conditioning question and the tolerance question into a single go/no-go. Both citation bases underlying this synthesis survived hostile, line-by-line verification with no hallucinated load-bearing references; the corrections required --- mislabeled inference, one wrong substitute number, a compressed floor band, and the executability of the kill-test against the public data --- have been folded in above and do not move the Target-A lean or the floor's order of magnitude. The decision is empirically gated, the thresholds are quantified, and the principal failure modes --- the QSE cancellation pathology, NuGNN's log-space conservation collapse, and the systematic-accumulation budget --- are understood well enough to commit to the hybrid Target-A architecture conditionally, with clearly specified thresholds at which to switch targets rather than persist.
+
+\end{document}

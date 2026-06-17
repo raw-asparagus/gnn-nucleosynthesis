@@ -1,0 +1,406 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[letterpaper,margin=2.3cm]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+
+\setlength{\emergencystretch}{2em}
+\setcounter{tocdepth}{1}
+\setlist[itemize]{leftmargin=1.4em,topsep=2pt,itemsep=2pt}
+\setlist[enumerate]{leftmargin=1.9em,topsep=2pt,itemsep=2pt}
+\renewcommand{\arraystretch}{1.15}
+
+\newcommand{\Ye}{\ensuremath{Y_e}}
+\newcommand{\bbq}{\texttt{bbq}}
+
+\hypersetup{
+  pdftitle={Training-Data Generation for a Conservation-by-Construction GNN Emulator of Silicon Burning},
+  pdfsubject={Consolidated Specification: Inventory, Pipeline, Sampling, Data Shapes, and Cost Model}
+}
+
+\title{Training-Data Generation for a Conservation-by-Construction GNN Emulator of Silicon Burning\\[6pt]
+\large Consolidated Specification: Inventory, Pipeline, Sampling, Data Shapes, and Cost Model}
+\author{}
+\date{June 2026}
+
+\begin{document}
+
+\maketitle
+\vspace{-1.5em}
+{\centering\small\itshape Synthesis of four research artifacts --- two training-data design runs (the generation/pipeline/cost report and the sampling/data-shapes report) and their two adversarial referee audits, June 2026. All audit corrections are folded directly into the text; citations, physics thresholds, and numerical bands reflect the post-verification state. The architecture, scientific case, and \Ye{}-accuracy decision are established in separate documents and are summarized here only as far as needed to make the data plan self-contained.\par}
+\medskip
+
+\begin{abstract}
+\noindent This report specifies the complete training-data layer for a conservation-by-construction graph neural network (GNN) emulator of MESA's softwired silicon-burning networks (\texttt{mesa\_80}, \texttt{mesa\_151}), benchmarked against the Grichener et al.\ 2025 fully-connected ``Nuclear Neural Network'' (NNN) on its public Zenodo data. It covers four things end to end: what public data exist and where they fall short; the \bbq{}/MESA generation pipeline and how to derive the conservation and kill-test quantities the architecture gates on; how to sample the constrained composition space and what data shapes to generate; and the cost, storage, format, validation, and new-regime roadmap that make the plan executable.
+
+\textbf{First, the public reproducibility package is not a flux database.} Zenodo 14873443 stores single-step (state, $dt \to$ composition $+$ nuclear energy $+$ neutrino loss) tuples at nine fixed timesteps for two networks, but contains no per-reaction gross fluxes, no signed net fluxes, and no quasi-statistical-equilibrium (QSE)/nuclear-statistical-equilibrium (NSE) reference abundances. Every quantity the project gates on --- the signed net per-reaction flux $\varphi$ that is the emulator's primary prediction target (Target~A), the gross forward/reverse fluxes $f^{\pm}$, the equilibrium references, and the cancellation/deviation diagnostics $\kappa_r$ and $\delta_r$ --- must be derived externally with pynucastro on rate inputs matched to MESA's, or by re-instrumenting \bbq{}. A detailed-balance/phase-space artifact screen, anchored on a documented and severe MESA bug, gates all flux work and must run before any flux quantity is trusted. \textbf{Second, the sampling design replaces the baseline's weakest link with a constrained, low-discrepancy scheme and a three-way mixture.} The constrained composition object is the intersection of the probability simplex with the electron-fraction hyperplane --- an $(n-2)$-dimensional polytope --- and the recommended generator draws thermodynamics by Sobol and composition on that polytope, then blends $\sim$60\% broad/deliberately-unphysical coverage, $\sim$25\% trajectory-aware seeding, and $\sim$15\% deterministic densification of the QSE-cancellation window and the iron-peak weak-rate nuclei. \textbf{Third, the canonical data shape is the dense cumulative trajectory, but it is cheap only for new burns.} One \bbq{} integration checkpointed at 16--24 log-spaced times makes any timestep derivable and feeds both the variable-$\Delta t$ head and a latent-ODE upgrade; the single-step/pushforward/perturbed training mix is then a sampling policy over stored trajectories with no further burns. Crucially, the public set stored only its nine checkpoints, so obtaining dense trajectories for the existing $\sim 10^6$ states requires either the on-request 4\,TB superset or a fresh $\sim 10^6$-burn campaign --- variable-$\Delta t$ data is not a free retrofit of the public data. \textbf{Fourth, sequencing follows cost.} A from-scratch $10^6$-grid is a multi-month, cluster-scale campaign ($\sim 1$--$5\times 10^5$ CPU-hr; roughly 6--29 node-months on a single 24-core node), whereas every derivation above is CPU-cheap and embarrassingly parallel. Year-1 therefore lives on the public data, derives all kill-test quantities immediately, negotiates the 4\,TB superset early, and defers fresh burns to \texttt{mesa\_204} and new regimes. The single number that reshapes everything downstream --- the per-step \Ye{} accuracy gate --- is fixed by the error-accumulation slope of the trained emulator, a quantity no external paper settles and that only a local rollout experiment can measure.
+\end{abstract}
+
+{\small\tableofcontents}
+\bigskip
+
+\section{Inherited project context (the established basis this plan serves)}
+
+The data plan is downstream of decisions made elsewhere and not re-derived here; they are stated so the plan stands alone.
+
+The \textbf{emulator} is a heterogeneous GNN operating on the bipartite isotope$\leftrightarrow$reaction graph of MESA's softwired networks, targeting the same problem as Grichener et al.\ 2025 (ApJS 279, 49) --- fast surrogate evaluation of single-zone burning --- but adding the property both the NNN and the closest competitor NuGNN (Kim et al.\ 2026, arXiv:2606.04491) lack: hard baryon-number and charge conservation built into the architecture.
+
+The \textbf{prediction target (Target~A)} is a signed net per-reaction flux $\varphi$, mapped to the abundance change through the fixed stoichiometric matrix as $dY = \nu\varphi$, so that baryon and charge conservation hold to machine precision for any $\varphi$; the electron fraction $Y_e \equiv \sum_i Z_i X_i / A_i = \sum_i Z_i Y_i$ is left free to evolve through the weak interactions that drive it. The fallback parameterization (Target~B) predicts $\Delta X$ directly and projects onto the conservation null-space in a linear space. The data plan must therefore deliver $\varphi$ and its supporting quantities as first-class training labels, not merely the abundance changes the public set provides.
+
+The \textbf{accuracy gate} is set by weak-interaction physics, not by beating the baseline. The defensible nuclear-physics floor --- anchored on the shift from the older Fuller--Fowler--Newman (FFN) weak rates to the modern Langanke--Mart\'inez-Pinedo (LMP) set, led by the iron-peak electron-capture/$\beta$-decay nuclei --- is $\Delta Y_e \approx 5\times 10^{-3}$ to $1.5\times 10^{-2}$ end-to-end per trajectory. Under the conservative systematic-accumulation model appropriate to an autoregressive emulator, at a trajectory length $N \approx 1.6\times 10^3$ this implies a per-step kill-test threshold of $|\Delta Y_e| \lesssim 3\times 10^{-6}$, which is the operative per-step gate throughout. The alternatives --- $5\times 10^{-7}$ (systematic at $N = 10^4$) and $\approx 5\times 10^{-5}$ (zero-mean random-walk at $N = 10^4$) --- are not adopted until the accumulation model is measured (\S7).
+
+The \textbf{regime box} is the Grichener Sobol domain: $T \approx 1.6$--$7.9$ GK ($10^{9.2}$--$10^{9.9}$ K), $\rho \approx 10^7$--$10^9$ g\,cm$^{-3}$, $0.45 < Y_e < 0.5$; the silicon-burning core of that box sits at $T \approx 3.5$--$5$ GK. The \textbf{equilibrium mask} that protects the flux head from resolving the near-zero net flux of a balanced forward/reverse pair acts on the latent flux only and never on weak reactions --- a rule the artifact screen and the off-trajectory perturbation scheme below both respect.
+
+The \textbf{tools} are \bbq{} (Farmer 2023, a one-zone MESA wrapper), MESA r23.05.1, pynucastro (Willcox \& Zingale 2018; Smith et al.\ 2023), the solver-independent codes SkyNet (Lippuner \& Roberts 2017) and WinNet (Reichert et al.\ 2023), and the JINA REACLIB rate database (Cyburt et al.\ 2010).
+
+\section{Data inventory and coverage}
+
+\subsection{What the public record actually contains}
+
+Zenodo record 10.5281/zenodo.14873443 is the \textbf{reproducibility package} for Grichener et al.\ 2025, not a flux database. Its stated contents are the MESA stellar models used to set the parameter space, the training/validation/test sets, the trained NNN models, the test datasets, and the analysis and figure-generation scripts. The outer container is a single archive, \texttt{NuclearNeuralNetworks.zip} ($\approx$49.1 GB), plus a \texttt{README.txt}. This reconciles cleanly with the paper's stated $\sim$80 GB total: 80 GB is the uncompressed footprint --- nine timesteps $\times$ ($\approx$3 GB \texttt{mesa\_80} $+$ $\approx$6 GB \texttt{mesa\_151}) --- and 49.1 GB is the zipped deposit, an unremarkable $\sim$0.6 compression ratio on numerical arrays. The container is confirmed; the zip-internal breakdown and the on-disk format of the arrays (CSV, Parquet, or NumPy) remain a local-confirmation target.
+
+The headline data are \textbf{(state, $dt \to$ composition $+$ \texttt{e\_nuc} $+$ $\varepsilon_\nu$) tuples} at \textbf{nine logarithmically spaced fixed timesteps from $10^{-6}$ s to $10^2$ s}, with $\approx 1{,}048{,}576 \approx 10^6$ combinations per network, for \textbf{\texttt{mesa\_80}} (80 isotopes) and \textbf{\texttt{mesa\_151}} (151 isotopes); a separate NNN was trained per timestep. Thermodynamics were drawn by Sobol quasi-random sampling over $\log T$ and $\log \rho$ within the regime box, with the per-point composition generated randomly to match the sampled $Y_e$ in 0.45--0.5. The held-out comparison set is $\approx$700 \bbq{} outputs whose initial compositions are restricted to the isotopes present in the \texttt{approx21\_cr60\_plus\_co56} network, chosen to enable a like-for-like comparison against the small net. The \texttt{mesa\_204} network is a future project target and is \textbf{not} present.
+
+What the public set does \textbf{not} contain is decisive: no per-reaction gross $f^{\pm}$, no signed net per-reaction flux $\varphi$, and no QSE/NSE equilibrium abundances. Every quantity the conservation architecture gates on must be derived or rebuilt externally.
+
+\subsection{What the on-request superset adds}
+
+The complete \bbq{} runs --- additional timesteps beyond the public nine, and datasets for extended density ranges beyond $10^7$--$10^9$ g\,cm$^{-3}$, $\approx$4 TB in total --- are \textbf{available on request from the corresponding author}. This is a discretionary external dependency and a non-trivial 4\,TB transfer, not a deposited fact, and it must be treated and scheduled as such. The superset adds finer/more timesteps and wider density coverage but still advertises neither fluxes nor equilibrium abundances.
+
+\subsection{Coverage matrix}
+
+{\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{longtable}{p{3.4cm}p{2.9cm}p{1.8cm}p{6.3cm}}
+\toprule
+\textbf{Needed quantity} & \textbf{In public Zenodo 14873443?} & \textbf{In on-request 4\,TB?} & \textbf{Gap / action} \\
+\midrule
+\endhead
+Single-step (state, $dt \to dY$) $+$ \texttt{e\_nuc} $+$ $\varepsilon_\nu$ & \textbf{Yes} --- 9 fixed $dt$, $\sim 10^6$/net, \texttt{mesa\_80} \& \texttt{mesa\_151} & Yes (more $dt$) & None for \texttt{mesa\_80}/\texttt{151}; derive $dY = X_{\mathrm{final}} - X_{\mathrm{init}}$ \\
+Variable-$dt$ data & Partial (9 discrete $dt$ only) & \textbf{Yes} (extra timesteps) & Negotiate 4\,TB; else new \bbq{} runs (see \S6) \\
+Per-reaction gross $f^+$ and $f^-$ & \textbf{No} & No & \textbf{Derive externally} (pynucastro) or re-instrument \bbq{} \\
+Signed net per-reaction flux $\varphi$ (Target~A) & \textbf{No} & No & \textbf{Derive/rebuild} ($f^+ - f^-$), or MESA \texttt{add\_raw\_rates} \\
+QSE/NSE equilibrium abundances & \textbf{No} & No & \textbf{Build independent $C(A,Z)$ solver} $+$ pynucastro NSE cross-check \\
+Trajectory sequences & Partial (same state across 9 $dt$ is not a trajectory) & Closer (more $dt$) & Mostly \textbf{new \bbq{} runs} / 4\,TB \\
+Off-trajectory / perturbed states & \textbf{Yes, implicitly} --- Sobol deliberately includes off-trajectory compositions & Yes & Already covered by design \\
+Real-MESA-track trajectories & \textbf{No} (Sobol space $\neq$ stellar tracks; MESA \emph{models} present only to set bounds) & No & \textbf{New work}: extract core compositions from MESA runs \\
+New-regime data (low-$T$ ECSNe, low-$\rho$ PPISNe) & \textbf{No} & Partial (extended $\rho$) & \textbf{New \bbq{} runs} (\S9) \\
+\texttt{mesa\_204} data & \textbf{No} & No & \textbf{New \bbq{} runs} (new network) \\
+\bottomrule
+\end{longtable}}
+
+\section{The bbq/MESA generation pipeline}
+
+\textbf{What \bbq{} is.} \bbq{} (Farmer 2023; Zenodo 10.5281/zenodo.7585202; LGPL v2.1) is a Fortran one-zone burn calculator that wraps MESA's nuclear-network solver without modifying its underlying code. It burns a single zone at \textbf{constant $T$ and $\rho$}, treating the burn as decoupled from stellar structure, and is pinned to MESA \textbf{r23.05.1}.
+
+\textbf{Integrator.} \bbq{} integrates the stiff abundance ODEs with the \textbf{Bulirsch--Stoer / Bader--Deuflhard} scheme (Deuflhard 1983), solving
+\[
+\frac{dX_i}{dt} \;=\; \frac{A_i m_u}{\rho}\Bigl[-\sum_j (1+\delta_{ij})\, r_{ij} + \sum_{k,l} r_{kl,i}\Bigr].
+\]
+
+\textbf{Inputs.} The initial temperature, density, and composition of the zone, plus the choice of MESA softwired network (\texttt{mesa\_80}, \texttt{mesa\_151}, \dots).
+
+\textbf{Native outputs.} The final composition $\{X_i\}$, the nuclear energy generation per unit mass \texttt{e\_nuc} (erg\,g$^{-1}$), and the neutrino-loss term $\varepsilon_\nu$ (erg\,g$^{-1}$\,s$^{-1}$). A MESA convention matters for downstream energy bookkeeping: the \texttt{net} module's \texttt{eps\_nuc} \textbf{already has nuclear neutrino losses subtracted} ($\texttt{eps\_nuc} \equiv \varepsilon_{\mathrm{nuc}} - \varepsilon_{\nu,\mathrm{nuc}}$), while thermal neutrino losses (\texttt{non\_nuc\_neu}) come from the separate \texttt{neu} module. The exact \bbq{} inlist control names, the output container (HDF5 versus text), and the column headers are \textbf{local-confirmation items}: direct reads of the \bbq{} repository were blocked by an automated-access policy, so the pipeline description is corroborated from Grichener et al.\ and MESA documentation rather than the repo's own files.
+
+\textbf{What must be post-computed.} \bbq{} returns the net $dY/dt$-equivalent (via final abundances) and the energy terms, but \textbf{not} per-reaction signed flux $\varphi$, \textbf{not} gross $f^{\pm}$, and \textbf{not} equilibrium abundances. Target~A's $\varphi$ and all kill-test quantities are post-processing products (\S4). To emit per-reaction quantities natively instead, MESA's reaction-rate output can be enabled --- \texttt{add\_raw\_rates}, \texttt{add\_screened\_rates}, \texttt{add\_eps\_nuc\_rates}, \texttt{add\_eps\_neu\_rates}, or \texttt{raw\_rate <name>} for individual reactions.
+
+\textbf{Parallelization and throughput.} Generation is embarrassingly parallel --- each burning region computes independently; hundreds of isotopes in one zone run in a few minutes, and building a $\sim 10^6$-sample set costs of order ``few $\times\,10^5$ CPU hours'' (Grichener et al.\ \S2.1).
+
+\textbf{Failure modes.} Stiff-ODE non-convergence appears at the highest $T/\rho$ and largest $dt$ (\bbq{} runtime grows with $dt$ because larger compositional change demands more substeps), manifesting as solver step-count exhaustion governed by the standard MESA tolerances and maximum internal steps. The detailed-balance rate bug below is a \emph{correctness} failure that does not crash the solver --- it silently produces wrong equilibria.
+
+\textbf{Reproducible campaign configuration.} Pin MESA r23.05.1 and a fixed REACLIB snapshot plus weak-rate tables; record the exact net file. MESA's standalone one-zone burn supports both fixed-$(T,\rho)$ burns and arbitrary $(T,\rho)$ histories (\texttt{read\_T\_Rho\_history}, \texttt{T\_Rho\_history\_filename}), the machinery \bbq{} exposes; which of these controls \bbq{} surfaces is a local-confirmation item.
+
+\section{Deriving the conservation, kill-test, and masking quantities}
+
+This is where Target~A's $\varphi$ and the mask's inputs come from. All flux work is gated by the artifact screen in \S4.3.
+
+\subsection{Per-reaction gross \texorpdfstring{$f^+$}{f+} and \texorpdfstring{$f^-$}{f-} (and net \texorpdfstring{$\varphi$}{phi})}
+
+Use \textbf{pynucastro} built on the \textbf{same} REACLIB rates and tabulated weak rates (in $T$, $\rho Y_e$) as MESA. pynucastro supplies nuclear partition functions, reverse rates by detailed balance, weak-rate-table support, NSE state determination, and electron screening. The workflow builds a \texttt{RateCollection}/\texttt{PythonNetwork} from \texttt{ReacLibLibrary().linking\_nuclei([...])} matching the \texttt{mesa\_80}/\texttt{mesa\_151} isotope list, and for each rate at a \texttt{Composition} and $(T, \rho)$:
+
+\begin{itemize}
+\item \texttt{rc.evaluate\_rates(rho, T, composition)} returns the per-rate molar flux (rate $\times$ density-power $\times$ $Y$-products $\times$ screening) for every rate.
+\item Each reaction's forward and reverse legs form a \texttt{RatePair}; evaluate both directions to obtain the \textbf{gross $f^+$ (forward) and $f^-$ (reverse)}, with \textbf{net $\varphi = f^+ - f^-$}. Screening enters via \texttt{evaluate\_screening}/\texttt{get\_screening\_map} (use symmetric screening to match aprox-style nets where appropriate).
+\end{itemize}
+
+The route is valid \textbf{only if pynucastro and MESA use matching REACLIB version, weak-rate tabulation, and screening prescription} --- otherwise $\varphi$ diverges from the abundance target the network must reproduce. Validate by reproducing a sample of \bbq{} net $dY/dt$ before trusting $\varphi$. (The exact pynucastro API entry points should be checked against current pynucastro documentation; this is a forward verification item, listed in \S11.)
+
+\subsection{Independent \texorpdfstring{$C(A,Z)$}{C(A,Z)} QSE/NSE equilibrium reference}
+
+Implement the Hix \& Thielemann formalism (1996, ApJ 460:869; 1999, ApJ 511:862; cross-validated with Hix et al.\ 2007, ApJ 667:476). The QSE abundance of nucleus $(A,Z)$ in equilibrium with ${}^{28}\mathrm{Si}$ is
+\[
+Y_{\mathrm{QSE}}(A,Z) \;=\; \frac{C(A,Z)}{C({}^{28}\mathrm{Si})}\, Y({}^{28}\mathrm{Si})\, Y_n^{\,N-14}\, Y_p^{\,Z-14},
+\]
+\[
+C(A,Z) \;=\; \frac{G(A,Z)}{2^{A}}\Bigl(\frac{\rho N_A}{\theta}\Bigr)^{A-1} A^{3/2}\, e^{B(A,Z)/k_B T},
+\qquad
+\theta \;=\; \Bigl(\frac{2\pi m_u k_B T}{h^{2}}\Bigr)^{3/2},
+\]
+where $G$ is the partition function, $B$ the binding energy, and $N_A$ Avogadro's number. Two independent implementations are recommended: a hand-coded $C(A,Z)$ with AME2020 masses and partition functions, and pynucastro's \texttt{NSENetwork.get\_comp\_nse(rho, T, ye, use\_coulomb\_corr=True)} for full NSE as a cross-check. Agreement between them in the NSE limit validates the solver before any QSE-group work. NSE is the high-temperature limit; QSE is NSE with the inter-group balance constraints relaxed, a useful approximation above $\sim$3 GK.
+
+\subsection{The detailed-balance / phase-space artifact screen (gates everything)}
+
+The failure mode is documented and severe. Grichener et al.\ 2025 Appendix~B --- and the corresponding MESA GitHub Issue \#575, filed by Grichener, which names the offending reaction \texttt{r\_neut\_nuet\_he4\_he4\_to\_h3\_li7} --- found that MESA computed the reverse rates of endo-energetic reactions involving more than two reactants and/or products from detailed balance while \textbf{omitting a phase-space factor} tied to the number of particles. For the four-particle reaction $n + n + {}^{4}\mathrm{He} + {}^{4}\mathrm{He} \to {}^{3}\mathrm{H} + {}^{7}\mathrm{Li}$ this made the MESA rate roughly \textbf{20--24 orders of magnitude larger} than the literature value (Malaney \& Fowler 1989). The bug is fixed in current MESA, but any rate library or version used for flux work must be re-screened. The screen, run before any flux-based analysis:
+
+\begin{enumerate}
+\item For every reverse rate with more than two reactants/products, verify the phase-space factor is present.
+\item Compare equilibrium composition across network sizes; tritium-bearing channels in the medium networks were exactly what swung the published equilibria, so flag any net whose equilibrium shifts when tritium channels are added.
+\item Spot-check the four-particle reaction against Malaney \& Fowler 1989 --- a 20--24 order-of-magnitude discrepancy is the diagnostic signature.
+\item Independently recompute reverse $=$ forward $\times$ (detailed-balance factor from partition functions) with pynucastro and compare to the rate-library reverse.
+\end{enumerate}
+
+Any reaction failing these is masked out of $\kappa_r/\delta_r$ and the flux losses. The screen targets \textbf{strong, $>$2-body, endo-energetic reverse rates only} --- it never touches weak reactions, consistent with the equilibrium-mask rule.
+
+\subsection{Cancellation and equilibrium-deviation diagnostics (\texorpdfstring{$\kappa_r$, $\delta_r$}{kappa, delta})}
+
+Both are per-sample post-processing passes over the gross fluxes and the equilibrium reference:
+
+\begin{itemize}
+\item \textbf{Cancellation ratio} $\kappa_r = |f^+ - f^-| / (f^+ + f^-) \in [0,1]$. As $\kappa_r \to 0$ a reaction sits in near-perfect forward/reverse balance (QSE), where the net flux is a small difference of large numbers and is numerically fragile --- precisely the reactions the conservation-by-construction head and its mask must handle with care.
+\item \textbf{Equilibrium deviation} $\delta_r = \max_i |Y_i - \bar{Y}_i| / \bar{Y}_i$, where $\bar{Y}_i$ is the QSE/NSE reference from \S4.2; $\delta_r$ quantifies how far a sampled state is from equilibrium for the species linked by reaction $r$.
+\end{itemize}
+
+\section{Sampling design}
+
+\subsection{The constrained-composition geometry}
+
+A composition is a probability vector summing to one, so it lives on the $(n-1)$-dimensional probability simplex. One further independent weighted linear equality --- the electron-fraction constraint $Y_e = \sum (Z_i/A_i) X_i$ --- reduces this to an \textbf{$(n-2)$-dimensional bounded convex polytope} ($n-2 = 78$ for \texttt{mesa\_80}, 149 for \texttt{mesa\_151}). Grichener et al.\ correctly noted that quasi-random sampling is not directly applicable to non-independent abundances that must sum to unity, and fell back to generating compositions randomly to match each sampled $Y_e$. That ad-hoc step is the weakest link in the baseline pipeline and the point at which the Sobol low-discrepancy guarantee is lost.
+
+\subsection{Three candidate samplers}
+
+\begin{itemize}
+\item \textbf{Dirichlet sampling.} Dirichlet($\alpha = 1$) is exactly uniform on the simplex (realizable from $n$ uniforms by the sorted-spacings construction, Willms 2021), and concentration $\alpha \neq 1$ gives controlled bias toward sparse, simplex-edge/few-isotope compositions (small $\alpha$) or dense, iron-peak-spread compositions (large $\alpha$) --- useful for deliberately spanning unphysical states. But conditioning on a \emph{second} weighted linear equality has \textbf{no closed form}; the conditional uniform distribution on the $(n-2)$-polytope is not in general a Dirichlet. \emph{Excellent for controlled-bias bulk generation; cannot natively honor $Y_e$ exactly.}
+\item \textbf{Sobol-on-simplex via a cube$\to$simplex transform.} Pillards \& Cools (2005) give five cube-to-simplex mappings with a Koksma--Hlawka guarantee that the convergence order can be preserved under suitable conditions, and Basu \& Owen (2015) achieve near-optimal discrepancy on the two-dimensional triangle. But Basu \& Owen (2016) show that \emph{symmetric} simplex maps can destroy bounded Hardy--Krause variation, forfeiting those rates. \emph{Preserves low-discrepancy only with a carefully chosen non-symmetric transform; the equality is handled by reducing to the $(n-2)$-polytope first, then mapping. The positive QMC results are two-dimensional and must not be over-generalized to $n = 78$--$149$.}
+\item \textbf{Constrained QMC on the polytope (hit-and-run / billiard walk).} volesti-style billiard-walk samplers (Gryazina \& Polyak 2012) target uniform-on-polytope for arbitrary linear constraints and converge faster than hit-and-run, but they are MCMC samplers with \textbf{no proven QMC star-discrepancy bound}. The Dirichlet-Rescale (DRS) algorithm (Griffin et al.\ 2020) is shown by Willemsen et al.\ (2025) to be non-uniform under multiple constraints; their Dirichlet-Rescale-Constraints (DRSC) fix restores uniformity. \emph{Use only when low-discrepancy is being sacrificed deliberately.}
+\end{itemize}
+
+\subsection{Recommended generator}
+
+A two-stage hybrid. \textbf{(1)} Draw $Y_e$ and $(\log T, \log \rho)$ jointly with a Sobol sequence over the three-dimensional box, preserving the thermodynamic low-discrepancy property the baseline relied on. \textbf{(2)} For each $Y_e$, sample the composition on the $(n-2)$-polytope: for the \emph{bulk} broad-coverage set, use \textbf{Dirichlet-with-DRSC-projection} --- draw Dirichlet($\alpha$) with $\alpha$ swept to span sparse$\to$dense states, then apply a minimal DRSC-style projection to the $Y_e$ hyperplane (cheap, embarrassingly parallel, spans unphysical states); for a \emph{low-discrepancy core} ($\sim$20\% of the broad set), drive a \textbf{Pillards--Cools non-symmetric cube$\to$polytope transform} with Sobol points, accepting that exact star-discrepancy on a $>$2-D constrained polytope is unproven (\S11). This is a concrete, defensible replacement for the baseline's ``generate randomly'' step.
+
+\subsection{Reconciling ``unphysical helps'' with the Sobol\texorpdfstring{$\to$}{->}real transfer risk}
+
+Grichener et al.\ found that broad, deliberately unphysical composition sampling was \emph{required}: narrowing the parameter space to typical compositions from the inner regions of MESA-evolved massive stars produced NNNs with poor performance, because broad coverage substantially improves generalization. The complementary failure mode is shown by the DeePODE line of work (Yao et al.\ 2024; nuclear adaptation Zhang et al.\ 2025): manifold-only sampling along real trajectories generalizes poorly to test points that deviate from the manifold. Both literatures point to a \textbf{mixture} --- global Monte-Carlo/QMC coverage plus trajectory-evolved points on the dynamically important manifold.
+
+A precise caveat governs how strongly this can be claimed. The literature \textbf{motivates} the mixture but does \textbf{not} establish the specific transfer worry this project must guard against: Grichener shows broad beats narrow on its \emph{own} Sobol test set, not transfer to the thin real-MESA manifold, and DeePODE shows manifold-only fails \emph{off}-manifold, which does not by itself establish the converse. The Sobol$\to$real transfer ratio is therefore a quantity to \textbf{measure locally} (\S7), not a settled result.
+
+The resolution is a division of labour by data subset. The broad/unphysical bulk exists to teach the \emph{function class} --- the network must represent $dX/dt$ correctly even off-manifold, because pushforward rollouts and eventual hydrodynamic coupling will visit perturbed states. The trajectory-aware subset exists to densify the \emph{thin correlated manifold} where validation $Y_e$ error is actually scored. At training time, \textbf{importance reweighting} up-weights samples near the real manifold and near the iron-peak weak-rate nuclei, letting one dataset serve both generalization and on-manifold accuracy without regenerating data. The monitored quantity that says whether the mix is right is the real-track-versus-Sobol 99th-percentile $Y_e$-error ratio, with a retrain trigger at $R > 3$.
+
+\subsection{Adaptive and active-learning strategies, head to head}
+
+\begin{itemize}
+\item \textbf{(a) DeePODE / Evolutionary-Monte-Carlo-Sampling (EMCS)} --- Yao et al.\ 2024 (arXiv:2401.01220), nuclear adaptation Zhang et al.\ 2025 (arXiv:2504.14180). Mechanism: global Monte-Carlo sampling, then evolve each seed along its local ODE trajectory at the system's characteristic timescales, concentrating points in the early stiff stage. The procedure has three sequential steps --- range estimation, MC sampling within a hypercube plus filtering, and evolution-augmented generation --- but each seed is integrated \textbf{once}, with no generational resampling loop, so the strategy stays embarrassingly parallel. The nuclear adaptation used a 13-isotope $\alpha$-network (${}^{4}\mathrm{He}\dots{}^{56}\mathrm{Ni}$, overlapping the silicon group), a Box--Cox transform ($\lambda = 0.1$, introduced in the DeePODE paper) instead of a logarithm to handle mass fractions down to $\mathcal{O}(10^{-25})$, and temperature-gradient filtering retaining $\sim$75--100\% of high-gradient (stiff) samples versus $\sim$8--10\% of low-gradient samples, yielding $\sim$17M (3-species) / $\sim$28M (13-species) points and $\lesssim$1\% composition accuracy with a $\sim$2.6$\times$ CPU speedup and a temperature-thresholded deployment sustaining neural-network utilization above 75\%. \emph{Cost:} cheap --- the same embarrassingly-parallel burn already costed, plus checkpoint storage. \emph{Effort:} low (it is the trajectory-storage scheme of \S6 plus stiff-region filtering). \emph{QSE suitability:} high, since concentrating samples in the early stiff stage maps onto the cancellation window. \textbf{Important transfer caveat:} the $\lesssim$1\% figure is \emph{composition} accuracy on an $\alpha$-network with \textbf{no weak reactions and no $Y_e$}, so it does not exercise the $Y_e$-controlling weak physics that is this project's entire point; its filter bands are tuned to white-dwarf combustion and need local re-tuning.
+\item \textbf{(b) Deep-ensemble-variance active learning} --- CODES (Janssen, Sulzer \& Buck 2024, arXiv:2410.20886). A five-member deep ensemble gives a generally reliable uncertainty estimate (predicted uncertainty correlates positively with error), and latent-ODE surrogates show higher errors at larger gradients; ensemble variance then serves as the acquisition signal for new $(T, \rho, X, dt)$ points. \emph{Cost:} dominated by training the ensemble members plus a new \bbq{} burn per acquired point; the burns are cheap, but the loop is serial across acquisition rounds, eroding the embarrassingly-parallel advantage. \emph{Effort:} medium-high. \emph{QSE suitability:} high but indirect --- variance spikes naturally in the cancellation window.
+\item \textbf{(c) Stiffness-/timescale-adaptive density.} Deterministically over-sample the QSE-cancellation window and the $Y_e$-controlling iron-peak nuclei using a physics prior (Hix \& Thielemann; Guidry partial-equilibrium timescales). \emph{Cost:} lowest --- no retraining loop, just a non-uniform sampling density. \emph{Effort:} low. \emph{QSE suitability:} highest and most controllable; the cheapest way to buy cancellation-window accuracy and the default densification.
+\end{itemize}
+
+\textbf{Verdict.} Combine (c) as the cheap deterministic prior with EMCS (a) for manifold and stiffness coverage; reserve ensemble-variance active learning (b) for a single late-stage refinement round targeted at whatever the validation test flags. The trajectory-aware component is \emph{EMCS-style}; the full three-way mixture is not itself ``exactly EMCS.''
+
+\subsection{Budget split}
+
+A starting allocation, moved only by the validation test in \S7: \textbf{$\sim$60\% broad Sobol+Dirichlet} (function-class coverage, deliberately unphysical, preserving the Grichener finding); \textbf{$\sim$25\% trajectory-aware} (EMCS-evolved seeds plus real-MESA-seeded burns, for manifold fidelity); \textbf{$\sim$15\% active/stiffness densification}, of which $\sim$10\% is the cheap deterministic QSE-window $+$ iron-peak prior (c) and $\sim$5\% is reserved for one ensemble-variance round (b).
+
+\subsection{Moving regime boundaries to sample deliberately}
+
+Three boundaries must be sampled by design rather than left to chance (physics from Hix \& Thielemann 1996/1999):
+
+\begin{itemize}
+\item \textbf{The QSE-cancellation window.} Densify it. Guidry (2011, arXiv:1112.4778) identifies the pathology precisely: the net flux in a forward--reverse reaction pair tends to zero as the system approaches equilibrium, so the net is the difference of two large numbers and errors blow up. The signed-net-flux architecture lives or dies in this window. The constant-temperature study of Hix \& Thielemann 1996 spans roughly 3.5--5 GK; the lower freeze-out edge of the window is a project working assumption, not a sourced threshold.
+\item \textbf{The NSE transition.} QSE holds for temperatures above approximately 3 GK (Hix \& Thielemann 1999, ``Silicon Burning II,'' ApJ 511:862); sample across the upper temperature edge so the emulator learns the approach to full equilibrium.
+\item \textbf{The $Y_e$-dependent silicon/iron-peak group-merger boundary} --- the key Hix \& Thielemann 1996 result, and strongly neutronization-dependent. At $Y_e = 0.498$ a single QSE group has formed (within 10\%) by the time the silicon-group mass fraction reaches $X(\mathrm{Si}) \approx 0.85$; at $Y_e = 0.46$ the iron-peak group reaches 90\% of its silicon-QSE abundance only once the silicon-group mass fraction has fallen to 0.25--0.30 (two condition-specific values, for $T_9 = 5.0$/$\rho = 10^7$ and $T_9 = 3.5$/$\rho = 10^9$, not a continuous band). The implication is that \textbf{sampling density in composition space must be correlated with $Y_e$} --- the group structure, and hence the correct equilibrium mask, changes shape across the 0.45--0.5 band, and uniform-in-$Y_e$ sampling under-resolves the low-$Y_e$ merger delay. The iron-peak group stretches from roughly $A = 45$--50 to the top of the network (Ge, $A \approx 78$); the $A \approx 45$--65 band used for densification is a project simplification picking out the LMP-active iron-peak nuclei.
+\end{itemize}
+
+\section{Data shapes}
+
+\subsection{Variable-\texorpdfstring{$\Delta t$}{dt}: dense cumulative trajectories, with the right cost framing}
+
+The baseline trained a separate network per timestep over nine fixed $dt$. Generating nine independent integrations per state would be wasteful, because \bbq{}'s Bulirsch--Stoer integrator already passes through every intermediate time en route to $10^2$ s. The recommended canonical shape is therefore the \textbf{dense cumulative trajectory}: run one burn and checkpoint it, then sub-sample any $dt$.
+
+\begin{itemize}
+\item \textbf{Marginal cost multiplier} of checkpointing one burn at more times: $\approx 1.0$--$1.3$ versus a single-endpoint burn, since the extra cost is additional integrator output, not additional burns --- contrast the naive $\approx N_{dt}$ multiplier of running independent integrations for each $dt$.
+\item \textbf{Checkpoint density:} $\sim$16--24 log-spaced times across $[10^{-6}, 10^2]$ s ($\sim$2--3 per decade), over-resolving the baseline's nine so the single variable-$\Delta t$ head and a latent-ODE upgrade can interpolate $dt$ accurately, especially in the early stiff stage where EMCS also concentrates points.
+\end{itemize}
+
+The cost framing must be stated carefully, because the cheapness is marginal and applies only to \textbf{new} burns. The public set stored \textbf{only its nine checkpoints}; the dense intermediate states were not saved. Obtaining 16--24 checkpoints for the existing $\sim 10^6$ Sobol states therefore requires \textbf{either} the on-request 4\,TB superset --- which exists precisely to hold finer/more timesteps, but whose sufficiency for this purpose is unconfirmed until inspected --- \textbf{or} re-running all $\sim 10^6$ burns, a fresh campaign costed at ``few $\times\,10^5$ CPU-hr'' (6--29 node-months, \S8). Dense trajectory data is consequently a \emph{needs-new-\bbq{}-runs / negotiate-the-4-TB-set} item, not a free retrofit of the public data. Whether \bbq{} can cheaply emit dense intermediate checkpoints from a single stiff integration, and whether one burn to $10^2$ s resolves the early stiff stage down to $10^{-6}$ s finely enough to checkpoint accurately, are local-confirmation items (\S11).
+
+\begin{itemize}
+\item \textbf{Storage} scales the public footprint ($\approx$3 GB \texttt{mesa\_80} $+$ $\approx$6 GB \texttt{mesa\_151} per checkpoint) to 16--24 checkpoints: $\approx$48--72 GB for \texttt{mesa\_80} and $\approx$96--144 GB for \texttt{mesa\_151}, i.e.\ \textbf{$\approx$0.14--0.22 TB for both networks} at training precision (budget more for float64-at-rest or additional per-checkpoint state). This sits comfortably inside the 4\,TB envelope either way.
+\item \textbf{How the heads consume it.} The single variable-$\Delta t$ head trains on (state, $\log dt$) $\to$ (state($dt$), \texttt{e\_nuc}, $\varepsilon_\nu$) tuples drawn from arbitrary checkpoints; a latent-ODE upgrade consumes the \emph{same} trajectories as continuous-time supervision, integrating the learned latent vector field between checkpoints (the MACE pattern, trained with torchode). Storing cumulative trajectories is thus forward-compatible with both heads and is the recommended canonical shape.
+\end{itemize}
+
+\subsection{Trajectory, rollout, and off-trajectory data}
+
+\textbf{How rollout-stable neighbour surrogates generated their data.} Chemulator (Holdship et al.\ 2021, A\&A 653:A76) trained a single-timestep map yet stayed stable over 1000 iterations --- its log-scaled-temperature MSE rose only from $3\times 10^{-3}$ after one step to $6\times 10^{-3}$ after a thousand (single-step MSE $1.7\times 10^{-4}$), running $\sim$50,000$\times$ faster than the time-dependent model --- via a \textbf{training-time noise layer} that exposed the network to perturbed inputs resembling its own accumulated error; its dimensionality reducer was an autoencoder alone ($33 \to 8$ variables). MACE (Maes et al.\ 2024, ApJ 969:79) paired an autoencoder with a \textbf{trainable latent ODE} integrated and supervised across the rollout with torchode, outperforming its classical analogue by a factor of $\approx$26 on one-dimensional AGB-outflow circumstellar-envelope models (a 468-species RATE12-derived network). van de Bor et al.\ 2025 (arXiv:2503.10736) is the cautionary tale --- a DeepONet emulator of the Grackle cosmological cooling/chemistry solver is prone to instability from accumulated prediction error --- and motivates a pushforward-first stance. Ono \& Sugimura 2025 (arXiv:2508.16114) added a \textbf{timescale-based update} that rescales a long-step prediction to a short step by the variable's characteristic timescale, avoiding the failure where, at tiny $dt$, the time variation is dominated by error rather than physical evolution --- directly relevant to the project's smallest $dt$ ($10^{-6}$ s). The pushforward trick (Brandstetter et al.\ 2022, MP-PDE, arXiv:2202.03376) unrolls the solver $K$ steps, feeds the model its own output, and backpropagates only the last step, improving stability and ensuring the perturbations match the rollout error distribution; $K = 2$ is standard, with $K = 2$--$4$ corroborated.
+
+\textbf{QSE-respecting off-trajectory perturbations.} The data-side counterpart of noise injection must not push equilibrated species off-manifold, because within a QSE group the intra-group abundances are algebraically slaved to the group-controlling abundances and a few thermodynamic variables. The recipe: (1) compute QSE-group membership for each stored state via the Guidry partial-equilibrium prior used by the mask; (2) inject noise \textbf{only into non-equilibrated channels} --- the light-particle pool, the weak-reaction-controlled $Y_e$, and species whose net flux is not near catastrophic cancellation; (3) for equilibrated groups, perturb only the group-controlling coordinates and re-impose the QSE relation, so the perturbed state remains a physically reachable point. This is consistent with the project rules --- the mask acts on the latent flux and never on weak reactions, and $Y_e$ is free to evolve, so perturbing the weak-controlled $Y_e$ is legitimate.
+
+\textbf{Single-step-versus-sequence data mix.} Drawn entirely as a sampling policy over the stored cumulative trajectories, adding no new burns beyond \S6.1:
+
+\begin{itemize}
+\item \textbf{$\sim$70\% single-step pairs} (state, $dt$) $\to$ state($dt$), from stored trajectories at all $dt$ --- the bulk supervision and what the variable-$\Delta t$ head fundamentally learns.
+\item \textbf{$\sim$20\% $K = 2$--$4$ pushforward sequences} from consecutive checkpoints, for unrolled training --- the primary rollout lever.
+\item \textbf{$\sim$10\% QSE-respecting perturbed off-trajectory states} paired with their true one-step evolution --- the noise-injection counterpart, restricted to non-equilibrated channels.
+\end{itemize}
+
+\section{Validation and solver-independent cross-checks}
+
+\textbf{Held-out real-MESA-track validation (the Sobol$\to$real transfer test).} Hold out entire real MESA pre-collapse trajectories (15--25\,$M_\odot$ progenitors from the public models), never used in training. At each held-out state and $dt$, measure the per-step $Y_e$ error and report its 99th percentile over the real-track distribution alongside the matched 99th percentile over the Sobol test distribution. The ratio \textbf{$R = (\text{real-track 99th-pct}) / (\text{Sobol 99th-pct})$} is the transfer metric, with a \textbf{retrain trigger at $R > 3$}; when triggered, shift budget toward the trajectory-aware fraction and re-run targeted densification rather than abandoning broad Sobol. Use a \emph{separate} set of real tracks as EMCS seeds --- never seed from and validate on the same trajectory.
+
+\textbf{The error-accumulation slope --- the single biggest open lever.} On full real-track rollouts, also regress $\log|\text{cumulative } Y_e \text{ error}|$ against $\log N$. A slope of $\approx$1 (systematic accumulation) versus $\approx$0.5 (random walk) sets the per-step gate, and at fixed $N$ the two models differ by $\approx\sqrt{N}$. At $N \approx 1.6\times 10^3$ this is roughly a factor of 40 --- about $3\times 10^{-6}$ systematic versus $\approx 1.25\times 10^{-4}$ random-walk; at $N = 10^4$ it is a factor of 100 --- $5\times 10^{-7}$ systematic versus $5\times 10^{-5}$ random-walk. No external paper settles which model applies to silicon burning; it must be measured locally, and it reshapes the gate, the required pushforward depth, and the single-step fraction.
+
+\textbf{Solver-independent cross-checks.} Because \bbq{} wraps MESA's Bulirsch--Stoer solver, a systematic solver bias would be invisible to internal validation. Cross-check a sample of \bbq{} states against \textbf{SkyNet} (Lippuner \& Roberts 2017, ApJS 233:18; a deliberately different first-order implicit backward-Euler scheme) and \textbf{WinNet} (Reichert et al.\ 2023, ApJS 268:66; implicit Euler and Gear's method with Newton--Raphson, plus an NSE solver descending from high $T$ --- a useful check on the NSE-transition boundary of \S5.7). Agreement across all three solvers to within the per-step $Y_e$ gate certifies that the training labels themselves are not solver-limited before the emulator is blamed. (The precise method descriptions of these two codes are a forward verification item, \S11.)
+
+\section{Cost, throughput, storage, and format}
+
+\subsection{Cost and throughput model}
+
+{\small\setlength{\tabcolsep}{5pt}
+\begin{longtable}{p{3.5cm}p{5.0cm}p{6.4cm}}
+\toprule
+\textbf{Quantity} & \textbf{Value} & \textbf{Basis} \\
+\midrule
+\endhead
+Per-sample cost & $\sim$0.1--0.5 CPU-hr & project figure \\
+Node capacity & $\sim$17,000 core-hr/month (24-core node) & project figure \\
+Samples/month/node & $\sim$34,000--170,000 & $17{,}000 \div (0.1$--$0.5)$ \\
+Fresh $10^6$ grid (one net) & $\sim 1$--$5\times 10^5$ CPU-hr & per-sample $\times\, 10^6$; matches Grichener ``few $\times\,10^5$ CPU hours'' \\
+Wall-time on one node & $\sim$6--29 months & $(1$--$5)\times 10^5 \div 17{,}000$ \\
+Cluster threshold & A fresh $10^6$ grid is impractical on one node; needs a multi-hundred-core allocation to finish in weeks & derived \\
+\bottomrule
+\end{longtable}}
+
+The model carries no dollar figures: the relevant context is an institutional cluster allocation, where CPU-hours and node-months are the right currency and cloud on-demand rates would mislead. The implication is the sequencing already stated --- a from-scratch $10^6$-grid is a cluster-scale, multi-month campaign, so Year-1 lives on the public sets, derives all kill-test quantities immediately (those derivations are CPU-cheap and embarrassingly parallel and need no new burns), negotiates the 4\,TB superset early, and reserves fresh burns for \texttt{mesa\_204} and new regimes.
+
+\subsection{Storage at scale}
+
+The public set is $\sim$80 GB and the \bbq{} superset is $\sim$4 TB. Adding per-reaction $\varphi$, $f^{\pm}$, and equilibrium references multiplies per-sample storage by the reaction count (\texttt{mesa\_80} has hundreds of reactions, \texttt{mesa\_151} of order $10^3$), so a fully fluxed \texttt{mesa\_151} set can dwarf the abundance set. Plan for \textbf{tens of TB} if storing full per-reaction tensors, and mitigate by storing only the signed net $\varphi$ plus a sparse subset of $f^{\pm}$ for reactions whose $\kappa_r$ falls below a threshold, recomputing the rest on demand.
+
+\subsection{On-disk format, schema, provenance, versioning}
+
+A columnar/array store --- \textbf{HDF5 or Parquet} with chunking and compression (blosc/zstd) --- with HDF5 suiting the dense (sample $\times$ reaction) flux tensors and Parquet the tabular (state, $dt$, scalars) layer. Store abundances and fluxes as \textbf{float64 at rest} ($\varphi$ is a difference of large numbers and $\kappa_r$ needs the precision), with a \textbf{float32} training-ready mirror. The per-sample schema is \{\texttt{sample\_id}; \texttt{net\_name}; $T$; $\rho$; $Y_{e,\mathrm{init}}$; \texttt{X\_init}$[N_{\mathrm{iso}}]$; \texttt{dt}; \texttt{X\_final}$[N_{\mathrm{iso}}]$; \texttt{e\_nuc}; $\varepsilon_\nu$; $\varphi[N_{\mathrm{reac}}]$; \texttt{f\_plus}$[N_{\mathrm{reac}}]$; \texttt{f\_minus}$[N_{\mathrm{reac}}]$; $\kappa_r[N_{\mathrm{reac}}]$; \texttt{Y\_QSE}$[N_{\mathrm{iso}}]$; $\delta_r$; \texttt{artifact\_flags}$[N_{\mathrm{reac}}]$\}. \textbf{Provenance is mandatory} --- MESA version (r23.05.1), \bbq{} commit/Zenodo DOI (7585202), REACLIB snapshot ID, weak-rate table set and precedence, pynucastro version, screening prescription, Sobol seed, and the artifact-screen pass/version --- without which $\varphi$ is unreproducible. Versioning uses content-hash or DVC/git-LFS pointers and never overwrites; new derivation versions are appended so the artifact-screen fix stays traceable.
+
+\subsection{Preprocessing and normalization}
+
+For signed quantities ($\varphi$, $dY$) use a \textbf{signed-log / asinh transform}. The borrowed NuGNN convention (Kim et al.\ 2026, arXiv:2606.04491) is $\mathrm{sign}(\Delta X)\cdot(C + \log_{10}(|\Delta X / X|))$ with $C = 17$ --- about the maximum magnitude of $\log_{10}(|\Delta X / X|)$ when $|\Delta X / X| < 1$ --- with values below $10^{-15}$ clipped to zero; the additive shift makes the log positive while preserving magnitude ordering before the sign is applied, mapping the label into $[-1, 1]$. For net flux the convention is $\mathrm{sign}(f)\cdot\log_{10}(|f|)$ with no additive constant. An $\operatorname{asinh}(x/x_0)$ form is an equivalent smooth alternative that avoids the clip. After the signed-log, standardize each channel (per-isotope, per-reaction) to zero mean and unit variance using \textbf{train-split statistics only}. Keep the math in float64 --- especially $\varphi$ and $\kappa_r$ --- and cast back to float64 from the network's float32 I/O before reconstructing $X_{t+\Delta t} = X_t + \Delta X$.
+
+\subsection{Weak-rate tables and off-grid behaviour}
+
+MESA's weak rates are used in order of precedence Langanke \& Mart\'inez-Pinedo (2000) $>$ Oda et al.\ (1994) $>$ Fuller et al.\ (1985), tabulated in $(\rho Y_e, T)$ on a coarse grid ($1 \le \log \rho Y_e \le 11$, step 1; $7 \le \log T < 10.5$, step $\sim$0.25), assuming complete ionization. Within the regime box ($\log T$ 9.2--9.9, $\log \rho Y_e \approx 6.65$--$8.70$) the data are \textbf{on-grid for the weak tables and below the thermonuclear-rate cap} (MESA caps thermonuclear rates at their $\log T = 10$ value rather than extrapolating, and the weaklib edge-blends are documented-unphysical). The off-grid concern is real only for the \textbf{future regime extensions} of \S9 (low-$T$ ECSNe, low-$\rho$ PPISNe), where the box leaves the tabulated domain.
+
+\subsection{Leakage-safe train/validation/test splits}
+
+Split by \textbf{trajectory ID}, with all steps of a trajectory assigned to the same fold, to prevent trajectory-level leakage. To prevent timestep-level leakage, either keep per-$dt$ splits aligned --- the same underlying $(T, \rho, X)$ initial points assigned to the same fold across all timesteps --- or hold out entire $(T, \rho, X)$ initial conditions across all timesteps. Reserve a \textbf{matched-context test partition} whose initial compositions are restricted to the \texttt{approx21\_cr60\_plus\_co56} isotopes (the $\approx$700-sample protocol) for an apples-to-apples comparison against the published NNN baseline. Stratify the folds across the Sobol $(T, \rho, Y_e)$ volume so each fold spans the full parameter space.
+
+\section{New-regime data roadmap}
+
+Prioritized by scientific leverage per CPU-hour; a fresh $\sim 10^6$-grid is $\sim$6--29 node-months on a single 24-core node.
+
+{\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{longtable}{p{0.9cm}p{2.2cm}p{3.6cm}p{4.8cm}p{2.9cm}}
+\toprule
+\textbf{Priority} & \textbf{Regime} & \textbf{Conditions} & \textbf{Why / data needed} & \textbf{Rough cost} \\
+\midrule
+\endhead
+\textbf{P1} & \texttt{mesa\_151} fine-tuning sets (size-transfer test) & Same Si box & \emph{Modest} sets to test \texttt{mesa\_80}$\to$\texttt{mesa\_151} transfer; fine-tune rather than regenerate a full grid; reuse existing public data first & $\sim 10^4$--$10^5$ CPU-hr (0.5--6 node-months) \\
+\textbf{P2} & Oxygen burning & $T \approx 1.5$--$2.6$ GK, just below the Si box & Extends the temporal domain backward; same isotopes, lower-$T$ edge --- a cheap extension of the existing networks & $\sim 1$--$5\times 10^5$ CPU-hr per net (6--29 node-months) \\
+\textbf{P3} & ECSN (electron-capture SN) & ONe core, $Y_e \approx 0.493$--$0.499$ at O-ignition, central $\rho \gtrsim 10^{10}$ g\,cm$^{-3}$ --- lower $T$, higher $\rho$ than the Si box & Needs density coverage beyond $10^7$--$10^9$ $\to$ the \textbf{4\,TB superset's extended density is the enabler}; electron capture on ${}^{20}\mathrm{Ne}$, ${}^{24}\mathrm{Mg}$ dominates $Y_e$ $\to$ high LMP loss weight & $\sim 1$--$5\times 10^5$ CPU-hr per net; \textbf{partly satisfiable from the 4\,TB set without new burns} \\
+\textbf{P4} & PPISN / PISN & $T \approx 1.5$--$2.2$ GK (PPISN O-shell) to $\sim$3--5 GK (PISN explosive O-burn), $\rho \approx 10^3$--$5\times 10^5$ g\,cm$^{-3}$ --- far lower density & Lowest-$\rho$ regime; requires extending below $10^7$ g\,cm$^{-3}$, a genuinely new grid with no overlap with public/4\,TB density coverage; lowest overlap with the Si surrogate & $\sim 1$--$5\times 10^5$ CPU-hr per net (6--29 node-months); new allocation \\
+\textbf{P5} & \texttt{mesa\_204}-scale sets & Si box, 204 isotopes & Future network target; per-sample cost and storage scale with isotope count ($\ge 1.3\times$ \texttt{mesa\_151}); defer until the \texttt{mesa\_151} surrogate is validated & $> 5\times 10^5$ CPU-hr ($>$29 node-months) \\
+\bottomrule
+\end{longtable}}
+
+The negotiated 4\,TB set sits on the critical path twice: it supplies the finer/more timesteps that the dense trajectories of \S6 need without new burns (if sufficient), and the extended density coverage that P3's high-$\rho$ edge requires. Because it is a discretionary external dependency, negotiate it early --- its absence forces expensive re-generation. (The ECSN/PPISN/PISN $T$/$\rho$/$Y_e$ figures are a forward verification item, \S11.)
+
+\section{Prioritized generate/derive/build plan and staged recommendations}
+
+\subsection{Generate vs derive vs build}
+
+{\footnotesize\setlength{\tabcolsep}{4pt}
+\begin{longtable}{p{0.4cm}p{4.0cm}p{4.3cm}p{1.7cm}p{3.2cm}}
+\toprule
+\textbf{\#} & \textbf{Data product} & \textbf{Tag} & \textbf{Effort} & \textbf{Cost} \\
+\midrule
+\endhead
+1 & \texttt{mesa\_80}/\texttt{151} (state, $dt \to dY$) $+$ \texttt{e\_nuc} $+$ $\varepsilon_\nu$, 9 $dt$ & \textbf{already-public} & download & $\sim$80 GB \\
+2 & Extra-timestep / extended-$\rho$ \bbq{} superset & \textbf{available on request (discretionary)} & email corresponding author; negotiate early & 4\,TB transfer/storage \\
+3 & Signed net $\varphi$ per reaction (Target~A) & \textbf{needs-new-code} (derive from public abundances via pynucastro) or re-instrument \bbq{} & medium--high & CPU-cheap, embarrassingly parallel \\
+4 & Gross $f^+$, $f^-$ per reaction & \textbf{needs-new-code} (derivable from public via pynucastro) & medium & CPU-cheap \\
+5 & QSE/NSE equilibrium reference $Y_{\mathrm{QSE}}(A,Z)$ & \textbf{needs-new-code} (independent $C(A,Z)$ solver $+$ pynucastro NSE cross-check) & medium--high & CPU-cheap \\
+6 & Detailed-balance / artifact screen & \textbf{needs-new-code} (gates 3--5) & medium & CPU-cheap \\
+7 & $\kappa_r$ and $\delta_r$ per reaction/sample & \textbf{derivable} (from 3--5) & low & CPU-cheap \\
+8 & Variable-$dt$ / dense trajectory sequences & \textbf{needs-new-\bbq{}-runs} (unless the 4\,TB set suffices) & high & cluster-scale or 4\,TB \\
+9 & Real-MESA-track trajectories & \textbf{needs-new-\bbq{}-runs} $+$ new MESA runs & high & cluster-scale \\
+10 & \texttt{mesa\_204} dataset & \textbf{needs-new-\bbq{}-runs} & very high & full fresh $10^6$ grid ($\sim 1$--$5\times 10^5$ CPU-hr) \\
+11 & New-regime (low-$T$ ECSNe, low-$\rho$ PPISNe) & \textbf{needs-new-\bbq{}-runs} & high & cluster-scale \\
+12 & HDF5/Parquet schema $+$ provenance $+$ leakage-safe splits & \textbf{needs-new-code} (infrastructure) & medium & storage as above \\
+\bottomrule
+\end{longtable}}
+
+\textbf{Recommended order:} 1 $\to$ 6 $\to$ 4 $\to$ 3 $\to$ 5 $\to$ 7 --- derive every kill-test quantity on the existing public abundances first, gated by the artifact screen --- while in parallel starting 2 (negotiate the 4\,TB set) and 12 (infrastructure), and deferring 8--11 (new burns) until a cluster allocation is secured.
+
+\subsection{Staged execution with explicit thresholds}
+
+\begin{itemize}
+\item \textbf{Stage 0 --- fix the sampler and the trajectory storage (before any new campaign).} Replace the baseline's ad-hoc per-$Y_e$ random composition with the two-stage Sobol(thermo) $+$ Dirichlet-with-DRSC-projection scheme of \S5.3, reserving $\sim$20\% for a non-symmetric Pillards--Cools Sobol$\to$polytope core. Design \bbq{} output for \textbf{dense cumulative trajectories} (16--24 log-$dt$ checkpoints). \emph{Benchmarks:} the marginal trajectory-generation multiplier must stay $\le$1.3$\times$ the single-endpoint grid, and storage $\le\sim$0.22 TB for both networks.
+\item \textbf{Stage 1 --- generate the mixture set (one node-scale campaign, $\sim$6--29 node-months for $10^6$ states).} Allocate 60\% broad Sobol+Dirichlet / 25\% trajectory-aware (EMCS-style $+$ real-MESA seeds) / 15\% stiffness-active (10\% deterministic densification, 5\% reserved), and build the 70\% single-step / 20\% $K = 2$--$4$ pushforward / 10\% QSE-respecting-perturbed data mix as a sampling policy over the stored trajectories.
+\item \textbf{Stage 2 --- validate and adapt.} Run the Sobol$\to$real validation test of \S7, measuring $R$ and the error-accumulation slope; \textbf{if $R > 3$, retrain}, shifting $\sim$10 percentage points of budget from broad Sobol to trajectory-aware and densification and re-running one targeted ensemble-variance round. Run the SkyNet $+$ WinNet cross-checks on a label sample; agreement within the per-step $Y_e$ gate is the go/no-go for trusting \bbq{} labels.
+\item \textbf{Stage 3 --- phase out to new regimes} in order P1 $\to$ P2 $\to$ P3 $\to$ P4 $\to$ P5, each gated on the prior phase passing its validation test. Negotiate the 4\,TB superset now, as it is prerequisite for both Stage-0 trajectory data and Stage-3 P3.
+\end{itemize}
+
+\textbf{Benchmarks that change the plan:} $R > 3$ $\to$ rebalance budget; error-accumulation slope $\approx$1 (systematic) $\to$ tighten the per-step gate to $3\times 10^{-6}$ and add pushforward steps; slope $\approx$0.5 (random walk) $\to$ the gate relaxes toward $\sim 5\times 10^{-5}$ and the single-step fraction can rise; the QSE-window 99th-percentile flux error dominating $\to$ increase the deterministic densification (c) before paying for ensemble active learning (b).
+
+\section{Open items: what only a local experiment or confirmation can settle}
+
+The literature resolves several questions and leaves a hard residue. \textbf{Resolved by the literature:} unphysical sampling helps (Grichener); single-step emulators drift under rollout, with the cross-domain fixes being a training-time noise layer, a trained iterative update, and the pushforward trick; QMC can preserve low-discrepancy on a simplex only partially --- the $\mathcal{O}(\log N / N)$ rate is proven for the two-dimensional triangle and symmetric transforms degrade it.
+
+\textbf{Requires a local numerical experiment.}
+
+\begin{enumerate}
+\item \textbf{The error-accumulation slope} (systematic $\approx$1 versus random-walk $\approx$0.5) --- the single biggest open lever, moving the per-step gate by $\approx\sqrt{N}$. \emph{Experiment:} roll out the trained emulator on held-out real tracks and regress $\log|\text{cumulative }\Delta Y_e|$ against $\log N$.
+\item \textbf{Whether star-discrepancy is preserved on the $(n-2)$-polytope at $n = 78$--$149$} --- the verified QMC theory is two-dimensional only, and conditioning a Dirichlet on a weighted linear equality has no closed form. \emph{Experiment:} compute the empirical discrepancy / integration error of the chosen Sobol$\to$polytope transform against a reference at the real isotope count.
+\item \textbf{Whether QSE-respecting perturbation keeps states on-manifold.} \emph{Experiment:} perturb equilibrated-group coordinates, re-impose QSE, integrate one \bbq{} step, and confirm the perturbed-state error does not exceed the on-trajectory error.
+\item \textbf{The Sobol$\to$real transfer ratio $R$} --- the literature only motivates the mixture; the transfer worry is a local measurement.
+\item \textbf{\texttt{mesa\_80} $\to$ \texttt{mesa\_151} size-transfer feasibility} with modest fine-tuning sets --- no literature precedent for this specific transfer.
+\item \textbf{The $\kappa_r$ distribution and the stoichiometric-matrix condition numbers} across the box --- only a numerical experiment characterizes the cancellation severity the architecture must absorb.
+\end{enumerate}
+
+\textbf{Requires local engineering confirmation.}
+
+\begin{itemize}
+\item The \textbf{zip-internal contents and on-disk format} of Zenodo 14873443 (CSV/Parquet/NumPy); the outer container is confirmed, the contents are not.
+\item \bbq{}'s \textbf{exact output columns and inlist control names}, including whether \bbq{} can cheaply emit dense intermediate checkpoints from one stiff integration and whether a single burn to $10^2$ s resolves the early stiff stage down to $10^{-6}$ s finely enough --- both require a local \bbq{} run.
+\item MESA r23.05.1 \textbf{rate values at the box corners} and the actual interpolation/edge behaviour --- requires the local install.
+\item The \textbf{pynucastro--MESA REACLIB / weak-table / screening match}, on which the entire external-$\varphi$ route depends --- validate by reproducing \bbq{} net $dY/dt$ before trusting $\varphi$, and confirm the pynucastro API entry points (\texttt{evaluate\_\allowbreak rates}, \texttt{RatePair}, \texttt{NSENetwork.\allowbreak get\_\allowbreak comp\_\allowbreak nse}, \texttt{get\_\allowbreak screening\_\allowbreak map}) against current documentation.
+\item Whether the \textbf{4\,TB superset's density/timestep coverage is sufficient} for ECSN and variable-$\Delta t$ --- verifiable only after transfer.
+\item Confirm against source PDFs: the \textbf{SkyNet/\allowbreak WinNet method descriptions}; the \textbf{ECSN/\allowbreak PPISN/\allowbreak PISN regime numbers}; the nuclear DeePODE paper's $\lambda = 0.1$-down-to-$\mathcal{O}(10^{-25})$, 17M/28M datapoint counts, and gradient-retention percentages; and the \textbf{NuGNN signed-log/conservation details}.
+\end{itemize}
+
+\section{Conclusion}
+
+The training-data layer is the project's first real cost-and-risk gate, and the synthesis above sorts it cleanly into what is cheap and reversible versus expensive and irreversible. The public Grichener data are enough to start, but only because the work that can begin immediately --- downloading the public sets and deriving every kill-test quantity (the signed net flux $\varphi$ that is Target~A, the gross fluxes, the equilibrium references, and the $\kappa_r/\delta_r$ diagnostics) on the existing abundances, all CPU-cheap and embarrassingly parallel and gated by the mandatory detailed-balance artifact screen --- is exactly the work that does not need new burns. What the public data are \emph{not} is equally important: not a flux database, so $\varphi$ and its supporting quantities must be built; and not a trajectory dataset, so the dense variable-$\Delta t$ trajectories that are the canonical data shape require either the on-request 4\,TB superset or a fresh cluster-scale campaign.
+
+The sampling redesign replaces the baseline's weakest link --- ad-hoc per-$Y_e$ random composition --- with constrained draws on the $(n-2)$-polytope and a three-way mixture, and it resolves the ``unphysical sampling helps'' tension by division of labour: broad coverage teaches the function class, trajectory-aware seeding densifies the scored manifold, and deterministic densification buys cancellation-window accuracy, while the Sobol$\to$real transfer is left honestly as a local measurement the literature can only motivate. The data shapes follow one principle --- store dense cumulative trajectories once and treat the single-step, pushforward, and QSE-respecting-perturbed mixtures as sampling policies over them --- and the validation plan checks both that the labels are not solver-limited (SkyNet, WinNet) and that error measured on Sobol compositions transfers to real tracks (the $R > 3$ test).
+
+The single number that reshapes everything downstream --- the per-step $Y_e$ gate, and through it the required pushforward depth and the single-step fraction --- is set by the error-accumulation slope of the trained emulator, which no external paper settles and which only a local rollout experiment can measure. The recommended sequencing front-loads everything cheap and reversible (the derivations, the infrastructure, the sampler, the label cross-checks), defers everything expensive and irreversible behind explicit validation thresholds, and negotiates the 4\,TB superset early because it sits on the critical path for both the variable-$\Delta t$ trajectories and the first new regime.
+
+\section*{References (consolidated, post-verification)}
+\addcontentsline{toc}{section}{References (consolidated, post-verification)}
+
+\textbf{Anchor works and tools.} Grichener, Renzo, Farmer et al.\ 2025, ``Nuclear Neural Networks,'' ApJS 279, 49 (DOI 10.3847/1538-4365/ade717; arXiv:2503.00115); reproducibility package Zenodo 10.5281/zenodo.14873443 (\texttt{NuclearNeuralNetworks.zip}); MESA GitHub Issue \#575 (\texttt{r\_neut\_nuet\_he4\_he4\_to\_h3\_li7}). Kim, Chae, Ko, Mumpower \& Smith 2026, ``NuGNN,'' arXiv:2606.04491. Farmer 2023, \bbq{}, Zenodo 10.5281/zenodo.7585202. MESA r23.05.1 (Paxton et al.\ 2011--2019; Jermyn et al.\ 2023, ApJS 265:15). pynucastro: Willcox \& Zingale 2018, JOSS 3:588; Smith et al.\ 2023, ApJ 947:65. JINA REACLIB: Cyburt et al.\ 2010, ApJS 189:240.
+
+\textbf{Nuclear and QSE physics.} Hix \& Thielemann 1996, ApJ 460:869; Hix \& Thielemann 1999, ``Silicon Burning II,'' ApJ 511:862 (astro-ph/9808203); Hix et al.\ 2007, ApJ 667:476. Guidry 2011, ``Algebraic Stabilization of Explicit Numerical Integration for Extremely Stiff Reaction Networks,'' arXiv:1112.4778 (partial-equilibrium criterion set 1112.4716/4738/4750). Malaney \& Fowler 1989. Weak rates: Langanke \& Mart\'inez-Pinedo 2000; Oda et al.\ 1994; Fuller, Fowler \& Newman 1985. Farmer, Fields, Petermann et al.\ 2016, ApJS 227:22 (arXiv:1611.01207). Suzuki et al.\ 2016. Rauscher \& Thielemann 2000; Rauscher 2003.
+
+\textbf{Sampling and QMC.} Willms 2021, Missouri J.\ Math.\ Sci.\ 33(1):119. Pillards \& Cools 2005, J.\ Comput.\ Appl.\ Math.\ 174(1):29. Basu \& Owen 2015, SIAM J.\ Numer.\ Anal.\ 53(2):743; Basu \& Owen 2016, SIAM J.\ Numer.\ Anal.\ 54(3):1946. Gryazina \& Polyak 2012, arXiv:1211.3932 (EJOR 238:497). Griffin et al.\ 2020 (DRS, RTSS 2020); Willemsen, van den Heuvel \& van de Velden 2025, arXiv:2501.16936 (DRSC).
+
+\textbf{Surrogate and rollout ML.} Yao et al.\ 2024, ``Solving multiscale dynamical systems by deep learning'' (DeePODE/EMCS), arXiv:2401.01220. Zhang, Yi, Wang, Xu, Zhang \& Zhou 2025, ``Deep Neural Networks for Modeling Astrophysical Nuclear Reacting Flows,'' arXiv:2504.14180. Holdship et al.\ 2021 (Chemulator), A\&A 653:A76 (arXiv:2106.14789). Maes et al.\ 2024 (MACE), ApJ 969:79 (arXiv:2405.03274). van de Bor, Brennan, Regan \& Mackey 2025, ``Bridging Machine Learning and Cosmological Simulations,'' arXiv:2503.10736 (OJAp 8). Ono \& Sugimura 2025, ``Neural-Network Chemical Emulator for First-Star Formation,'' arXiv:2508.16114. Brandstetter, Worrall \& Welling 2022 (MP-PDE, pushforward), arXiv:2202.03376. Janssen, Sulzer \& Buck 2024 (CODES), arXiv:2410.20886. Sulzer \& Buck 2023, arXiv:2312.06015. Battaglia et al.\ 2018; Sanchez-Gonzalez et al.\ 2020 (GNS, arXiv:2002.09405); Pfaff et al.\ 2020 (MeshGraphNets, arXiv:2010.03409).
+
+\textbf{Solver-independent cross-checks.} Lippuner \& Roberts 2017 (SkyNet), ApJS 233:18. Reichert et al.\ 2023 (WinNet), ApJS 268:66 (arXiv:2305.07048). Deuflhard 1983 (Bulirsch--Stoer / Bader--Deuflhard).
+
+\end{document}
