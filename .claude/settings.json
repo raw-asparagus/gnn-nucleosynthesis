@@ -1,0 +1,62 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run pytest*)",
+      "Bash(uv run python*)",
+      "Bash(uv run ruff*)",
+      "Bash(uv sync*)",
+      "Bash(uv add*)",
+      "Bash(uv lock*)",
+      "Bash(latexmk*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(ls*)",
+      "Bash(mkdir*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh issue list*)",
+      "Bash(gh issue view*)",
+      "Bash(gh run*)",
+      "Bash(gh repo view*)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(git rebase*)",
+      "Bash(git reset*)",
+      "Bash(rm*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh issue create*)",
+      "Bash(gh release*)"
+    ],
+    "deny": [
+      "Bash(conda*)",
+      "Bash(mamba*)",
+      "Bash(micromamba*)",
+      "Bash(pip install*)",
+      "Bash(pip3 install*)",
+      "Edit(./data/zenodo/**)",
+      "Write(./data/zenodo/**)",
+      "Edit(./uv.lock)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/conservation_gate.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
