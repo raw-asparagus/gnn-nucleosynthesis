@@ -1,7 +1,48 @@
 [project]
 name = "gnn-nucleosynthesis"
 version = "0.1.0"
-description = "Add your description here"
+description = "Conservation-by-construction GNN emulator of MESA silicon-burning networks (mesa_80/mesa_151), benchmarked against the Grichener et al. 2025 NNN"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+# Pinned exact versions (resolved 2026-07-07 on Python 3.14.4 / linux x86_64);
+# uv.lock is the full transitive lock. Bump deliberately, never silently.
+dependencies = [
+    "h5py==3.16.0",
+    "matplotlib==3.11.0",
+    "networkx==3.6.1",
+    "numpy==2.5.1",
+    "pandas==3.0.3",
+    "pyarrow==24.0.0",
+    "pynucastro==2.12.0",
+    "pyyaml==6.0.3",
+    "scipy==1.18.0",
+    "torch==2.12.1",
+    "torch-geometric==2.8.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.15.20",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gnn_nucleo", "src/conservation"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# One-reaction-per-line nu-matrix setup uses semicolons deliberately.
+"tests/test_conservation.py" = ["E702"]

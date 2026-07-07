@@ -71,7 +71,7 @@ NU[5, 4] = -1.0; NU[4, 4] = +1.0; NU[2, 4] = +1.0      # si28(g,a)mg24
 NU[8, 5] = -1.0; NU[9, 5] = +1.0                       # co55(EC)fe55
 
 # Lepton bookkeeping rows: electron count change and (electron-)lepton number.
-#   EC: consumes one e-, emits one nu_e  => dN_e = -1, dL = (-1 e-) + (+1 nu) = 0... 
+#   EC: consumes one e-, emits one nu_e  => dN_e = -1, dL = (-1 e-) + (+1 nu) = 0...
 # We track dN_electron per reaction and dN_neutrino per reaction explicitly.
 D_ELECTRON = np.zeros(N_REACTIONS)
 D_NEUTRINO = np.zeros(N_REACTIONS)

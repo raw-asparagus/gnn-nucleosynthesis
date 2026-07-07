@@ -19,6 +19,7 @@ see docs — 'The QSE-cancellation kill-test'):
      Appendix-B class of bug) BEFORE trusting any kappa_r near the floor.
 """
 from __future__ import annotations
+
 import argparse
 import itertools
 
@@ -35,7 +36,7 @@ def main() -> None:
     ap.add_argument("--states", default=None,
                     help="path to sampled composition states (Zenodo Sobol or new bbq runs)")
     ap.add_argument("--out", default="data/killtest/")
-    args = ap.parse_args()
+    ap.parse_args()  # skeleton: CLI validated; args consumed once Step 6 lands
 
     grid = list(itertools.product(T9_GRID, RHO_GRID, YE_GRID, DT_GRID))
     print(f"kill-test grid: {len(grid)} (T9, rho, Ye, dt) points")

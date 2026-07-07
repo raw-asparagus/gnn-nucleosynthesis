@@ -10,8 +10,11 @@ Reports (per root CLAUDE.md invariants):
   cond  = condition number of full nu
 """
 from __future__ import annotations
+
 import sys
+
 import numpy as np
+
 
 def main(path: str) -> int:
     d = np.load(path, allow_pickle=False)
@@ -33,9 +36,12 @@ def main(path: str) -> int:
     print(f"D_Q (weak lepton closure, max col) = {D_Q:.3e}   [<= 1e-12 required]")
     print(f"charge leak, strong cols (max)     = {D_Q_strong:.3e}   [<= 1e-12 required]")
     print(f"dYe through weak cols (rand flux)  = {dYe_weak:.6e}   [must be NONZERO]")
-    print(f"cond(nu) full                      = {np.linalg.cond(nu):.3e}   [active-set cond > 1e6 => Target-B switch trigger]")
+    cond_nu = np.linalg.cond(nu)
+    print(f"cond(nu) full                      = {cond_nu:.3e}"
+          "   [active-set cond > 1e6 => Target-B switch trigger]")
 
-    ok = D_A <= 1e-12 and D_Q <= 1e-12 and D_Q_strong <= 1e-12 and (not weak.any() or dYe_weak != 0.0)
+    ok = (D_A <= 1e-12 and D_Q <= 1e-12 and D_Q_strong <= 1e-12
+          and (not weak.any() or dYe_weak != 0.0))
     print("VERDICT:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
