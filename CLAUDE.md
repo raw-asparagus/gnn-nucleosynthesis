@@ -1,8 +1,11 @@
 # gnn-nucleosynthesis — Claude Code project memory
 
 Conservation-by-construction GNN emulator of silicon burning (MESA/bbq, mesa_80/mesa_151),
-benchmarked against the Grichener et al. 2025 NNN (ApJS 279, 49; Zenodo 14873443).
-Closest competitor: NuGNN (Kim et al. 2026, arXiv:2606.04491).
+benchmarked against the Grichener et al. 2025 NNN (ApJS 279, 49; Zenodo 14873443;
+MESA r23.05.1 + bbq). Closest competitor: NuGNN (Kim et al. 2026, arXiv:2606.04491).
+Primary target = **Target A**: signed net per-reaction flux φ mapped through the fixed
+stoichiometric matrix, dY = ν φ. Fallback = **Target B**: direct dY in a **linear**
+output space with additive null-space projection P = I − Cᵀ(CCᵀ)⁻¹C.
 
 ## Environment policy (STRICT)
 
@@ -17,10 +20,13 @@ Closest competitor: NuGNN (Kim et al. 2026, arXiv:2606.04491).
 
 - Sync env:            `uv sync`
 - All tests:           `uv run pytest -q`
+- Lint:                `uv run ruff check .`
 - Conservation gate:   `uv run pytest tests/test_conservation.py -q`
 - Export ν matrix:     `uv run python scripts/export_stoich_matrix.py --net mesa80`
 - Drift diagnostics:   `uv run python scripts/check_conservation.py data/stoich/nu_mesa80.npz`
 - Kill-test skeleton:  `uv run python scripts/run_killtest.py --help`
+- Zenodo manifest:     `uv run python scripts/download_zenodo.py` (metadata only by default)
+- MESA scaffold:       `bash scripts/install_mesa.sh` (check mode; downloads nothing)
 - Fetch paper source:  `uv run python scripts/fetch_arxiv_source.py <arxiv-id> --meta`
                        (literature is read as TeX source from data/literature/,
                         never by parsing PDFs; PDF-only papers → arxiv.org/html/)
@@ -49,19 +55,55 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 5. **Energy consistency:** e_nuc = Σⱼ Qⱼ(T) φⱼ from the SAME net fluxes as composition;
    flux-route vs composition-route residual ≤ 1% of |e_nuc| across the 3–4 GK band.
 
-## Operative accuracy gates (until Phase-0 measurements say otherwise)
+## Hard numeric gates (do not change without an entry in RESULTS.md)
 
-- Per-step |ΔYₑ| ≲ 3e-6 (systematic/linear accumulation assumed; the accumulation model
-  is MEASURED, not assumed — see docs/phase0-checklist.md).
-- End-to-end trajectory floor: ΔYₑ ≈ 5e-3 (working point).
+- Conservation unit test: with a *randomly initialized* flux head, baryon drift
+  |Σᵢ Aᵢ dYᵢ| ≤ 1e-12 and charge-to-lepton closure ≤ 1e-12 per step in float64, while
+  dYₑ through weak columns is nonzero. Training never starts until this passes.
+- Operative per-step accuracy gate: |ΔYₑ| ≲ 3e-6 per step (systematic/linear accumulation
+  assumption, N ≈ 1.6e3 steps), held until the accumulation slope is MEASURED
+  (see docs/phase0-checklist.md): slope ≈ 1 → keep/tighten; slope ≈ 0.5 (random-walk)
+  → may relax toward ~5e-5.
+- End-to-end Yₑ physics floor: 5e-3 to 1.5e-2 per trajectory (FFN→LMP anchor).
+- Kill-test thresholds: Target A viable if the active set {r : κ_r > 0.1} carries ≥95%
+  of |ΔYₑ| (and of |ΔX| for dominant isotopes) at the median timestep; FAIL if net flow
+  spreads over >~30% of reactions near the κ floor. cond(S_active) < 1e6 pass,
+  > 1e8 fail (between: judgement call, logged in RESULTS.md). Guidry equilibrium
+  criterion |y − ȳ|/ȳ < ε, ε sweep {3e-3, 1e-2, 3e-2}.
 - Switch Target A → Target B if cond(S_active) > 1e6, or if >~90% of reactions carry
   net flux below the Yₑ floor at the median timestep.
-- Guidry mask ε sweep: {3e-3, 1e-2, 3e-2}; freeze to imposed-Guidry mask if the learned
-  gate regresses validation |ΔYₑ| by >2× over three seeds or churn >5%/step.
+- Guidry mask: freeze to imposed-Guidry mask if the learned gate regresses validation
+  |ΔYₑ| by >2× over three seeds or churn >5%/step.
 - Size-transfer falsifier: zero-shot mesa_151 Yₑ error > 2× mesa_80-internal error ⇒
   report as size-ADAPTABLE (few-shot), not size-TRANSFERABLE.
 - Sobol→real-MESA: retrain with trajectory-aware sampling if real-track 99th-pct Yₑ
   error > 3× the Sobol-measured value.
+- Energy consistency: flux-route vs composition-route e_nuc residual ≤ 1% of |e_nuc|
+  across the 3–4 GK band.
+
+## Physics conventions
+
+- Weak-reaction columns are NEVER masked by the equilibrium gate (β-decays/EC are not
+  in detailed balance here; masking one is by definition a bug). The eligible set is
+  built structurally from `weak_mask` at construction time, not by convention.
+- Lepton bookkeeping: constraint matrix C has a baryon row (Aᵢ), a charge row including
+  the electron column (Zᵢ for nuclei, −1 electron, 0 neutrino), and a lepton-number row
+  (e⁻ +1, ν +1, ν̄ −1). Weak reactions change Z at fixed A; Yₑ = Σᵢ Zᵢ Yᵢ must evolve.
+- All conservation checks in float64. asinh/signed-log transforms are internal latents
+  only — never the space where a sum constraint or projection is evaluated (the NuGNN
+  failure mode).
+- Regime box: T = 1.6–7.9 GK (1e9.2–1e9.9 K), ρ = 1e7–1e9 g/cm³, 0.45 < Yₑ < 0.5.
+  QSE onset ~3–3.3 GK; kill-test priority window 3.3–5 GK. High-Yₑ bottleneck reaction
+  to instrument: ⁴⁵Sc(p,γ)⁴⁶Ti.
+
+## Engineering conventions
+
+- Every derived quantity carries a **sourced / derived / measured** tag.
+- Measured numbers go to `RESULTS.md` with date, code version (commit hash), and data
+  provenance; docs and papers cite RESULTS.md rows, never bare numbers.
+- Tests before implementation for anything with a physics oracle.
+- Notebooks are exploratory only; promoted to `src/` + `scripts/` when stable.
+- No large data in git: `data/**` is ignored except `data/MANIFEST.yaml`.
 
 ## Docs-while-implementing contract
 
@@ -79,16 +121,20 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 
 ## Repo map
 
-- `src/`             implementation (see src/CLAUDE.md)
+- `src/gnn_nucleo/`  main package: graph export, fluxes, QSE, kill-test, data schema
 - `src/conservation/` ν export, constraint matrices, projection, drift diagnostics —
                       conservation-critical; edits here auto-trigger the gate hook
 - `tests/`           pytest suite; conservation gate is the floor
 - `scripts/`         reproducible entry points (every derived number in docs comes from here)
+- `configs/`         run/experiment configuration files
 - `docs/`            living spec, phase-0 checklist, ADRs, novelty reports, archived
                      reports — documentation rules in docs/CLAUDE.md
+- `notebooks/`       exploratory only; promoted to src/ when stable
 - `tex/`             LaTeX papers (see tex/CLAUDE.md)
-- `data/`            local data; `data/zenodo/` is READ-ONLY raw ground truth (never edit);
+- `data/`            local data (gitignored except `data/MANIFEST.yaml`);
+                     `data/zenodo/` is READ-ONLY raw ground truth (never edit);
                      `data/literature/` is a gitignored TeX-source cache of papers
+- `RESULTS.md`       append-only measured-numbers log with provenance
 
 ## Subagents (in .claude/agents/)
 
@@ -100,7 +146,7 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 
 ## Style
 
-- Python ≥3.11, type hints on public functions, numpy-style docstrings.
+- Python ≥3.11 (env pinned at 3.14), type hints on public functions, numpy-style docstrings.
 - float64 for anything touching conservation or the Xₜ₊Δₜ update; float32 allowed in
   model internals only.
 - No new abstractions until used twice. Prefer plain functions over classes for scripts.
