@@ -7,4 +7,45 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Data: everything under data/ stays out of git except the manifest and
+# directory placeholders. (data/** + !data/*/ re-inclusion order matters.)
+data/**
+!data/*/
+!data/**/.gitkeep
+!data/MANIFEST.yaml
+
+# MESA / bbq source trees (external Fortran builds, never in git)
+mesa/
+mesa-r*/
+mesasdk/
+bbq/
+
+# Array / table files and model checkpoints
+*.h5
+*.hdf5
+*.parquet
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+
+# Notebooks
+.ipynb_checkpoints/
+
+# LaTeX build artifacts
+tex/**/*.aux
+tex/**/*.bbl
+tex/**/*.blg
+tex/**/*.fls
+tex/**/*.fdb_latexmk
+tex/**/*.synctex.gz
+tex/build/
+
+# Claude Code: keep settings.json and agents committed; ignore personal overrides
+.claude/settings.local.json
