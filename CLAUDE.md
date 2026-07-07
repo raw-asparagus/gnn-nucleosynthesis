@@ -30,7 +30,9 @@ output space with additive null-space projection P = I − Cᵀ(CCᵀ)⁻¹C.
 - Fetch paper source:  `uv run python scripts/fetch_arxiv_source.py <arxiv-id> --meta`
                        (literature is read as TeX source from data/literature/,
                         never by parsing PDFs; PDF-only papers → arxiv.org/html/)
-- LaTeX build:         `latexmk -pdf -cd tex/main.tex`
+- LaTeX build:         `latexmk -pdf -cd docs/<paper>/main.tex` where `<paper>` ∈
+                       {project-scope, gnn-architecture, qse, training-data}
+                       (LaTeX rules in docs/CLAUDE.md)
 
 ## Non-negotiable physics invariants
 
@@ -128,9 +130,9 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 - `scripts/`         reproducible entry points (every derived number in docs comes from here)
 - `configs/`         run/experiment configuration files
 - `docs/`            living spec, phase-0 checklist, ADRs, novelty reports, archived
-                     reports — documentation rules in docs/CLAUDE.md
+                     reports, and the LaTeX papers (`docs/<paper>/main.tex`) —
+                     documentation rules in docs/CLAUDE.md
 - `notebooks/`       exploratory only; promoted to src/ when stable
-- `tex/`             LaTeX papers (see tex/CLAUDE.md)
 - `data/`            local data (gitignored except `data/MANIFEST.yaml`);
                      `data/zenodo/` is READ-ONLY raw ground truth (never edit);
                      `data/literature/` is a gitignored TeX-source cache of papers
