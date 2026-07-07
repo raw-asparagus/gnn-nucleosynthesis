@@ -1,0 +1,91 @@
+# Exact isotope list of the mesa_80 nuclear reaction network, in network order.
+# Provenance (sourced): column header of Zenodo 14873443 test datasets,
+#   NuclearNeuralNetworks/test_datasets/mesa_80/mesa_80_output_files/output_T_9.201_rho_7.666.txt
+#   (identical order in training_sets CSV columns initial_*/final_*).
+# Cross-check: Grichener et al. 2025 (arXiv:2503.00115) Appendix A Table 1
+#   lists the same isotopes EXCEPT ca41, which is present in the data but
+#   missing from the paper's table (paper typo; data is authoritative).
+# Names are MESA/pynucastro chem ids ('neut' = free neutron).
+network: mesa_80
+n_isotopes: 80
+isotopes:
+  - {name: neut, Z: 0, A: 1}
+  - {name: h1, Z: 1, A: 1}
+  - {name: h2, Z: 1, A: 2}
+  - {name: he3, Z: 2, A: 3}
+  - {name: he4, Z: 2, A: 4}
+  - {name: li7, Z: 3, A: 7}
+  - {name: be7, Z: 4, A: 7}
+  - {name: be9, Z: 4, A: 9}
+  - {name: be10, Z: 4, A: 10}
+  - {name: b8, Z: 5, A: 8}
+  - {name: c12, Z: 6, A: 12}
+  - {name: c13, Z: 6, A: 13}
+  - {name: n13, Z: 7, A: 13}
+  - {name: n14, Z: 7, A: 14}
+  - {name: n15, Z: 7, A: 15}
+  - {name: o14, Z: 8, A: 14}
+  - {name: o15, Z: 8, A: 15}
+  - {name: o16, Z: 8, A: 16}
+  - {name: o17, Z: 8, A: 17}
+  - {name: o18, Z: 8, A: 18}
+  - {name: f17, Z: 9, A: 17}
+  - {name: f18, Z: 9, A: 18}
+  - {name: f19, Z: 9, A: 19}
+  - {name: ne18, Z: 10, A: 18}
+  - {name: ne19, Z: 10, A: 19}
+  - {name: ne20, Z: 10, A: 20}
+  - {name: ne21, Z: 10, A: 21}
+  - {name: ne22, Z: 10, A: 22}
+  - {name: na21, Z: 11, A: 21}
+  - {name: na22, Z: 11, A: 22}
+  - {name: na23, Z: 11, A: 23}
+  - {name: na24, Z: 11, A: 24}
+  - {name: mg23, Z: 12, A: 23}
+  - {name: mg24, Z: 12, A: 24}
+  - {name: mg25, Z: 12, A: 25}
+  - {name: mg26, Z: 12, A: 26}
+  - {name: al25, Z: 13, A: 25}
+  - {name: al26, Z: 13, A: 26}
+  - {name: al27, Z: 13, A: 27}
+  - {name: si27, Z: 14, A: 27}
+  - {name: si28, Z: 14, A: 28}
+  - {name: si29, Z: 14, A: 29}
+  - {name: si30, Z: 14, A: 30}
+  - {name: p30, Z: 15, A: 30}
+  - {name: p31, Z: 15, A: 31}
+  - {name: s31, Z: 16, A: 31}
+  - {name: s32, Z: 16, A: 32}
+  - {name: s33, Z: 16, A: 33}
+  - {name: s34, Z: 16, A: 34}
+  - {name: cl35, Z: 17, A: 35}
+  - {name: ar35, Z: 18, A: 35}
+  - {name: ar36, Z: 18, A: 36}
+  - {name: ar37, Z: 18, A: 37}
+  - {name: ar38, Z: 18, A: 38}
+  - {name: k39, Z: 19, A: 39}
+  - {name: ca39, Z: 20, A: 39}
+  - {name: ca40, Z: 20, A: 40}
+  - {name: ca41, Z: 20, A: 41}
+  - {name: ca42, Z: 20, A: 42}
+  - {name: sc43, Z: 21, A: 43}
+  - {name: ti44, Z: 22, A: 44}
+  - {name: ti45, Z: 22, A: 45}
+  - {name: ti46, Z: 22, A: 46}
+  - {name: v47, Z: 23, A: 47}
+  - {name: cr48, Z: 24, A: 48}
+  - {name: cr49, Z: 24, A: 49}
+  - {name: cr50, Z: 24, A: 50}
+  - {name: mn51, Z: 25, A: 51}
+  - {name: fe52, Z: 26, A: 52}
+  - {name: fe53, Z: 26, A: 53}
+  - {name: fe54, Z: 26, A: 54}
+  - {name: fe56, Z: 26, A: 56}
+  - {name: co55, Z: 27, A: 55}
+  - {name: co56, Z: 27, A: 56}
+  - {name: ni56, Z: 28, A: 56}
+  - {name: ni57, Z: 28, A: 57}
+  - {name: ni58, Z: 28, A: 58}
+  - {name: ni59, Z: 28, A: 59}
+  - {name: cu59, Z: 29, A: 59}
+  - {name: zn60, Z: 30, A: 60}
