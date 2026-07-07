@@ -1,0 +1,30 @@
+--- /home/ikaros/projects/gnn-nucleosynthesis/data/zenodo/NuclearNeuralNetworks/python_scripts_for_analysis/TrainNNNs/NNNfunctionsCompPlusEps.py	2025-02-15 03:12:07.000000000 +0800
++++ patched/NNNfunctionsCompPlusEps.py	2026-07-08 01:50:44.267228436 +0800
+@@ -13,12 +13,14 @@
+ import torch
+ from torch.utils.data import DataLoader, random_split
+ 
+-batch_size = 512 #Size of the group of data we train in every group 
++import os  # PATCH: parameterize paths/network size via environment
+ 
+-baseDir = '/Research/NuclearNeuralNetworks'
++batch_size = 512 #Size of the group of data we train in every group
+ 
+-database_file = baseDir + '/Databases/mesa_80_1e-1_sec.csv'
+-# database_file = baseDir + '/Databases/mesa_151_1e-1_sec.csv' 
++baseDir = os.environ.get('NNN_BASE_DIR', '/Research/NuclearNeuralNetworks')  # PATCH
++
++database_file = os.environ.get('NNN_DATABASE_FILE', baseDir + '/Databases/mesa_80_1e-1_sec.csv')  # PATCH
++# database_file = baseDir + '/Databases/mesa_151_1e-1_sec.csv'
+ 
+ 
+ database = pd.read_csv(database_file)
+@@ -29,7 +31,7 @@
+     if 'Ye' in database.columns:
+         database.drop(columns = ['Ye'], inplace=True)
+ 
+-isotopesNum = 80  ## 151 
++isotopesNum = int(os.environ.get('NNN_ISOTOPES_NUM', '80'))  # PATCH ## 151
+ 
+ intputSize = 2+isotopesNum #T,rho,80 isotopes abundances at the beginning of the age
+ outputSize = isotopesNum + 2 #80 isotopes abundances, eps_nuc, eps_nu after a timsestep equivalent to the age in bbq

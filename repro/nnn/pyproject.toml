@@ -1,0 +1,24 @@
+[project]
+name = "nnn-repro"
+version = "0.1.0"
+description = "Isolated environment to reproduce Grichener et al. 2025 NNN baseline metrics (Zenodo 14873443). Not part of the root gnn-nucleo project."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch==2.4.1",
+    "pytorch-lightning==2.4.0",
+    "pandas>=2.0",
+    "numpy>=1.26,<3",
+    "matplotlib>=3.8",
+]
+
+[tool.uv]
+# Standalone: never join the root project/workspace.
+package = false
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }

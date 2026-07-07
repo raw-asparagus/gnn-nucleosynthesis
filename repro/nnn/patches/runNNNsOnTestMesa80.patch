@@ -1,0 +1,175 @@
+--- /home/ikaros/projects/gnn-nucleosynthesis/data/zenodo/NuclearNeuralNetworks/python_scripts_for_analysis/TestNNNs/runNNNsOnTestMesa80.py	2025-02-16 10:33:52.000000000 +0800
++++ patched/runNNNsOnTestMesa80.py	2026-07-08 01:56:05.528550355 +0800
+@@ -15,8 +15,23 @@
+ #import shutil
+ import statistics
+ 
++c_light = 3*10**10 #cgs  # PATCH: used below but undefined in the shipped script; value as in their plotDensityMaps.py
+ 
+-def findIsoParams(mesaDir,database_file_path,isotopesNum):
++
++def listOutputFiles(testDataDir):  # PATCH: deterministic order; skip non-bbq files (desktop.ini etc.)
++    return [f for f in sorted(os.listdir(testDataDir)) if f.startswith('output')]
++
++
++def parseLogRho(bbqFileName):  # PATCH: shipped test files end '..._rho_<val>.txt' (no _Ye_ suffix)
++    return float(bbqFileName.split('_')[4].removesuffix('.txt'))
++
++
++def findIsoParams(mesaDir,database_file_path,isotopesNum, _cache={}):
++    # PATCH: memoized — upstream re-reads a ~150 MB csv inside the per-test-file
++    # loop (685x per run); the returned arrays are identical every call.
++    _key = (mesaDir, database_file_path, isotopesNum)
++    if _key in _cache:
++        return _cache[_key]
+ 
+     database = pd.read_csv(database_file_path)
+ 
+@@ -63,7 +78,8 @@
+     isotopesZ = np.array(isotopesZ)
+     isotopesM = np.array(isotopesM)
+     isotopesM = isotopesM*(1.67*10**(-24)) #covert from amu to grams
+-    
++
++    _cache[_key] = (isotopesYe, isotopesA, isotopesZ, isotopesM)  # PATCH
+     return isotopesYe, isotopesA, isotopesZ, isotopesM
+ 
+ def findBbqParams(testDataDir,timeStepIndex,initialAgeIndex,finalAgeIndex,mesaDir,database_file_path,isotopesNum):
+@@ -84,21 +100,21 @@
+     
+     
+     files_count = 0
+-    
+-    for bbqFileName in os.listdir(testDataDir):
++
++    for bbqFileName in listOutputFiles(testDataDir):  # PATCH
+         with open(testDataDir + bbqFileName) as f:
+             currentData = f.readlines()
+         if len(currentData) == 1003: #103 for shorter times
+             initialComp = [float(isotopeAbundance) for isotopeAbundance in currentData[initialAgeIndex].split()[4:]]
+             logT = float(bbqFileName.split('_')[2])
+-            logRho = float(bbqFileName.split('_')[4])
++            logRho = parseLogRho(bbqFileName)  # PATCH
+             timeStep = float(currentData[timeStepIndex].split()[0])
+             ageInitial = float(currentData[initialAgeIndex].split()[0])
+             ageFinal = float(currentData[finalAgeIndex].split()[0])
+             timeStepsNum = round((ageFinal - ageInitial) / timeStep) # Make sure all files have the same ageFinal !!
+-            
+-    
+-            
++
++
++
+             allLogT.append(logT)
+             allLogRho.append(logRho)
+     
+@@ -161,10 +177,10 @@
+     trainingDatasetSize = int(float(trainedModel.split('_')[3]))
+     layersNum = int(trainedModel.split('_')[6])
+     neuronsNumFactor = int(trainedModel.split('_')[8])
+-       
+-    data = DataModule(trainingDatasetSize)   
+-    data.setup('')
+-    
++
++    # PATCH: dropped unused `data = DataModule(trainingDatasetSize); data.setup('')`
++    # (loads the multi-GB training CSV and is never referenced afterwards)
++
+     checkpointsDirName = trainedModelBaseDir + trainedModel + '/checkpoints/'
+     fileNames = [file for file in os.listdir(checkpointsDirName) if "Identifier" not in file]
+     
+@@ -181,14 +197,14 @@
+ 
+ 
+     files_count = 0
+-    
+-    for bbqFileName in os.listdir(testDataDir):
++
++    for bbqFileName in listOutputFiles(testDataDir):  # PATCH
+         with open(testDataDir + bbqFileName) as f:
+             currentData = f.readlines()
+         if len(currentData) == 1003: # 103 for shorter times
+             initialComp = [float(isotopeAbundance) for isotopeAbundance in currentData[initialAgeIndex].split()[4:]]
+             logT = float(bbqFileName.split('_')[2])
+-            logRho = float(bbqFileName.split('_')[4])
++            logRho = parseLogRho(bbqFileName)  # PATCH
+             timeStep = float(currentData[timeStepIndex].split()[0])
+             ageInitial = float(currentData[initialAgeIndex].split()[0])
+             ageFinal = float(currentData[finalAgeIndex].split()[0])
+@@ -307,7 +323,7 @@
+     ageFinalList = []
+     timeStepsNumList = []
+ 
+-    bbqFileName = os.listdir(testDataDir)[0]
++    bbqFileName = listOutputFiles(testDataDir)[0]  # PATCH
+ 
+     with open(testDataDir + bbqFileName) as f:
+         currentData = f.readlines()
+@@ -465,41 +481,47 @@
+ 
+ start_time = time.time()
+ 
+-mesaDir = '\\\wsl.localhost/Ubuntu/home/aldana/MESA/mesa-r23.05.1'
+-baseDir = '/Research/NuclearNeuralNetworks'
+-
+-
+-# The index of the age on which we trained the NNNs 
+-# For 1001 timesteps from -10 to 2 [1e-6: 134, 1e-5: 184, 1e-4: 234, 1e-3: 284; 1e-2: 334; 1e-1: 384, 1e0: 434, 1e1: 484, 1e2: 534]    
+-timeStepIndex = 134  
++# PATCH: whole driver block parameterized via environment variables; upstream
++# logic (index mapping, call sequence, arguments) preserved verbatim.
++mesaDir = os.environ['NNN_MESA_DIR']            # dir containing data/chem_data/isotopes.data
++zenodoDir = os.environ['NNN_ZENODO_DIR']        # .../data/zenodo/NuclearNeuralNetworks
++resultsDir = os.environ['NNN_RESULTS_DIR']      # per-run output dir; CSVs land in <resultsDir>/Results/Files/
++netName = os.environ['NNN_NET']                 # 'mesa_80' | 'mesa_151'
++dtLabel = os.environ['NNN_DT']                  # '1e-6' ... '1e2'
++layersNumForNet = {'mesa_80': 12, 'mesa_151': 9}[netName]
++isotopesNumForNet = {'mesa_80': 80, 'mesa_151': 151}[netName]
++baseDir = resultsDir
++
++# The index of the age on which we trained the NNNs
++# For 1001 timesteps from -10 to 2 [1e-6: 134, 1e-5: 184, 1e-4: 234, 1e-3: 284; 1e-2: 334; 1e-1: 384, 1e0: 434, 1e1: 484, 1e2: 534]
++timeStepIndexByDt = {'1e-6': 134, '1e-5': 184, '1e-4': 234, '1e-3': 284, '1e-2': 334,
++                     '1e-1': 384, '1e0': 434, '1e1': 484, '1e2': 534}
++timeStepIndex = timeStepIndexByDt[dtLabel]
+ 
+ # The index of a time (that must be larger than the time we trained our NNN) that we will give as initial composition to the NNN
+ initialAgeIndex = timeStepIndex + 1
+-#To compare to the first bbq step that is compatible with the NNN steps 
+-# For 1001 timesteps from -10 to 2 [1e-6: 149, 1e-5: 199, 1e-4: 249, 1e-3: 299; 1e-2: 349; 1e-1: 399, 1e0:449 , 1e1: 499, 1e2: 549]    
+-finalAgeIndex = 149 
+-
++#To compare to the first bbq step that is compatible with the NNN steps
++# For 1001 timesteps from -10 to 2 [1e-6: 149, 1e-5: 199, 1e-4: 249, 1e-3: 299; 1e-2: 349; 1e-1: 399, 1e0:449 , 1e1: 499, 1e2: 549]
++finalAgeIndex = timeStepIndex + 15
+ 
+ # Database_file_path is only important to get info about the existent isotopes in the nuclear network. It can reamin the same for different timesteps
+-database_file_path_approx21 = baseDir +'/Databases/approx21_cr60_plus_co56_database.csv' 
+-database_file_path_mesa80 = baseDir + '/Databases/mesa_80_database.csv'
++database_file_path_mesa80 = zenodoDir + f'/python_scripts_for_analysis/CreateFigures/Figure3_density_maps/database_files/{netName}_database.csv'
+ 
+ # Dir with outputs for test (test_datasets)
+-testDataDirApprox21 = baseDir + '/test_datasets/mesa_80/approx21_output_files'
+-testDataDirMesa80 = baseDir + '/test_datasets/mesa_80/mesa_80_output_files'
+-
++testDataDirMesa80 = zenodoDir + f'/test_datasets/{netName}/{netName}_output_files/'
+ 
+-trainedModelBaseDir = '\\\wsl.localhost/Ubuntu/home/aldana/NuclearNeuralNetworks/trained_NNN_models/mesa_80/different_timesteps/' #different_layers 
+-trainedModel = 'age_1e-6_trainingdata_1e6_l1loss_layers_12_factor_8_mesa_80'
++trainedModelBaseDir = zenodoDir + f'/trained_NNN_models/{netName}/different_timesteps/'
++trainedModel = f'age_{dtLabel}_trainingdata_1e6_l1loss_layers_{layersNumForNet}_factor_8_{netName}'
+ 
++os.makedirs(resultsDir + '/Results/Files', exist_ok=True)
+ 
+ 
+ bbqParamsMesa80 = findBbqParams(testDataDirMesa80,timeStepIndex,initialAgeIndex,finalAgeIndex,mesaDir,
+-                                database_file_path_mesa80,isotopesNum=80)
++                                database_file_path_mesa80,isotopesNum=isotopesNumForNet)
+ 
+ 
+ nnnParams = predictNNNcompsMultipleSteps(baseDir,testDataDirMesa80,trainedModelBaseDir,trainedModel,mesaDir,database_file_path_mesa80,timeStepIndex,
+-                                         initialAgeIndex,finalAgeIndex,isotopesNum=80)
++                                         initialAgeIndex,finalAgeIndex,isotopesNum=isotopesNumForNet)
+ 
+ 
+ LossesAndParams = computeNNNlosses(baseDir,testDataDirMesa80,initialAgeIndex,finalAgeIndex,bbqParamsMesa80,nnnParams)

@@ -49,3 +49,6 @@ tex/build/
 
 # Claude Code: keep settings.json and agents committed; ignore personal overrides
 .claude/settings.local.json
+
+# NNN reproduction run outputs (numbers go to RESULTS.md)
+repro/nnn/results/
