@@ -2,16 +2,16 @@ zenodo_record: 14873443
 record_url: https://zenodo.org/records/14873443
 title: 'Reproducibility package for: "Nuclear Neural Networks: Emulating late burning stages in Core Collapse
   Supernova Progenitors"'
-retrieved_utc: '2026-07-07T04:11:55+00:00'
+retrieved_utc: '2026-07-07T15:34:27+00:00'
 total_size_bytes: 49057048886
-note: 'data/zenodo/ is READ-ONLY raw ground truth once downloaded. Statuses: not_downloaded | downloaded.
-  Update only via this script.'
+note: 'data/zenodo/ is READ-ONLY raw ground truth once downloaded. Statuses: not_downloaded | downloaded
+  | extracted. Update only via this script.'
 files:
 - name: README.txt
   size_bytes: 1641
   md5: e560d6dfab6a48df98e39d67874bddf1
   url: https://zenodo.org/api/records/14873443/files/README.txt/content
-  status: not_downloaded
+  status: downloaded
 - name: NuclearNeuralNetworks.zip
   size_bytes: 49057047245
   md5: ab31e56950e696aba7747f2cfca2d403
