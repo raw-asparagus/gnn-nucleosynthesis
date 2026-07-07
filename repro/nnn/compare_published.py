@@ -73,7 +73,8 @@ def main() -> None:
         print(f"{net:9s} {c:22s} worst-factor {w:.4f}")
 
     print("\n== improvement % (their Fig.5 formula; shipped approx21 losses / OUR NNN losses) ==")
-    print(f"{'net':9s} {'dt':>5s} {'Ye%':>9s} {'Abar%':>9s} {'EpsNuc%':>10s} {'EpsNu%':>12s} {'NNN dYe/Ye %':>13s}")
+    print(f"{'net':9s} {'dt':>5s} {'Ye%':>9s} {'Abar%':>9s} {'EpsNuc%':>10s}"
+          f" {'EpsNu%':>12s} {'NNN dYe/Ye %':>13s}")
     summary: dict[tuple[str, str], list[float]] = {}
     for net in ["mesa_80", "mesa_151"]:
         for dt in DTS:

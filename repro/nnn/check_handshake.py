@@ -20,7 +20,6 @@ import glob
 import os
 import sys
 
-import numpy as np
 import torch
 
 REPO = "/home/ikaros/projects/gnn-nucleosynthesis"

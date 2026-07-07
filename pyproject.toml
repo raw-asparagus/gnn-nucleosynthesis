@@ -39,6 +39,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py314"
+# Upstream (Grichener 2025) code, patched minimally for portability — its
+# style is not ours to fix; diffs against the originals must stay small.
+extend-exclude = ["repro/nnn/patched"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
