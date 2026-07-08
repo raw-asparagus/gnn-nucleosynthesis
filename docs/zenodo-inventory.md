@@ -45,8 +45,8 @@ no MESA source, no bbq runs here.
   log-training). `eps_nuc`, `eps_nu` divided by 1e16 (their NormalizeEps.py).
   Per the paper, e_nuc is the *integrated* specific energy [erg/g] while
   ε_ν is a *rate* [erg/g/s]. A commented-out line in their eval warns that for
-  dt ≥ 10 s ε_ν may have been normalized by 1e13 instead — verify before using
-  those two labels (does not affect composition).
+  dt ≥ 10 s ε_ν may have been normalized by 1e13 instead — **measured ABSENT**
+  (Step 3): all 18 CSVs use ÷1e16 for both columns (RESULTS.md 2026-07-08).
 
 ## test_datasets/
 
@@ -115,18 +115,19 @@ outputs in `forward`, last 2 outputs linear. Loading requires their
 - README + paper Data Availability both state the full bbq runs (more
   timesteps, extended density range, 4 TB) are available on request.
 
-## Mapping onto `src/gnn_nucleo/data/schema.py` (deltas ⇒ do not code against the schema until amended)
+## Mapping onto `src/gnn_nucleo/data/schema.py` (deltas — resolved in Step 3, 2026-07-08)
 
-| schema assumption | package reality | severity |
+| schema assumption (pre-Step-3) | package reality | resolution |
 | --- | --- | --- |
-| `dt_seconds == DT_GRID_SECONDS[dt_index]` exactly (rel_tol 1e-12), same grid for both networks | actual ages deviate from nominal 10^k by up to ~5% and differ per network (105.08 s vs 102.93 s for "1e2") | **breaks ingestion** — validation raises on every real row |
-| `sobol_id: int` per record | no id column anywhere; row ↔ Sobol-point mapping implicit (same row count across all 9 dts per network suggests consistent ordering — unverified) | **blocks SplitSpec** until row-identity is established (join on (logT,logRho) pair, which is unique per point) |
-| `StepLabels.e_nuc` documented [erg/g/s] | e_nuc is integrated [erg/g] (÷1e16 in CSVs); ε_ν is a rate [erg/g/s] (÷1e16, with the dt≥10 s 1e13 caveat above) | docstring/unit fix + un-normalization constant |
+| `dt_seconds == DT_GRID_SECONDS[dt_index]` exactly (rel_tol 1e-12), same grid for both networks | actual ages deviate from nominal 10^k by up to ~5% and differ per network (105.08 s vs 102.93 s for "1e2") — measured (RESULTS.md 2026-07-08) | resolved: `DT_GRID_SECONDS` demoted to nominal labels only; measured per-network grids live in `configs/dt_grid_measured.yaml`, loaded via `load_measured_dt()` |
+| `sobol_id: int` per record | no id column anywhere; the 9 dt files per network are exactly row-aligned — measured (RESULTS.md 2026-07-08). (logT,logRho) is **NOT** unique (154,405 duplicate rows — measured, RESULTS.md 2026-07-08) and must not be used as a join key | resolved: `sobol_id` renamed `state_id` = row index; row identity is by row alignment, never by (logT,logRho) join |
+| `StepLabels.e_nuc` documented [erg/g/s] | e_nuc is integrated [erg/g] (÷1e16 in CSVs); ε_ν is a rate [erg/g/s] (÷1e16 in all 18 CSVs; the dt≥10 s 1e13 suspicion measured ABSENT, RESULTS.md 2026-07-08) | resolved: units corrected in schema docstrings; `EPS_NU_QUARANTINED` mechanism exists (currently empty) |
 | X, X_post full-precision float64 | CSV text full precision, but `final_*` floored at 1e-15, and the models are float32 with a log-softmax head (ΣX=1 enforced in float32) | note for conservation analysis: shipped labels sum to 1 only to ~1e-15 (floor), NNN outputs to float32 |
 | single-step records only | test sets are 1001-step trajectories; training sets are single-step | schema fine for training data; test trajectories need their own (future) record type |
 | `N_TIMESTEPS = 9`, log-spaced 1e-6…1e2 | confirmed (nominally) | ok |
 | `NETWORKS = {mesa_80: 80, mesa_151: 151}` | confirmed (definitive isotope lists in `configs/`) | ok |
 | inputs `log_T`, `log_rho`, linear X | confirmed (`logT`, `logRho` columns; linear mass fractions) | ok |
 
-No `schema.py` changes made in Step 2 (per task spec); the deltas above are
-the required amendments.
+No `schema.py` changes were made in Step 2 (per task spec). Step 3
+(2026-07-08) amended the schema as recorded in the resolution column above;
+measured values have RESULTS.md rows dated 2026-07-08.

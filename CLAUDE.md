@@ -62,6 +62,11 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 - Conservation unit test: with a *randomly initialized* flux head, baryon drift
   |Σᵢ Aᵢ dYᵢ| ≤ 1e-12 and charge-to-lepton closure ≤ 1e-12 per step in float64, while
   dYₑ through weak columns is nonzero. Training never starts until this passes.
+  Across φ magnitude scales 1e-20…1e0 the test bounds drift by
+  max(1e-12·s, 1e-13·G), s = min(1, max|φ|), G = |A|·(|ν|·|φ|) — the absolute
+  1e-12 gate at O(1) scale, relative-to-gross at the small end where an absolute
+  bound is vacuous (Step-3 brief; RESULTS.md 2026-07-08; tests/test_conservation.py
+  module docstring). Column drifts measured exactly 0.0.
 - Operative per-step accuracy gate: |ΔYₑ| ≲ 3e-6 per step (systematic/linear accumulation
   assumption, N ≈ 1.6e3 steps), held until the accumulation slope is MEASURED
   (see docs/phase0-checklist.md): slope ≈ 1 → keep/tighten; slope ≈ 0.5 (random-walk)
