@@ -27,7 +27,7 @@ SDK_VERSION="23.7.3"
 SDK_TARBALL="mesasdk-x86_64-linux-${SDK_VERSION}.tar.gz"
 SDK_URL="http://user.astro.wisc.edu/~townsend/resource/download/mesasdk/${SDK_TARBALL}"
 SDK_PAGE="http://user.astro.wisc.edu/~townsend/static.php?ref=mesasdk"
-ZENODO_RECORD_GUESS="7969669"
+ZENODO_RECORD_GUESS="7983526"
 BBQ_REPO="https://github.com/rjfarmer/bbq"
 
 MESA_DIR="${MESA_DIR:-$HOME/mesa-${MESA_VERSION}}"
@@ -41,6 +41,17 @@ STATUS_FILE="$LOG_DIR/STATUS"
 mkdir -p "$LOG_DIR" "$DL_DIR"
 
 status() { echo "PHASE=$1 STATE=$2 TS=$(date -Is)" >"$STATUS_FILE"; }
+
+# Fatal shell errors (e.g. nounset) bypass run_phase's failure branch; make
+# sure STATUS never claims "running" after the process is gone.
+finalize_status() {
+    if grep -q "STATE=running" "$STATUS_FILE" 2>/dev/null; then
+        local phase
+        phase=$(sed -n 's/^PHASE=\([^ ]*\).*/\1/p' "$STATUS_FILE")
+        status "${phase:-unknown}" failed
+    fi
+}
+trap finalize_status EXIT
 
 run_phase() {
     local num="$1" phase="$2"
@@ -106,6 +117,8 @@ def get(url):
 def record_matches(rec):
     md = rec.get("metadata", {})
     blob = " ".join([md.get("title", ""), md.get("version", "")])
+    if "candidate" in blob.lower() or "-rc" in blob.lower():
+        return False  # release candidates are not the pinned release
     return version in blob or version.lstrip("r") in blob
 
 rec = None
@@ -130,8 +143,12 @@ if rec is None:
 title = rec["metadata"]["title"]
 print(f"using Zenodo record {rec['id']}: {title}")
 files = rec.get("files", [])
-want = [f for f in files
-        if version.lstrip("r") in f["key"] and f["key"].endswith((".zip", ".tar.gz", ".tgz"))]
+# Exact release archive first; never fall through to an -rc file.
+want = [f for f in files if f["key"] in (f"mesa-{version}.zip", f"mesa-{version}.tar.gz")]
+if not want:
+    want = [f for f in files
+            if version.lstrip("r") in f["key"] and "rc" not in f["key"].lower()
+            and f["key"].endswith((".zip", ".tar.gz", ".tgz"))]
 if not want:
     want = [f for f in files if f["key"].endswith((".zip", ".tar.gz", ".tgz"))]
 if not want:
@@ -183,8 +200,11 @@ phase_unpack() {
 
 phase_build_mesa() {
     export MESASDK_ROOT MESA_DIR
+    # mesasdk_init.sh reads possibly-unset vars (MANPATH); relax nounset for it.
+    set +u
     # shellcheck disable=SC1091
     source "$MESASDK_ROOT/bin/mesasdk_init.sh"
+    set -u
     export OMP_NUM_THREADS="$(nproc)"
     gfortran --version | head -1
     cd "$MESA_DIR"
@@ -201,8 +221,10 @@ phase_test_mesa() {
 
 phase_build_bbq() {
     export MESASDK_ROOT MESA_DIR
+    set +u
     # shellcheck disable=SC1091
     source "$MESASDK_ROOT/bin/mesasdk_init.sh"
+    set -u
     export OMP_NUM_THREADS="$(nproc)"
     if [[ ! -d "$BBQ_DIR/.git" ]]; then
         git clone "$BBQ_REPO" "$BBQ_DIR"
