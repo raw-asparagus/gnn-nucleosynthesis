@@ -185,7 +185,9 @@ phase_unpack() {
         local tmp="$HOME/.mesa_unpack_tmp"
         rm -rf "$tmp" && mkdir -p "$tmp"
         case "$key" in
-            *.zip) python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$archive" "$tmp" ;;
+            # unzip preserves the executable bits MESA's build scripts need
+            # (python zipfile does not — ./install dies on ./i1p otherwise).
+            *.zip) unzip -q "$archive" -d "$tmp" ;;
             *) tar -xzf "$archive" -C "$tmp" ;;
         esac
         local top
@@ -206,6 +208,13 @@ phase_build_mesa() {
     source "$MESASDK_ROOT/bin/mesasdk_init.sh"
     set -u
     export OMP_NUM_THREADS="$(nproc)"
+    # No root on this box: the system has libX11.so.6 but not the dev
+    # symlink the pgplot link step wants. Point LIBRARY_PATH at a user-local
+    # symlink instead of apt-installing libx11-dev.
+    mkdir -p "$HOME/.local/lib"
+    [[ -e "$HOME/.local/lib/libX11.so" ]] \
+        || ln -s /usr/lib/x86_64-linux-gnu/libX11.so.6 "$HOME/.local/lib/libX11.so"
+    export LIBRARY_PATH="$HOME/.local/lib:${LIBRARY_PATH:-}"
     gfortran --version | head -1
     cd "$MESA_DIR"
     ./install
