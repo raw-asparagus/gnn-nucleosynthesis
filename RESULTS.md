@@ -84,10 +84,30 @@ per the Step-2 task spec (EC controllers; β-decay partners). Tag: measured
 | co60 | β partner | **NO** | yes |
 | co59 | β partner | **NO** | yes |
 
-**Flags:** mesa_80 carries only 6/9 EC controllers and 0/8 β-decay partners —
+**Flags (see also the Step-3 pynucastro rate-level inventory below):** mesa_80
+carries only 6/9 EC controllers and 0/8 β-decay partners —
 its Yₑ evolution runs through a materially thinner weak-reaction set than
 mesa_151. cr56 and co63 are in NEITHER shipped network. Also relevant: sc45
 (the ⁴⁵Sc(p,γ)⁴⁶Ti bottleneck reactant named in CLAUDE.md) is absent from
 mesa_80 (mesa_80 has only sc43; mesa_151 has sc43–sc49) — that kill-test
 instrument applies to mesa_151 only. These asymmetries feed size-transfer and
 loss-weighting design directly.
+
+## Training-CSV audit (2026-07-08, Step 3)
+
+Full-column audit of the 18 training CSVs (both networks × 9 dt files),
+measuring the real dt grid, row identity, and label normalization. These
+rows retire the Step-2 open flags on the dt grid, the join key, and the
+ε_ν normalization at dt ≥ 10 s.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-08 | rows per training CSV (all 18 files) | 1 041 400 each (identical across dt and networks) | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
+| 2026-07-08 | measured dt grid, mesa_80 [s] | 1.0110e-6, 1.0314e-5, 1.0508e-4, 1.0128e-3, 1.0316e-2, 1.0508e-1, 1.0128e0, 1.0316e1, 1.0508e2 (full precision in configs/dt_grid_measured.yaml) | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
+| 2026-07-08 | measured dt grid, mesa_151 [s] | 1.0090e-6, 1.0292e-5, 1.0484e-4, 1.0013e-3, 1.0199e-2, 1.0388e-1, 1.0582e0, 1.0105e1, 1.0293e2 (full precision in configs/dt_grid_measured.yaml) | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
+| 2026-07-08 | Age constancy within each CSV | exactly 1 unique Age value per file (all 18) | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
+| 2026-07-08 | row alignment across the 9 dt files (logT, logRho + 4 sentinel initial_* columns, full-column equality vs the 1e-6 file) | ALIGNED, both networks — row index is a valid per-network identity key (state_id) | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
+| 2026-07-08 | (logT, logRho) duplicate rows per file | 154 405 of 1 041 400 (values rounded to 3 decimals) — NOT unique, rejected as join key; corrects the Step-2 uniqueness claim | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
+| 2026-07-08 | full-initial-state duplicate rows (logT, logRho, all initial_*) | 0, both networks | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
+| 2026-07-08 | final_* floor | min over all final_* columns = 1.000e-15 exactly, both networks (matches upstream buildDatabase 1e-15 clamp) | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
+| 2026-07-08 | ε_ν normalization at dt ≥ 10 s (adjacent-dt row-exact median |eps_nu| ratios) | mesa_80: 1e1/1e0 = 0.983, 1e2/1e1 = 0.878; mesa_151: 0.898, 0.712 — smooth continuity, NO ~1e3 jump ⇒ uniform ÷1e16 in ALL 18 training CSVs; the upstream 1e13 comment (TestNNNs/runNNNsOnTestMesa80.py:263) does not apply to the training sets; quarantine EMPTY | measured | scripts/check_training_csvs.py | 57241e3 | Zenodo 14873443, md5 ab31e569… |
