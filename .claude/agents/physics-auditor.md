@@ -1,7 +1,7 @@
 ---
 name: physics-auditor
 description: >
-  Physics verification runner. Use PROACTIVELY after any edit under src/conservation/,
+  Physics verification runner. Use PROACTIVELY after any edit under src/gnn_nucleo/graph/,
   after regenerating the stoichiometric export in data/stoich/, before any training run,
   and whenever asked to "check conservation", "run the gate", or analyse kill-test /
   drift / cancellation-ratio output. Runs the numerical checks in an isolated context

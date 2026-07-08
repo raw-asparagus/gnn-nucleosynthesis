@@ -2,13 +2,15 @@
 
 Package layout (stubs filled in by later Phase-0 steps):
 
-- ``graph``    — pynucastro network export, stoichiometric/lepton matrices (Step 3)
+- ``graph``    — pynucastro network export, stoichiometric/lepton matrices,
+                 constraint matrix C, Target B projector (Step 3; the
+                 conservation-critical layer — numpy/pyyaml/pynucastro/networkx
+                 only, no torch, so the gate hook stays fast)
 - ``fluxes``   — gross/net per-reaction flux derivation from bbq output (Step 5)
 - ``qse``      — QSE/NSE reference-abundance solver (Step 5)
 - ``killtest`` — kill-test harness for the Target A viability gates (Step 6)
 - ``data``     — dataset schema, splits, storage conventions (Step 1)
 
-Conservation-critical linear algebra lives in the separate top-level
-``conservation`` package (numpy-only, float64-only) so the gate hook stays
-free of ML dependencies.
+The former top-level ``conservation`` stub package was superseded by
+``gnn_nucleo.graph`` in Step 3 (ADR 0002).
 """

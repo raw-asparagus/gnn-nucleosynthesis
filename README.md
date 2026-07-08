@@ -19,7 +19,7 @@ null-space projection.
 | `CLAUDE.md` | Project memory: invariants, hard gates, conventions |
 | `RESULTS.md` | Log of every measured number, with provenance |
 | `src/gnn_nucleo/` | Package: graph export, fluxes, QSE, kill-test, data schema |
-| `src/conservation/` | Conservation-critical (numpy-only) constraint machinery |
+| `src/gnn_nucleo/graph/` | Conservation-critical: ν/C export, lepton ledgers, projector |
 | `tests/` | Pytest suite; `test_conservation.py` is the project floor |
 | `scripts/` | Reproducible entry points for every derived number |
 | `configs/` | Run/experiment configuration files |

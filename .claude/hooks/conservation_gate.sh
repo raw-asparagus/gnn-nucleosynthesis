@@ -21,7 +21,7 @@ except Exception:
 [ -z "$file_path" ] && exit 0
 
 case "$file_path" in
-  *src/conservation/*|*export_stoich_matrix.py|*data/stoich/*|*test_conservation.py)
+  *src/gnn_nucleo/graph/*|*export_stoich_matrix.py|*graph_metrics.py|*data/stoich/*|*test_conservation.py|*tests/conftest.py)
     echo "[conservation-gate] critical file changed: $file_path" >&2
     if ! uv run pytest tests/test_conservation.py -q >&2; then
       echo "[conservation-gate] FAILED: baryon/charge/lepton conservation gate is broken." >&2

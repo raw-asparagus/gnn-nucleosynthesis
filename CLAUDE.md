@@ -130,9 +130,11 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 
 ## Repo map
 
-- `src/gnn_nucleo/`  main package: graph export, fluxes, QSE, kill-test, data schema
-- `src/conservation/` ν export, constraint matrices, projection, drift diagnostics —
-                      conservation-critical; edits here auto-trigger the gate hook
+- `src/gnn_nucleo/`  main package: graph export, fluxes, QSE, kill-test, data schema.
+                     `gnn_nucleo/graph/` holds ν export, constraint matrices,
+                     projection, drift diagnostics — conservation-critical; edits
+                     there auto-trigger the gate hook (superseded the old
+                     `src/conservation/` stub in Step 3, ADR 0002)
 - `tests/`           pytest suite; conservation gate is the floor
 - `scripts/`         reproducible entry points (every derived number in docs comes from here)
 - `configs/`         run/experiment configuration files
