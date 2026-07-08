@@ -4,20 +4,51 @@ Layout
 ------
 One record = one (state, dt) pair. The underlying thermodynamic/composition
 state comes from a Sobol sample (or, later, a real MESA track point); each
-state is stepped at the nine log-spaced timesteps in ``DT_GRID``, giving nine
-records per state. Records carry the Sobol sample ID so splits can be made
-leakage-safe (see ``SplitSpec``).
+state is stepped at the nine timesteps of the network's measured dt grid,
+giving nine records per state.
 
-Inputs:  log10 T [K], log10 rho [g/cm^3], composition mass fractions X
-         (length = species count of the network), dt index into DT_GRID and
-         its value in seconds.
-Labels:  post-step composition X', specific nuclear energy generation e_nuc,
-         neutrino loss.
+Row identity (``state_id``)
+---------------------------
+The raw CSVs carry NO sample-id column. The audited facts
+(scripts/check_training_csvs.py; RESULTS.md 2026-07-08):
 
-Derived extensions (filled in later Phase-0 steps, absent in raw data): gross
-forward/reverse fluxes f+, f-, signed net flux phi = f+ - f-, cancellation
-ratio kappa_r, Guidry departure delta_r = |y - ybar|/ybar, and QSE reference
-abundances ybar. Every derived array carries a ``Provenance`` tag.
+- the nine dt files of a network are exactly row-aligned — row i holds the
+  same (logT, logRho, initial_*) state in every file;
+- (logT, logRho) is NOT unique (154,405 of 1,041,400 rows collide — the
+  columns are rounded to 3 decimals) and must never be used as a join key;
+- the full initial state has zero duplicates.
+
+Therefore ``state_id`` = the row index (0-based) within the row-aligned
+per-network CSV set. It identifies the underlying state; (state_id,
+dt_index) identifies a record. Splits are keyed on state_id only.
+
+Timestep grid
+-------------
+``DT_GRID_SECONDS`` holds the NOMINAL 10^k decade values — labels for
+indexing and file naming only. The real timesteps deviate from nominal by up
+to ~5% and differ between networks (e.g. the "1e2" file is 105.08 s for
+mesa_80 but 102.93 s for mesa_151). The measured per-network grids live in
+``configs/dt_grid_measured.yaml`` (derived, full precision) and are loaded by
+``load_measured_dt()``; validation compares against the measured value.
+
+Units and normalization of raw labels
+-------------------------------------
+- ``eps_nuc`` (CSV) is the INTEGRATED specific nuclear energy release over
+  the step [erg/g] — not a rate. ``eps_nu`` is the neutrino-loss RATE
+  [erg/g/s]. Both are stored divided by ``EPS_NORMALIZATION`` = 1e16 in ALL
+  18 training CSVs (upstream GenerateTrainingSets/NormalizeEps.py; the
+  hinted alternate 1e13 normalization at dt ≥ 10 s was measured ABSENT from
+  the training sets — see RESULTS.md 2026-07-08). Loaders must multiply by
+  ``EPS_NORMALIZATION``; ``StepLabels`` carries physical units.
+- ``EPS_NU_QUARANTINED`` lists (network, dt_label) pairs whose eps_nu labels
+  failed the normalization-continuity check. Measured empty; the mechanism
+  stays so any future re-extraction re-checks before training touches ε_ν.
+- ``final_*`` mass fractions are floored at ``FINAL_X_FLOOR`` = 1e-15
+  (upstream clamp before taking logs; measured exactly attained). Values at
+  the floor are censored, not physical.
+- Upstream NNN models and their label tensors are float32; this project's
+  conservation checks and X_{t+dt} updates are float64 end-to-end
+  (CLAUDE.md) — raw CSVs are parsed as float64.
 
 Storage decision (documented, not yet implemented)
 --------------------------------------------------
@@ -27,10 +58,8 @@ Storage decision (documented, not yet implemented)
 - **Parquet** for tabular metadata: sample IDs, split assignment, provenance
   tags, per-record scalars — columnar predicate pushdown ("all test rows of
   mesa_80 at dt_index 3") without touching the arrays.
-Cross-reference is by ``sobol_id`` + ``dt_index``, which together identify a
+Cross-reference is by ``state_id`` + ``dt_index``, which together identify a
 record uniquely within a network.
-
-All conservation-relevant quantities are float64 end-to-end (CLAUDE.md).
 """
 
 from __future__ import annotations
@@ -38,11 +67,18 @@ from __future__ import annotations
 import enum
 import math
 from dataclasses import dataclass, field
+from functools import cache
+from pathlib import Path
 
 __all__ = [
     "NETWORKS",
     "DT_GRID_SECONDS",
+    "DT_LABELS",
     "N_TIMESTEPS",
+    "EPS_NORMALIZATION",
+    "EPS_NU_QUARANTINED",
+    "FINAL_X_FLOOR",
+    "load_measured_dt",
     "Provenance",
     "StepInputs",
     "StepLabels",
@@ -53,11 +89,49 @@ __all__ = [
 # Species counts of the two MESA softwired networks under study.
 NETWORKS: dict[str, int] = {"mesa_80": 80, "mesa_151": 151}
 
-# Nine log-spaced timesteps spanning [1e-6, 1e2] s — one per decade.
+# Nine NOMINAL log-spaced timesteps spanning [1e-6, 1e2] s — one per decade.
+# Labels only (file naming, dt_index semantics); the REAL grids are measured
+# per network and loaded via load_measured_dt().
 N_TIMESTEPS: int = 9
 DT_GRID_SECONDS: tuple[float, ...] = tuple(
     10.0 ** (-6 + 8 * k / (N_TIMESTEPS - 1)) for k in range(N_TIMESTEPS)
 )
+DT_LABELS: tuple[str, ...] = (
+    "1e-6", "1e-5", "1e-4", "1e-3", "1e-2", "1e-1", "1e0", "1e1", "1e2",
+)
+
+# Raw eps_nuc/eps_nu CSV columns are stored divided by this (upstream
+# NormalizeEps.py); measured uniform across all 18 files (RESULTS.md).
+EPS_NORMALIZATION: float = 1e16
+
+# (network, dt_label) pairs whose eps_nu labels failed the normalization
+# continuity check in scripts/check_training_csvs.py. Measured EMPTY on
+# 2026-07-08; loaders must refuse eps_nu labels listed here.
+EPS_NU_QUARANTINED: frozenset[tuple[str, str]] = frozenset()
+
+# Upstream clamp applied to final_* before logging; values AT the floor are
+# censored, not physical (measured exactly attained in both networks).
+FINAL_X_FLOOR: float = 1e-15
+
+_MEASURED_DT_PATH = Path(__file__).resolve().parents[3] / "configs" / "dt_grid_measured.yaml"
+
+
+@cache
+def load_measured_dt(network: str) -> tuple[float, ...]:
+    """Measured dt grid [s] for ``network``, in dt_index order.
+
+    Reads ``configs/dt_grid_measured.yaml`` (derived by
+    scripts/check_training_csvs.py from the Age column of the real CSVs) —
+    never hardcoded, never the nominal decades.
+    """
+    import yaml
+
+    if network not in NETWORKS:
+        raise ValueError(f"unknown network {network!r}")
+    with open(_MEASURED_DT_PATH) as fh:
+        grids = yaml.safe_load(fh)
+    grid = grids[network]
+    return tuple(float(grid[label]) for label in DT_LABELS)
 
 
 class Provenance(enum.StrEnum):
@@ -79,9 +153,11 @@ class StepInputs:
 
     Parameters
     ----------
-    sobol_id : int
-        ID of the underlying Sobol sample (thermodynamic/composition state).
-        The split key — never split on the record level.
+    state_id : int
+        Row index (0-based) of the underlying state within the row-aligned
+        per-network CSV set — see the module docstring for why this, and not
+        (logT, logRho), is the identity. The split key — never split on the
+        record level.
     network : str
         Key into ``NETWORKS``.
     log_T : float
@@ -91,12 +167,13 @@ class StepInputs:
     X : tuple[float, ...]
         Mass fractions, length ``NETWORKS[network]``, float64.
     dt_index : int
-        Index into ``DT_GRID_SECONDS``.
+        Index into the dt grid (0 = "1e-6" … 8 = "1e2", see ``DT_LABELS``).
     dt_seconds : float
-        Timestep value; must equal ``DT_GRID_SECONDS[dt_index]``.
+        Timestep value; must equal the MEASURED grid value
+        ``load_measured_dt(network)[dt_index]`` (rel_tol 1e-9).
     """
 
-    sobol_id: int
+    state_id: int
     network: str
     log_T: float
     log_rho: float
@@ -114,24 +191,32 @@ class StepInputs:
             )
         if not 0 <= self.dt_index < N_TIMESTEPS:
             raise ValueError(f"dt_index {self.dt_index} outside [0, {N_TIMESTEPS})")
-        if not math.isclose(self.dt_seconds, DT_GRID_SECONDS[self.dt_index], rel_tol=1e-12):
+        measured = load_measured_dt(self.network)[self.dt_index]
+        if not math.isclose(self.dt_seconds, measured, rel_tol=1e-9):
             raise ValueError(
-                f"dt_seconds {self.dt_seconds!r} != DT_GRID_SECONDS[{self.dt_index}]"
+                f"dt_seconds {self.dt_seconds!r} != measured grid value "
+                f"{measured!r} for {self.network}[{self.dt_index}] "
+                f"(label {DT_LABELS[self.dt_index]!r})"
             )
 
 
 @dataclass(frozen=True)
 class StepLabels:
-    """Post-step targets for one record.
+    """Post-step targets for one record, in PHYSICAL units.
+
+    Loaders converting raw CSV rows must multiply eps_nuc/eps_nu by
+    ``EPS_NORMALIZATION`` and must refuse eps_nu for (network, dt_label)
+    pairs in ``EPS_NU_QUARANTINED``.
 
     Parameters
     ----------
     X_post : tuple[float, ...]
         Post-step mass fractions, same length/order as the input X, float64.
+        Raw values are floored at ``FINAL_X_FLOOR`` (censored below 1e-15).
     e_nuc : float
-        Specific nuclear energy generation over the step [erg/g/s].
+        INTEGRATED specific nuclear energy release over the step [erg/g].
     neutrino_loss : float
-        Neutrino energy loss over the step [erg/g/s].
+        Neutrino energy loss RATE (ε_ν) [erg/g/s].
     """
 
     X_post: tuple[float, ...]
@@ -167,9 +252,9 @@ class DerivedExtension:
 
 @dataclass(frozen=True)
 class SplitSpec:
-    """Leakage-safe train/val/test split, keyed on Sobol sample ID.
+    """Leakage-safe train/val/test split, keyed on ``state_id``.
 
-    All nine timestep records of one underlying state share its ``sobol_id``
+    All nine timestep records of one underlying state share its ``state_id``
     and therefore land in the same split — the same thermodynamic/composition
     state never appears in train and test at different dt.
 
@@ -181,7 +266,7 @@ class SplitSpec:
     test_ids: frozenset[int] = field(default_factory=frozenset)
 
     def validate(self) -> None:
-        """Raise ``ValueError`` if any Sobol ID appears in more than one split."""
+        """Raise ``ValueError`` if any state_id appears in more than one split."""
         overlaps = {
             "train/val": self.train_ids & self.val_ids,
             "train/test": self.train_ids & self.test_ids,
@@ -189,14 +274,14 @@ class SplitSpec:
         }
         bad = {k: sorted(v) for k, v in overlaps.items() if v}
         if bad:
-            raise ValueError(f"split leakage — overlapping sobol_ids: {bad}")
+            raise ValueError(f"split leakage — overlapping state_ids: {bad}")
 
-    def split_of(self, sobol_id: int) -> str | None:
-        """Return 'train' / 'val' / 'test' for a sample ID, or None if unassigned."""
-        if sobol_id in self.train_ids:
+    def split_of(self, state_id: int) -> str | None:
+        """Return 'train' / 'val' / 'test' for a state_id, or None if unassigned."""
+        if state_id in self.train_ids:
             return "train"
-        if sobol_id in self.val_ids:
+        if state_id in self.val_ids:
             return "val"
-        if sobol_id in self.test_ids:
+        if state_id in self.test_ids:
             return "test"
         return None

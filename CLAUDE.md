@@ -96,7 +96,14 @@ These are testable facts, not preferences. Code that violates them is wrong by d
   failure mode).
 - Regime box: T = 1.6–7.9 GK (1e9.2–1e9.9 K), ρ = 1e7–1e9 g/cm³, 0.45 < Yₑ < 0.5.
   QSE onset ~3–3.3 GK; kill-test priority window 3.3–5 GK. High-Yₑ bottleneck reaction
-  to instrument: ⁴⁵Sc(p,γ)⁴⁶Ti.
+  to instrument: ⁴⁵Sc(p,γ)⁴⁶Ti — **mesa_151 only** (⁴⁵Sc is absent from mesa_80, whose
+  only Sc is ⁴³Sc; mesa_80 bridge reactions must be discovered empirically in the
+  kill-test). See RESULTS.md 2026-07-08.
+- Isotope lists: exactly 80/151 species; ⁴¹Ca is present in BOTH networks (the paper's
+  App. A table omits it — paper typo; the data headers are authoritative).
+- mesa_80 weak sector is materially thinner than mesa_151: only 6/9 EC controllers and
+  0/8 β-decay partners of the Yₑ-controller set (RESULTS.md membership table). Feeds
+  size-transfer and loss-weighting design.
 
 ## Engineering conventions
 
