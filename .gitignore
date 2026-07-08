@@ -52,3 +52,6 @@ tex/build/
 
 # NNN reproduction run outputs (numbers go to RESULTS.md)
 repro/nnn/results/
+
+# MESA/bbq install logs (status + build logs; outcomes go to RESULTS.md)
+scripts/mesa_install_logs/
