@@ -1,0 +1,108 @@
+purpose: Channels whose STOCK r23.05.1 detailed-balance reverse rates are wrong (gh-575 / Grichener et
+  al. 2025 App. B). MESA-side values on these channels are excluded from all Step-4 rate-agreement gates
+  and Step-5/6 kappa/flux analyses until the patch decision is recorded (patches/0001-reaclib-reverse-phase-space.patch).
+  The pynucastro-side rates and the Zenodo labels (authors' patched MESA) are NOT affected.
+derived: scripts/appendixb_check.py, 2026-07-09
+networks:
+  mesa_151:
+  - mesa_handle: r_he4_he4_he4_to_h1_b11
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.123
+  - mesa_handle: r_h1_h1_he4_to_he3_he3
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 1.793
+  - mesa_handle: r_h1_he4_he4_to_neut_b8
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.597
+  - mesa_handle: r_h1_h2_to_neut_h1_h1
+    class: multi_body_inverse
+    chapter: 9
+    dN: 1
+    dlog10_at_t9_4: -10.59
+  - mesa_handle: r_neut_he4_he4_to_h2_li7
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.647
+  - mesa_handle: r_h2_he4_he4_to_h1_be9
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.597
+  - mesa_handle: r_h1_h1_he4_he4_to_he3_be7
+    class: multi_body_inverse
+    chapter: 7
+    dN: -2
+    dlog10_at_t9_4: 21.787
+  - mesa_handle: r_h1_he4_he4_to_h2_be7
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.595
+  - mesa_handle: r_c12_to_he4_he4_he4
+    class: photo_of_multibody
+    chapter: 8
+    dN: 2
+    dlog10_at_t9_4: -10.118
+  - mesa_handle: r_be9_to_neut_he4_he4
+    class: photo_of_multibody
+    chapter: 8
+    dN: 2
+    dlog10_at_t9_4: -10.591
+  - mesa_handle: r_li6_to_neut_h1_he4
+    class: photo_of_multibody
+    chapter: 8
+    dN: 2
+    dlog10_at_t9_4: -10.886
+  mesa_80:
+  - mesa_handle: r_h1_h1_he4_to_he3_he3
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 1.793
+  - mesa_handle: r_h2_he4_he4_to_h1_be9
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.597
+  - mesa_handle: r_h1_h1_he4_he4_to_he3_be7
+    class: multi_body_inverse
+    chapter: 7
+    dN: -2
+    dlog10_at_t9_4: 21.787
+  - mesa_handle: r_h1_h2_to_neut_h1_h1
+    class: multi_body_inverse
+    chapter: 9
+    dN: 1
+    dlog10_at_t9_4: -10.59
+  - mesa_handle: r_h1_he4_he4_to_neut_b8
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.597
+  - mesa_handle: r_neut_he4_he4_to_h2_li7
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.647
+  - mesa_handle: r_h1_he4_he4_to_h2_be7
+    class: multi_body_inverse
+    chapter: 6
+    dN: -1
+    dlog10_at_t9_4: 10.595
+  - mesa_handle: r_c12_to_he4_he4_he4
+    class: photo_of_multibody
+    chapter: 8
+    dN: 2
+    dlog10_at_t9_4: -10.118
+  - mesa_handle: r_be9_to_neut_he4_he4
+    class: photo_of_multibody
+    chapter: 8
+    dN: 2
+    dlog10_at_t9_4: -10.591
