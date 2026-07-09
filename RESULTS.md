@@ -240,3 +240,20 @@ data/mesa_cache/crosscheck_*.csv.
 | 2026-07-10 | MESA 24.08.1 side-by-side install | Zenodo 13353788, mesa-24.08.1.zip md5 75418c76… verified; built + module self-tests passed ("MESA installation was successful"); probe binary mesa_probe24 | measured | scripts/install_mesa_24081.sh | 156c73f | Zenodo 13353788 |
 | 2026-07-10 | gh-575 fix verification | affected channels collapse 10.0–22.7 dex (stock) → ≤ 1.9 dex (24.08.1) except r_h1_h1_he4_to_he3_he3: 2.7 dex in BOTH versions ⇒ not a gh-575 channel, open flag | measured | scripts/appendixb_check.py + mesa_probe24 | 156c73f | MESA 24.08.1 + pynucastro 2.12.0 |
 | 2026-07-10 | severe outlier census | 135 channels (93+ db_inverse, 25 forward refits, 13 weak tabular, 4 weak reaclib) — every one class-explained or open-flagged; clustered in pp/CNO light sector, none in the Yₑ-controller set | measured | scripts/crosscheck_rates.py | 156c73f | ditto |
+
+## κ-floor screen at NSE (2026-07-10, Step 4 Task 3)
+
+NSE compositions from pynucastro's solver (all 27 states per net converged;
+T9 ∈ {5, 6.3, 7.9} × ρ ∈ {1e7,1e8,1e9} × Yₑ ∈ {0.45,0.48,0.498}; Coulomb
+corrections and screening off, consistent with the bare-rate comparison).
+κ_r per strong/EM forward-reverse pair; suspect = min-over-states κ > 1e-3.
+Analysis: docs/rate-crosscheck.md §κ-floor; raw data
+data/mesa_cache/kappa_nse_mesa_{80,151}.csv.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-10 | κ at NSE, graphs as built (pyna raw v-flag reverses) | median 6.6e-2 / 1.3e-1 (mesa_80/151), p90 0.39/0.49; suspects 268/280 and 656/672 pairs — pervasive SPURIOUS floor | measured | scripts/kappa_floor_screen.py | f66328a | pynucastro 2.12.0 |
+| 2026-07-10 | attribution (dispositive) | DerivedRate(source_rate=fwd, use_pf=True) reverses collapse worst pairs κ 0.44–0.64 → 1.7e-12…1.3e-11 (rate-eval precision); pf corrections 0.22×–4.5× at NSE T ⇒ floor lives ENTIRELY in the pf-free v-flag reverses (pynucastro side of the comparison, not physics) | measured | scripts/kappa_floor_screen.py (inline DerivedRate test) | f66328a | pynucastro 2.12.0 |
+| 2026-07-10 | κ at NSE, stock MESA r23.05.1 | median 3.6e-3 / 3.3e-3, p90 1.2e-2/7.2e-3 (own pf-interpolation + winvn provenance); κ → 1.0 exactly on gh-575 channels | measured | scripts/kappa_floor_screen.py | f66328a | MESA r23.05.1 |
+| 2026-07-10 | κ at NSE, MESA 24.08.1 | median 5.3e-3/4.9e-3 but p90 0.76: subset of (n,α)/(p,α) pairs κ ~ 0.75 that are clean in stock — consistent with its newer REACLIB snapshot carrying independently-fitted non-DB-linked pair members; open observation (not the label config) | measured | scripts/kappa_floor_screen.py | f66328a | MESA 24.08.1 |
+| 2026-07-10 | BLOCKING Step-5/6 gate | every κ_r / kill-test computation must build reverse rates as DerivedRate(use_pf=True) or take MESA-side rates; raw v-flag reverses forbidden at T9 ≥ 3 (they manufacture κ floors up to 0.8 and would corrupt the Target-A viability verdict) | measured (basis) | scripts/kappa_floor_screen.py | f66328a | — |
