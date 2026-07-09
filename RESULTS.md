@@ -197,3 +197,24 @@ mesa{80,151}.yaml. Decision: ADR 0003.
 | 2026-07-09 | conservation gate + projector (post-reconciliation, BLOCKING) | PASS, 49 tests, unchanged tolerances; column drifts exactly 0.0; dYₑ nonzero through weak columns; projector residual ≤ 1.04e-16 | measured | uv run pytest tests/test_conservation.py tests/test_projector.py | b559dde | ditto |
 | 2026-07-09 | weak-table provenance (per matched pair, MESA side parsed from weakreactions.tables headers) | pre-fix mismatches all sd-shell A=17–28, MESA=OHMT vs pyna=suzuki (14 mesa_80 / 23 mesa_151); post-fix 0 — every matched weak pair uses the label configuration's table family (LMP > Oda > FFN, use_suzuki=.false.) | measured | scripts/reconcile_reactions.py | b559dde | ditto |
 | 2026-07-09 | carried to Task 2 (rate values, not membership) | 14 / 16 REACLIB fit-vs-derived direction-swapped pairs (snapshot 20171020 vs pynucastro 2.12.0); be7→li7 EC (MESA S13 h5 table vs pyna REACLIB ec fit); r_he4_ap_li7 (MESA source=other) | measured | scripts/reconcile_reactions.py | b559dde | ditto |
+
+## Appendix-B bug state of stock MESA r23.05.1 (2026-07-09, Step 4 Task 4)
+
+Static locus: rates/private/reaclib_support.f90 compute_rev_ratio applies the
+detailed-balance phase-space factor fac = (1e9·kB/(2πℏ²N_A))^{3/2}/N_A
+(= 9.868e9, log₁₀ = 9.994) and its T^{3/2} only in the single-product branch;
+upstream fix = MESAHub/mesa gh-575, first released in 24.08.1 (changelog:
+"incorrect phase space factors for reverse reaction rates involving greater
+than 2 reactants or products… inconsistent equilibrium compositions … NSE, at
+temperatures exceeding 4 GK"). The Zenodo training labels were generated with
+the authors' LOCALLY FIXED r23.05.1 (paper App. B), so labels are clean and
+OUR stock MESA is the outlier on the affected channels.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09 | affected channels (multi-body DB inverses, fwd Nout≠1 & ΔN≠0, inverse_exp=0) | 7 (mesa_80) / 8 (mesa_151): all light-nuclide (he3/be7/li7/b8/b11/be9/h2 sector); the paper's ³H channels cannot appear (no tritium in either net) | measured | scripts/appendixb_check.py (dump_inverse probe) | b8665c0 | MESA r23.05.1 stock |
+| 2026-07-09 | empirical discrepancy vs pynucastro 2.12.0, T9∈{1.6,4.0,7.9} | \|Δlog10\| = 10.0–11.1 (\|ΔN\|=1, sign follows ΔN) and 20.6–22.7 (\|ΔN\|=2: h1+h1+he4+he4→he3+be7), tracking \|ΔN\|·log10(fac·T9^{3/2}) within ≲0.35 dex | measured | scripts/appendixb_check.py | b8665c0 | MESA r23.05.1 stock + pynucastro 2.12.0 |
+| 2026-07-09 | BEYOND the paper: chapter-8 photodisintegration reverses (1→3) | c12→3·he4, be9→neut+2·he4, li6→neut+h1+he4 all LOW by 9.5–11.3 dex (fac¹·T^{3/2} applied where fac²·T³ required) — includes the triple-α reverse | measured | scripts/appendixb_check.py | b8665c0 | ditto |
+| 2026-07-09 | anomalous channel | r_h1_h1_he4_to_he3_he3: Δlog10 only +0.6/+1.8/+2.7 (T9 1.6/4/7.9), not the ~10.9 predicted — partial cancellation unexplained; excluded regardless | measured | scripts/appendixb_check.py | b8665c0 | ditto |
+| 2026-07-09 | harness control (all matched clean REACLIB forwards, T9=4) | median \|Δlog10\| = 0.0 exactly (mesa_80 & mesa_151); tails (p99 0.67/0.14, max 2.4/0.85) are REACLIB-snapshot differences → Task 2 scope | measured | scripts/appendixb_check.py | b8665c0 | ditto |
+| 2026-07-09 | verdict + consequence | stock r23.05.1 HAS the bug; labels (patched MESA) do NOT ⇒ our-MESA≠label-MESA on 9/11 channels (configs/appendixb_excluded_channels.yaml) — excluded from all rate-agreement gates and κ/flux analyses; backport patch drafted (patches/0001-reaclib-reverse-phase-space.patch, dry-run clean, NOT applied — user decision pending) | measured | scripts/appendixb_check.py | b8665c0 | full table data/mesa_cache/appendixb_comparison.csv |
