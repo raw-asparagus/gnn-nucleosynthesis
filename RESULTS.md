@@ -174,3 +174,26 @@ chunks at the head and tail of the Sobol sequence (≈ first 4 100 + last
 sequence. No OOD-gating or kill-test region is preferentially under-covered;
 only 2 isolated mid-sequence failures exist (mesa_151), 0 in mesa_80.
 Figures: docs/figures/sobol_missing_mesa{80,151}.png.
+
+## Reaction-set reconciliation vs MESA r23.05.1 (2026-07-09, Step 4 Task 1)
+
+MESA-side inventories extracted from the softwired mesa_80.net / mesa_151.net
+by the src/mesa_probes/ Fortran driver (dump_net mode); diffed against the
+raw pynucastro graphs on canonical directed sorted-multiset keys with
+lepton-channel disambiguation (pp/pep). Convention, per-entry dispositions,
+and analysis: docs/reaction-reconciliation.md + configs/reaction_disposition_
+mesa{80,151}.yaml. Decision: ADR 0003.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09 | canonical reaction counts | MESA 607 / pyna 610 (mesa_80); MESA 1518 / pyna 1522 (mesa_151) | measured | scripts/reconcile_reactions.py | b559dde | MESA r23.05.1 (Zenodo 7983526) + pynucastro 2.12.0 |
+| 2026-07-09 | disposition tallies (original suzuki-topped ordering) | mesa_80: 565 CLEAN + 42 DIFF_PROVENANCE (14 weak-table OHMT-vs-suzuki + 28 construction) + 0 MESA_ONLY + 3 PYNA_ONLY; mesa_151: 1463 + 55 (23 + 32) + 0 + 4 | measured | scripts/reconcile_reactions.py | b559dde | ditto |
+| 2026-07-09 | disposition tallies (adopted MESA-matched ordering) | mesa_80: 579 CLEAN + 28 DIFF_PROVENANCE (construction only) + 0 + 3; mesa_151: 1486 + 32 + 0 + 4 — weak-table mismatches 14/23 → 0/0 | measured | scripts/reconcile_reactions.py | b559dde | ditto |
+| 2026-07-09 | MESA_ONLY entries | 0 both networks — graphs were a strict superset; nothing added | measured | scripts/reconcile_reactions.py | b559dde | ditto |
+| 2026-07-09 | PYNA_ONLY dropped channels | p+be9⇄n+p+he4+he4 (2), n+p+he4+he4→he3+li7 (both nets); + n16→c12+he4 β⁻-delayed α (mesa_151) | measured | scripts/reconcile_reactions.py | b559dde | ditto |
+| 2026-07-09 | reconciled graph exports (= new flux-head dims) | mesa_80: 607 reactions (569 ReacLib + 38 tabular; 46 weak = 21 EC + 19 β⁻ + 6 β⁺); mesa_151: 1518 (1354 + 164; 173 weak = 84 EC + 84 β⁻ + 5 β⁺); provisional_reaction_set=False, disposition_sha256 in npz | measured | scripts/export_stoich_matrix.py | b559dde | ditto |
+| 2026-07-09 | npz content hashes (post-reconciliation) | nu_mesa80: d2edb3e90403a8be…; nu_mesa151: dc8430ce977b492a… | measured | scripts/export_stoich_matrix.py | b559dde | ditto |
+| 2026-07-09 | graph extents + conditioning (post-reconciliation) | radius/diameter/K unchanged (bipartite r=3 d=6 K=5; +I→I r=2 d=4 K=4); cond(ν): 41.57 / 57.86 (were 41.70 / 57.55); cond(CCᵀ) unchanged (3.947e4 / 1.029e5) | measured | scripts/graph_metrics.py | b559dde | ditto |
+| 2026-07-09 | conservation gate + projector (post-reconciliation, BLOCKING) | PASS, 49 tests, unchanged tolerances; column drifts exactly 0.0; dYₑ nonzero through weak columns; projector residual ≤ 1.04e-16 | measured | uv run pytest tests/test_conservation.py tests/test_projector.py | b559dde | ditto |
+| 2026-07-09 | weak-table provenance (per matched pair, MESA side parsed from weakreactions.tables headers) | pre-fix mismatches all sd-shell A=17–28, MESA=OHMT vs pyna=suzuki (14 mesa_80 / 23 mesa_151); post-fix 0 — every matched weak pair uses the label configuration's table family (LMP > Oda > FFN, use_suzuki=.false.) | measured | scripts/reconcile_reactions.py | b559dde | ditto |
+| 2026-07-09 | carried to Task 2 (rate values, not membership) | 14 / 16 REACLIB fit-vs-derived direction-swapped pairs (snapshot 20171020 vs pynucastro 2.12.0); be7→li7 EC (MESA S13 h5 table vs pyna REACLIB ec fit); r_he4_ap_li7 (MESA source=other) | measured | scripts/reconcile_reactions.py | b559dde | ditto |
