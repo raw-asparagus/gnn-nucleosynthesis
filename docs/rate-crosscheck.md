@@ -113,6 +113,39 @@ all channels except `r_h1_h1_he4_to_he3_he3`, which sits at 2.7 dex in BOTH
 MESA versions — not a gh-575 channel; open flag. Full table:
 `data/mesa_cache/appendixb_comparison.csv`; RESULTS.md 2026-07-09/10.
 
+## κ-floor screen at NSE (Task 3)
+
+Derived: `scripts/kappa_floor_screen.py` (2026-07-10); raw tables
+`data/mesa_cache/kappa_nse_mesa_{80,151}.csv`. NSE compositions from
+pynucastro's solver (converged at all 27 states per net, T9 ∈ {5, 6.3, 7.9}
+× ρ × Yₑ, `use_coulomb_corr=False`, screening off — consistent with the
+bare-rate comparison). κ_r = |f⁺−f⁻|/(f⁺+f⁻) per strong/EM pair; a pair is
+a *suspect* when its minimum κ over all NSE states exceeds 1e-3.
+
+| variant | median κ | p90 | suspects (mesa_80 / mesa_151) |
+| --- | --- | --- | --- |
+| pyna (graphs as built) | 6.6e-2 / 1.3e-1 | 0.39 / 0.49 | 268/280 · 656/672 |
+| MESA stock r23.05.1 | 3.6e-3 / 3.3e-3 | 1.2e-2 / 7.2e-3 | 208 · 484 (κ→1 on gh-575 channels) |
+| MESA 24.08.1 | 5.3e-3 / 4.9e-3 | 0.76 / 0.76 | 227 · 527 |
+
+**Attribution (dispositive):** replacing the raw JINA v-flag reverse with
+pynucastro's own `DerivedRate(source_rate=forward, use_pf=True)` collapses
+κ from 0.44–0.64 to **1e-13–1e-11** (rate-evaluation precision) on the
+worst pairs — the pervasive pyna floor is entirely the pf-free v-flag
+reverses (pf corrections reach 0.22×–4.5× at NSE temperatures). The
+stock-MESA residual ~3.4e-3 median floor is MESA's own pf-interpolation +
+winvn-mass provenance. The 24.08.1 variant shows a subset of (n,α)/(p,α)
+pairs at κ ~ 0.75 that are clean in stock — consistent with its newer
+REACLIB snapshot carrying independently-fitted (non-DB-linked) pair
+members; not our label configuration, recorded as an open observation.
+
+**Gate for Step 5/6 (blocking):** every κ_r / kill-test computation must
+construct reverse rates as `DerivedRate(use_pf=True)` (or take MESA-side
+rates); raw v-flag reverses are forbidden at T9 ≥ 3 — they manufacture
+κ floors up to 0.8 that would fake near-floor net flow and corrupt the
+Target-A viability verdict. (Light nuclei lacking pf tables default to
+log pf = 0 — harmless, pf ≈ 1 there.)
+
 ## Step-5 consequences
 
 1. Flux derivations use pynucastro forwards freely (bit-identical), but
