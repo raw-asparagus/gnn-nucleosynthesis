@@ -58,26 +58,55 @@ def normalize_states(
 
 def load_grid_file(path: Path) -> np.ndarray:
     """Load the shipped Sobol grid file -> (N, 3) [logT, logRho, ye]."""
-    arr = np.loadtxt(path)
+    arr = np.loadtxt(path, delimiter=",")
     if arr.ndim != 2 or arr.shape[1] != 3:
         raise ValueError(f"unexpected grid file shape {arr.shape} in {path}")
     return arr
 
 
 def match_rows_to_grid(
-    states: np.ndarray, grid: np.ndarray, tol: float = 1e-4
+    states: np.ndarray, grid: np.ndarray, tol: float = 1e-4, k: int = 5
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Nearest-neighbour match of empirical states onto the Sobol grid.
+    """Match empirical states onto the Sobol grid, one grid point per row.
 
     Both inputs are (N, 3) in [logT, logRho, ye]; matching happens in
-    box-normalized coordinates.  Returns (grid_index_per_row, distance).
-    Rows further than ``tol`` from any grid point get index -1.
+    box-normalized coordinates.  Plain nearest-neighbour first; the few
+    collisions caused by the CSV's 3-decimal logT/logRho rounding are then
+    resolved by greedy unique assignment over each contested row's ``k``
+    nearest candidates (closest pair wins, loser takes its nearest free
+    candidate).  Returns (grid_index_per_row, distance); rows further than
+    ``tol`` from every candidate get index -1.
     """
     from scipy.spatial import cKDTree
 
     tree = cKDTree(normalize_states(grid[:, 0], grid[:, 1], grid[:, 2]))
     q = normalize_states(states[:, 0], states[:, 1], states[:, 2])
     dist, idx = tree.query(q, k=1)
-    idx = np.asarray(idx)
+    idx = np.asarray(idx, dtype=np.int64)
+    dist = np.asarray(dist)
     idx[dist > tol] = -1
-    return idx, np.asarray(dist)
+
+    # resolve collisions: rows sharing a grid point
+    taken, counts = np.unique(idx[idx >= 0], return_counts=True)
+    contested = set(taken[counts > 1].tolist())
+    if contested:
+        rows = np.flatnonzero(np.isin(idx, list(contested)))
+        kd, ki = tree.query(q[rows], k=k)
+        # free the contested assignments, keep every uncontested claim
+        claimed = set(taken[counts == 1].tolist())
+        for r in rows:
+            idx[r] = -1
+        # greedy: shortest (row, candidate) pair first
+        pairs = sorted(
+            (kd[a, j], rows[a], int(ki[a, j]))
+            for a in range(len(rows))
+            for j in range(k)
+            if kd[a, j] <= tol
+        )
+        for d, r, g in pairs:
+            if idx[r] >= 0 or g in claimed:
+                continue
+            idx[r] = g
+            dist[r] = d
+            claimed.add(g)
+    return idx, dist
