@@ -33,10 +33,16 @@ def main() -> None:
         f"{info.n_duplicate_groups_resolved} duplicate links resolved tabular-wins), "
         f"{int(stoich.weak_mask.sum())} weak columns"
     )
+    recon = (
+        f"reconciled vs MESA r23.05.1: {info.n_dropped} PYNA_ONLY dropped, "
+        f"disposition sha256 {info.disposition_sha256[:12]}… (ADR 0003)"
+        if info.disposition_sha256
+        else "NO disposition applied — raw pynucastro set (Step-4 cross-check pending)"
+    )
     print(
         f"provisional_reaction_set={info.provisional_reaction_set} "
         f"(pynucastro {info.pynucastro_version}, tabular ordering "
-        f"{'<'.join(info.tabular_ordering)}; Step-4 MESA cross-check pending)"
+        f"{'<'.join(info.tabular_ordering)}; {recon})"
     )
     print(f"wrote {npz}  (content sha256 {content_hash(npz)})")
     print(f"wrote {gml}  (file sha256 {sha256_of(gml)})")

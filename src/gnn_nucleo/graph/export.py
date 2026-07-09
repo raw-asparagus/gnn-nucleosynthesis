@@ -64,6 +64,8 @@ def export_npz(stoich: Stoich, info: BuildInfo, out: Path) -> Path:
         tabular_ordering=np.array(list(info.tabular_ordering)),
         n_duplicate_groups_resolved=np.array(info.n_duplicate_groups_resolved),
         provisional_reaction_set=np.array(info.provisional_reaction_set),
+        disposition_sha256=np.array(info.disposition_sha256),
+        n_dropped=np.array(info.n_dropped),
     )
     return out
 

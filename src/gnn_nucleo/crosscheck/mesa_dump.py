@@ -22,7 +22,13 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-from .canonical import directed_key, from_mesa, pair_key, parse_participants
+from .canonical import (
+    directed_key,
+    from_mesa,
+    pair_key,
+    parse_participants,
+    tag_weak_channels,
+)
 from .probe import mesa_dir
 
 
@@ -92,10 +98,10 @@ def dump_to_records(df: pd.DataFrame) -> list[dict]:
             rhs = from_mesa(str(row["weak_rhs"]))
             rec["weak_table_source"] = weak_sources.get((lhs, rhs), "UNKNOWN")
         records.append(rec)
-    keys = [r["key"] for r in records]
-    dups = {k for k in keys if keys.count(k) > 1}
-    if dups:
-        raise RuntimeError(f"duplicate canonical keys in MESA dump: {sorted(dups)}")
+    tag_weak_channels(
+        records,
+        lambda r: "ec" if "_ec_" in r["mesa_handle"] else "wk",
+    )
     return records
 
 

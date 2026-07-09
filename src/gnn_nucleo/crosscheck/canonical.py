@@ -98,6 +98,35 @@ def reverse_key(key: str) -> str:
     return f"{rhs}=>{lhs}"
 
 
+def tag_weak_channels(records: list[dict], channel_of) -> None:
+    """Disambiguate directed-key collisions caused by lepton-channel splits.
+
+    Nuclide multisets identify a reaction uniquely EXCEPT where one inventory
+    carries several lepton channels of the same transition (pp vs pep:
+    h1*2=>h2*1 as beta-plus and as electron capture).  For every colliding
+    key group, all members must be weak; each gets ``;ec`` or ``;wk``
+    appended (from ``channel_of(record)``).  Inventories that resolve the
+    same split tag identically, so cross-side matching is preserved;
+    single-channel weak reactions keep untagged keys on both sides.
+    Mutates ``records`` in place; raises if a collision survives tagging.
+    """
+    from collections import Counter
+
+    dups = {k for k, c in Counter(r["key"] for r in records).items() if c > 1}
+    for rec in records:
+        if rec["key"] not in dups:
+            continue
+        if not rec.get("is_weak"):
+            raise ValueError(
+                f"non-weak canonical-key collision: {rec['key']!r}"
+            )
+        rec["key"] = f"{rec['key']};{channel_of(rec)}"
+        rec["pair_key"] = f"{rec['pair_key']};{channel_of(rec)}"
+    remaining = {k for k, c in Counter(r["key"] for r in records).items() if c > 1}
+    if remaining:
+        raise ValueError(f"unresolved key collisions: {sorted(remaining)}")
+
+
 def parse_participants(s: str) -> list[str]:
     """Parse the probe dump encoding '1:neut;2:he4' into an expanded
     chem-id list (['neut', 'he4', 'he4'])."""

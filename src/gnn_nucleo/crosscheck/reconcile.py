@@ -17,7 +17,7 @@ import yaml
 
 from gnn_nucleo.graph import build_rate_collection, load_isotope_table
 
-from .canonical import directed_key, from_pyna, pair_key
+from .canonical import directed_key, from_pyna, pair_key, tag_weak_channels
 
 DISPOSITIONS = (
     "MESA_ONLY",
@@ -36,9 +36,14 @@ WEAK_TABLE_MAP = {
 
 
 def pyna_inventory(network: str) -> list[dict]:
-    """Canonical inventory of the current pynucastro rate collection."""
+    """Canonical inventory of the RAW pynucastro rate collection.
+
+    disposition=None on purpose: the disposition file is defined as the diff
+    between the raw pynucastro set and MESA; building with the disposition
+    applied here would make reconciliation self-erasing.
+    """
     table = load_isotope_table(network)
-    rc, info = build_rate_collection(table)
+    rc, info = build_rate_collection(table, disposition=None)
     records: list[dict] = []
     for rate in rc.get_rates():
         reactants = [from_pyna(n) for n in rate.reactants]
@@ -61,11 +66,12 @@ def pyna_inventory(network: str) -> list[dict]:
                 (getattr(rate, "source", None) or {}).get("Label", "")
             ),
         }
+        rec["weak_type"] = str(getattr(rate, "weak_type", "") or "")
         records.append(rec)
-    keys = [r["key"] for r in records]
-    dups = {k for k in keys if keys.count(k) > 1}
-    if dups:
-        raise RuntimeError(f"duplicate canonical keys in pyna set: {sorted(dups)}")
+    tag_weak_channels(
+        records,
+        lambda r: "ec" if r["weak_type"] == "electron_capture" else "wk",
+    )
     return records
 
 
