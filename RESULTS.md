@@ -218,3 +218,25 @@ OUR stock MESA is the outlier on the affected channels.
 | 2026-07-09 | anomalous channel | r_h1_h1_he4_to_he3_he3: Δlog10 only +0.6/+1.8/+2.7 (T9 1.6/4/7.9), not the ~10.9 predicted — partial cancellation unexplained; excluded regardless | measured | scripts/appendixb_check.py | b8665c0 | ditto |
 | 2026-07-09 | harness control (all matched clean REACLIB forwards, T9=4) | median \|Δlog10\| = 0.0 exactly (mesa_80 & mesa_151); tails (p99 0.67/0.14, max 2.4/0.85) are REACLIB-snapshot differences → Task 2 scope | measured | scripts/appendixb_check.py | b8665c0 | ditto |
 | 2026-07-09 | verdict + consequence | stock r23.05.1 HAS the bug; labels (patched MESA) do NOT ⇒ our-MESA≠label-MESA on 9/11 channels (configs/appendixb_excluded_channels.yaml) — excluded from all rate-agreement gates and κ/flux analyses; backport patch drafted (patches/0001-reaclib-reverse-phase-space.patch, dry-run clean, NOT applied — user decision pending) | measured | scripts/appendixb_check.py | b8665c0 | full table data/mesa_cache/appendixb_comparison.csv |
+
+## Rate-level cross-check vs label configuration (2026-07-10, Step 4 Task 2)
+
+Label configuration = stock r23.05.1 + bbq defaults (REACLIB jina 20171020,
+weaklib LMP>Oda>FFN, use_suzuki=.false., screening chugunov) + the authors'
+gh-575 fix. Grid: 7 T9 × 3 ρ × 3 Yₑ. Full analysis:
+docs/rate-crosscheck.md; outliers configs/rate_outliers.yaml; raw tables
+data/mesa_cache/crosscheck_*.csv.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-10 | REACLIB forwards, matched clean | median \|Δlog10\| = 4.4e-16 / 8.9e-16 (mesa_80/151) — bit-identical; tail = snapshot refits, 25 channels flagged (worst n13(p,γ)o14 pair −3.7 dex; pp/CNO sector) | measured | scripts/crosscheck_rates.py | 156c73f | MESA r23.05.1 + pynucastro 2.12.0 |
+| 2026-07-10 | DB inverses | median \|Δlog10\| = 0.048 / 0.095; signed median +0.005→+0.013 dex over T9 1.6→7.9 ⇒ pf-handling systematic (MESA applies winvn pf ratios, pyna v-flag fits are pf-free); 93 channels > 0.5 dex flagged | measured | scripts/crosscheck_rates.py | 156c73f | ditto |
+| 2026-07-10 | construction-swapped pairs (14/16) | median \|Δlog10\| = 0.0004 / 0.0006 — snapshots numerically consistent, only fit/derived labels differ; NOT a defect | measured | scripts/crosscheck_rates.py | 156c73f | ditto |
+| 2026-07-10 | weak tabular, per-pair sources | 0 table-source mismatches (post-ADR 0003); at T9=5 table node median \|Δlog10\| = 0.003; off-node 0.03–0.18 dex = interpolation (MESA bilinear vs pyna interpolant); β⁻ tail ≤ 0.8 dex (13 channels > 0.5 flagged) | measured | scripts/crosscheck_rates.py | 156c73f | ditto |
+| 2026-07-10 | Yₑ-controller EC channels (LMP/OHMT-matched) | median \|Δ\| 0.009–0.095 dex, at-node ≤ 0.012 dex (co55, ni56, fe54, fe56, v51, s33, cl35, ar37) | measured | scripts/crosscheck_rates.py | 156c73f | ditto |
+| 2026-07-10 | weak-table edge behavior | all box states interior (T9 ≤ 7.9 < 30, logρYₑ ≤ 8.7 < 11); outside: MESA CLIPS to edge (eval_weak.f90), pynucastro EXTRAPOLATES (measured T9=40, 100) | measured | scripts/crosscheck_rates.py + source | 156c73f | ditto |
+| 2026-07-10 | be7→li7 EC provenance | MESA S13 h5 (T,ρYₑ) table vs pyna reaclib ec fit: 2.58–2.77 dex — open flag, light sector | measured | scripts/crosscheck_rates.py | 156c73f | ditto |
+| 2026-07-10 | screening determination (training labels) | MESA chugunov ≡ pynucastro chugunov_2007: median ratio 0.99999, max \|log10\| = 0.0021 over all strong pairs × grid (both nets); chugunov_2009 does NOT match (max 0.52 dex); MESA extended ≡ pyna screen5 to ~1e-4 (harness validation); pyna screening fns return ln(factor) | measured | scripts/crosscheck_rates.py | 156c73f | ditto |
+| 2026-07-10 | MESA 24.08.1 side-by-side install | Zenodo 13353788, mesa-24.08.1.zip md5 75418c76… verified; built + module self-tests passed ("MESA installation was successful"); probe binary mesa_probe24 | measured | scripts/install_mesa_24081.sh | 156c73f | Zenodo 13353788 |
+| 2026-07-10 | gh-575 fix verification | affected channels collapse 10.0–22.7 dex (stock) → ≤ 1.9 dex (24.08.1) except r_h1_h1_he4_to_he3_he3: 2.7 dex in BOTH versions ⇒ not a gh-575 channel, open flag | measured | scripts/appendixb_check.py + mesa_probe24 | 156c73f | MESA 24.08.1 + pynucastro 2.12.0 |
+| 2026-07-10 | severe outlier census | 135 channels (93+ db_inverse, 25 forward refits, 13 weak tabular, 4 weak reaclib) — every one class-explained or open-flagged; clustered in pp/CNO light sector, none in the Yₑ-controller set | measured | scripts/crosscheck_rates.py | 156c73f | ditto |
