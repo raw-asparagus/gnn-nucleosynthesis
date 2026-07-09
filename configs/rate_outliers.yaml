@@ -1,0 +1,1127 @@
+derived: scripts/crosscheck_rates.py, 2026-07-10
+policy: every entry is either explained in docs/rate-crosscheck.md or carried as an open flag into Step
+  5 (flux derivations exclude or footnote unexplained channels)
+explained_classes:
+  db_inverse_bulk: 'signed median dlog10 grows 0.005->0.013 dex over T9 1.6->7.9: partition-function handling
+    (MESA applies pf ratios to DB reverses; pynucastro evaluates JINA v-flag fits pf-free) plus winvn-vs-REACLIB
+    mass/Q provenance. Individual flags only beyond 0.5 dex.'
+  weak_tabular_bulk: 'interpolation scheme on the shared coarse tables: at the T9=5 table node median
+    |dlog10| = 0.003; off-node medians 0.03-0.18 dex are MESA-bilinear vs pynucastro interpolant differences,
+    largest for steep beta-minus channels. Labels used MESA''s bilinear values.'
+  reaclib_forward_bulk: median |dlog10| = machine zero (bit-identical fits); channels beyond 0.05 dex
+    are REACLIB snapshot refits (MESA jina 20171020 vs pynucastro 2.12.0 snapshot).
+  appendixb: stock-r23.05.1 gh-575 channels, see configs/appendixb_excluded_channels.yaml; verified fixed
+    in MESA 24.08.1 to <= 1.9 dex residual except r_h1_h1_he4_to_he3_he3 (2.7 dex in BOTH MESA versions
+    => not a gh-575 channel; open flag).
+n_outliers: 135
+outliers:
+- network: mesa_80
+  key: h1*1+n13*1=>o14*1
+  mesa_handle: r_n13_pg_o14
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -3.6931
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: o14*1=>h1*1+n13*1
+  mesa_handle: r_o14_gp_n13
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -3.6884
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: he4*1+n15*1=>h1*1+o18*1
+  mesa_handle: r_n15_ap_o18
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 1.3895
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: he4*1+o16*1=>f19*1+h1*1
+  mesa_handle: r_o16_ap_f19
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 1.3515
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: he4*1=>he3*1+neut*1
+  mesa_handle: r_he4_gn_he3
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 1.1234
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: he3*1+neut*1=>he4*1
+  mesa_handle: r_he3_ng_he4
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 1.1168
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: h1*2=>h2*1;wk
+  mesa_handle: r_h1_h1_wk_h2
+  category: weak_reaclib
+  band: 0.05
+  worst_dlog10: 1.0769
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: he4*1+o17*1=>ne21*1
+  mesa_handle: r_o17_ag_ne21
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.9893
+  worst_at:
+    t9: 2.5
+- network: mesa_80
+  key: o15*1=>h1*1+n14*1
+  mesa_handle: r_o15_gp_n14
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.8877
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: h1*1+n14*1=>o15*1
+  mesa_handle: r_n14_pg_o15
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.883
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: ne21*1=>he4*1+o17*1
+  mesa_handle: r_ne21_ga_o17
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.881
+  worst_at:
+    t9: 2.5
+- network: mesa_80
+  key: he4*1+ne18*1=>h1*1+na21*1
+  mesa_handle: r_ne18_ap_na21
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.8143
+  worst_at:
+    t9: 2.5
+- network: mesa_80
+  key: f19*1=>he4*1+n15*1
+  mesa_handle: r_f19_ga_n15
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.7037
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: h1*1+na21*1=>he4*1+ne18*1
+  mesa_handle: r_na21_pa_ne18
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6914
+  worst_at:
+    t9: 2.5
+- network: mesa_80
+  key: h1*1+k39*1=>ca40*1
+  mesa_handle: r_k39_pg_ca40
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -0.6857
+  worst_at:
+    t9: 6.3
+- network: mesa_80
+  key: he4*1+o16*1=>ne19*1+neut*1
+  mesa_handle: r_o16_an_ne19
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6725
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: ca40*1=>h1*1+k39*1
+  mesa_handle: r_ca40_gp_k39
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6707
+  worst_at:
+    t9: 6.3
+- network: mesa_80
+  key: ne19*1=>he4*1+o15*1
+  mesa_handle: r_ne19_ga_o15
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6666
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: f19*1=>h1*1+o18*1
+  mesa_handle: r_f19_gp_o18
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5837
+  worst_at:
+    t9: 6.3
+- network: mesa_80
+  key: co56*1+h1*1=>neut*1+ni56*1
+  mesa_handle: r_co56_pn_ni56
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5673
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: ne20*1=>f19*1+h1*1
+  mesa_handle: r_ne20_gp_f19
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.557
+  worst_at:
+    t9: 5.0
+- network: mesa_80
+  key: co56*1=>co55*1+neut*1
+  mesa_handle: r_co56_gn_co55
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5351
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: he4*1+s34*1=>ar38*1
+  mesa_handle: r_s34_ag_ar38
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.5233
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: ar38*1=>he4*1+s34*1
+  mesa_handle: r_ar38_ga_s34
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5218
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: ne19*1=>ne18*1+neut*1
+  mesa_handle: r_ne19_gn_ne18
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5193
+  worst_at:
+    t9: 6.3
+- network: mesa_80
+  key: ca40*1+he4*1=>h1*1+sc43*1
+  mesa_handle: r_ca40_ap_sc43
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5123
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: ne20*1=>ne19*1+neut*1
+  mesa_handle: r_ne20_gn_ne19
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.507
+  worst_at:
+    t9: 6.3
+- network: mesa_80
+  key: ti45*1=>ca41*1+he4*1
+  mesa_handle: r_ti45_ga_ca41
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5046
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: v47*1=>h1*1+ti46*1
+  mesa_handle: r_v47_gp_ti46
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.504
+  worst_at:
+    t9: 3.3
+- network: mesa_80
+  key: h1*1+s34*1=>cl35*1
+  mesa_handle: r_s34_pg_cl35
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.4859
+  worst_at:
+    t9: 7.9
+- network: mesa_80
+  key: ca41*1+neut*1=>ar38*1+he4*1
+  mesa_handle: r_ca41_na_ar38
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.1594
+  worst_at:
+    t9: 1.6
+- network: mesa_80
+  key: be9*1+neut*1=>be10*1
+  mesa_handle: r_be9_ng_be10
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -0.1501
+  worst_at:
+    t9: 2.5
+- network: mesa_80
+  key: he4*1+o16*1=>ne20*1
+  mesa_handle: r_o16_ag_ne20
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.1438
+  worst_at:
+    t9: 1.6
+- network: mesa_80
+  key: h1*1+ne22*1=>na23*1
+  mesa_handle: r_ne22_pg_na23
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -0.1218
+  worst_at:
+    t9: 1.6
+- network: mesa_80
+  key: h1*1+o18*1=>he4*1+n15*1
+  mesa_handle: r_o18_pa_n15
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -0.0556
+  worst_at:
+    t9: 2.5
+- network: mesa_80
+  key: h1*2=>h2*1;wk
+  mesa_handle: r_h1_h1_wk_h2
+  category: weak_reaclib
+  band: 0.05
+  worst_dlog10: 1.0769
+  worst_at:
+    t9: 7.9
+    rho: 10000000.0
+    ye: 0.45
+- network: mesa_80
+  key: k39*1=>ca39*1
+  mesa_handle: r_k39_wk-minus_ca39
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5183
+  worst_at:
+    t9: 7.9
+    rho: 1000000000.0
+    ye: 0.498
+- network: mesa_80
+  key: cl35*1=>ar35*1
+  mesa_handle: r_cl35_wk-minus_ar35
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5161
+  worst_at:
+    t9: 7.9
+    rho: 1000000000.0
+    ye: 0.498
+- network: mesa_80
+  key: si30*1=>p30*1
+  mesa_handle: r_si30_wk-minus_p30
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5117
+  worst_at:
+    t9: 7.9
+    rho: 1000000000.0
+    ye: 0.45
+- network: mesa_80
+  key: mg26*1=>al26*1
+  mesa_handle: r_mg26_wk-minus_al26
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5094
+  worst_at:
+    t9: 2.5
+    rho: 1000000000.0
+    ye: 0.45
+- network: mesa_80
+  key: p31*1=>s31*1
+  mesa_handle: r_p31_wk-minus_s31
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5051
+  worst_at:
+    t9: 7.9
+    rho: 1000000000.0
+    ye: 0.498
+- network: mesa_151
+  key: he4*1+n15*1=>h1*1+o18*1
+  mesa_handle: r_n15_ap_o18
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 1.3895
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: he4*1+o16*1=>f19*1+h1*1
+  mesa_handle: r_o16_ap_f19
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 1.3515
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: he4*1=>he3*1+neut*1
+  mesa_handle: r_he4_gn_he3
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 1.1234
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: he3*1+neut*1=>he4*1
+  mesa_handle: r_he3_ng_he4
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 1.1168
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: h1*2=>h2*1;wk
+  mesa_handle: r_h1_h1_wk_h2
+  category: weak_reaclib
+  band: 0.05
+  worst_dlog10: 1.0769
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: he4*1+o17*1=>ne21*1
+  mesa_handle: r_o17_ag_ne21
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.9893
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: ca41*1+he4*1=>h1*1+sc44*1
+  mesa_handle: r_ca41_ap_sc44
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.9811
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: o15*1=>h1*1+n14*1
+  mesa_handle: r_o15_gp_n14
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.8877
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: h1*1+n14*1=>o15*1
+  mesa_handle: r_n14_pg_o15
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.883
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: ne21*1=>he4*1+o17*1
+  mesa_handle: r_ne21_ga_o17
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.881
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: ar39*1+he4*1=>h1*1+k42*1
+  mesa_handle: r_ar39_ap_k42
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.874
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: co58*1=>co57*1+neut*1
+  mesa_handle: r_co58_gn_co57
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.8733
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: he4*1+sc49*1=>neut*1+v52*1
+  mesa_handle: r_sc49_an_v52
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.8723
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: co58*1+h1*1=>neut*1+ni58*1
+  mesa_handle: r_co58_pn_ni58
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.8641
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: co59*1=>co58*1+neut*1
+  mesa_handle: r_co59_gn_co58
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.8452
+  worst_at:
+    t9: 4.0
+- network: mesa_151
+  key: fe57*1+h1*1=>co57*1+neut*1
+  mesa_handle: r_fe57_pn_co57
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.799
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: fe55*1+he4*1=>co58*1+h1*1
+  mesa_handle: r_fe55_ap_co58
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.767
+  worst_at:
+    t9: 4.0
+- network: mesa_151
+  key: fe57*1+he4*1=>neut*1+ni60*1
+  mesa_handle: r_fe57_an_ni60
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.752
+  worst_at:
+    t9: 4.0
+- network: mesa_151
+  key: fe58*1+h1*1=>co58*1+neut*1
+  mesa_handle: r_fe58_pn_co58
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.7381
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: ni64*1=>neut*1+ni63*1
+  mesa_handle: r_ni64_gn_ni63
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.7241
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: f19*1+neut*1=>he4*1+n16*1
+  mesa_handle: r_f19_na_n16
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.7104
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: fe57*1=>cr53*1+he4*1
+  mesa_handle: r_fe57_ga_cr53
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.706
+  worst_at:
+    t9: 4.0
+- network: mesa_151
+  key: f19*1=>he4*1+n15*1
+  mesa_handle: r_f19_ga_n15
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.7037
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: ca44*1+h1*1=>neut*1+sc44*1
+  mesa_handle: r_ca44_pn_sc44
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6953
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: h1*1+k39*1=>ca40*1
+  mesa_handle: r_k39_pg_ca40
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -0.6857
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: ca42*1+neut*1=>h1*1+k42*1
+  mesa_handle: r_ca42_np_k42
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6829
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: he4*1+ti49*1=>h1*1+v52*1
+  mesa_handle: r_ti49_ap_v52
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6811
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: h1*1+sc44*1=>neut*1+ti44*1
+  mesa_handle: r_sc44_pn_ti44
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6794
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: h1*1+ti49*1=>he4*1+sc46*1
+  mesa_handle: r_ti49_pa_sc46
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6784
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: ca45*1+h1*1=>he4*1+k42*1
+  mesa_handle: r_ca45_pa_k42
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6779
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: he4*1+o16*1=>ne19*1+neut*1
+  mesa_handle: r_o16_an_ne19
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6725
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: ca40*1=>h1*1+k39*1
+  mesa_handle: r_ca40_gp_k39
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6707
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: ni63*1=>neut*1+ni62*1
+  mesa_handle: r_ni63_gn_ni62
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6697
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: ne19*1=>he4*1+o15*1
+  mesa_handle: r_ne19_ga_o15
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6666
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: he4*1+mn56*1=>co59*1+neut*1
+  mesa_handle: r_mn56_an_co59
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6633
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: v52*1=>h1*1+ti51*1
+  mesa_handle: r_v52_gp_ti51
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6593
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: cr54*1+he4*1=>fe57*1+neut*1
+  mesa_handle: r_cr54_an_fe57
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6588
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: fe58*1=>fe57*1+neut*1
+  mesa_handle: r_fe58_gn_fe57
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6548
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: fe57*1=>fe56*1+neut*1
+  mesa_handle: r_fe57_gn_fe56
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6542
+  worst_at:
+    t9: 3.3
+- network: mesa_151
+  key: sc44*1=>ca43*1+h1*1
+  mesa_handle: r_sc44_gp_ca43
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6517
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: cr52*1+neut*1=>h1*1+v52*1
+  mesa_handle: r_cr52_np_v52
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6492
+  worst_at:
+    t9: 4.0
+- network: mesa_151
+  key: ni59*1=>co58*1+h1*1
+  mesa_handle: r_ni59_gp_co58
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6457
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: ca46*1+h1*1=>neut*1+sc46*1
+  mesa_handle: r_ca46_pn_sc46
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6387
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: k42*1=>ar41*1+h1*1
+  mesa_handle: r_k42_gp_ar41
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6365
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: sc44*1=>he4*1+k40*1
+  mesa_handle: r_sc44_ga_k40
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6221
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: sc47*1=>neut*1+sc46*1
+  mesa_handle: r_sc47_gn_sc46
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6177
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: k42*1=>k41*1+neut*1
+  mesa_handle: r_k42_gn_k41
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.6157
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: ca43*1=>h1*1+k42*1
+  mesa_handle: r_ca43_gp_k42
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6136
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: cr53*1+he4*1=>h1*1+mn56*1
+  mesa_handle: r_cr53_ap_mn56
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6088
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: he4*1+mn55*1=>co58*1+neut*1
+  mesa_handle: r_mn55_an_co58
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6035
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: cr53*1=>h1*1+v52*1
+  mesa_handle: r_cr53_gp_v52
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.6002
+  worst_at:
+    t9: 3.3
+- network: mesa_151
+  key: sc46*1=>ca45*1+h1*1
+  mesa_handle: r_sc46_gp_ca45
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5918
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: fe60*1+he4*1=>neut*1+ni63*1
+  mesa_handle: r_fe60_an_ni63
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5882
+  worst_at:
+    t9: 3.3
+- network: mesa_151
+  key: he4*1+mn54*1=>co57*1+neut*1
+  mesa_handle: r_mn54_an_co57
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5862
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: f19*1=>h1*1+o18*1
+  mesa_handle: r_f19_gp_o18
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5837
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: v52*1=>neut*1+v51*1
+  mesa_handle: r_v52_gn_v51
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5802
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: he4*1+v51*1=>mn54*1+neut*1
+  mesa_handle: r_v51_an_mn54
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5707
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: ca48*1+h1*1=>neut*1+sc48*1
+  mesa_handle: r_ca48_pn_sc48
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5674
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: co56*1+h1*1=>neut*1+ni56*1
+  mesa_handle: r_co56_pn_ni56
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5673
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: ne20*1=>f19*1+h1*1
+  mesa_handle: r_ne20_gp_f19
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.557
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: h1*1+mn54*1=>fe54*1+neut*1
+  mesa_handle: r_mn54_pn_fe54
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5552
+  worst_at:
+    t9: 5.0
+- network: mesa_151
+  key: mn54*1=>mn53*1+neut*1
+  mesa_handle: r_mn54_gn_mn53
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5513
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: sc44*1=>neut*1+sc43*1
+  mesa_handle: r_sc44_gn_sc43
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5435
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: sc49*1=>neut*1+sc48*1
+  mesa_handle: r_sc49_gn_sc48
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5428
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: fe56*1+neut*1=>h1*1+mn56*1
+  mesa_handle: r_fe56_np_mn56
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5372
+  worst_at:
+    t9: 4.0
+- network: mesa_151
+  key: ca43*1+he4*1=>h1*1+sc46*1
+  mesa_handle: r_ca43_ap_sc46
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.537
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: h1*1+ti47*1=>he4*1+sc44*1
+  mesa_handle: r_ti47_pa_sc44
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5366
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: co56*1=>co55*1+neut*1
+  mesa_handle: r_co56_gn_co55
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5351
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: sc48*1=>ca47*1+h1*1
+  mesa_handle: r_sc48_gp_ca47
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5333
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: he4*1+s34*1=>ar38*1
+  mesa_handle: r_s34_ag_ar38
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.5233
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: cr51*1+he4*1=>h1*1+mn54*1
+  mesa_handle: r_cr51_ap_mn54
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5222
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: ar38*1=>he4*1+s34*1
+  mesa_handle: r_ar38_ga_s34
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5218
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: neut*1+ti46*1=>h1*1+sc46*1
+  mesa_handle: r_ti46_np_sc46
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5169
+  worst_at:
+    t9: 4.0
+- network: mesa_151
+  key: ca40*1+he4*1=>h1*1+sc43*1
+  mesa_handle: r_ca40_ap_sc43
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5123
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: ne20*1=>ne19*1+neut*1
+  mesa_handle: r_ne20_gn_ne19
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.507
+  worst_at:
+    t9: 6.3
+- network: mesa_151
+  key: ti45*1=>ca41*1+he4*1
+  mesa_handle: r_ti45_ga_ca41
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.5046
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: neut*1+s32*1=>h1*1+p32*1
+  mesa_handle: r_s32_np_p32
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: 0.5042
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: v47*1=>h1*1+ti46*1
+  mesa_handle: r_v47_gp_ti46
+  category: db_inverse
+  band: 0.05
+  worst_dlog10: -0.504
+  worst_at:
+    t9: 3.3
+- network: mesa_151
+  key: h1*1+s34*1=>cl35*1
+  mesa_handle: r_s34_pg_cl35
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.4859
+  worst_at:
+    t9: 7.9
+- network: mesa_151
+  key: h1*1+k41*1=>ar38*1+he4*1
+  mesa_handle: r_k41_pa_ar38
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.4027
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: ca41*1+neut*1=>ar38*1+he4*1
+  mesa_handle: r_ca41_na_ar38
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.1594
+  worst_at:
+    t9: 1.6
+- network: mesa_151
+  key: be9*1+neut*1=>be10*1
+  mesa_handle: r_be9_ng_be10
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -0.1501
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: he4*1+o16*1=>ne20*1
+  mesa_handle: r_o16_ag_ne20
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: 0.1438
+  worst_at:
+    t9: 1.6
+- network: mesa_151
+  key: h1*1+ne22*1=>na23*1
+  mesa_handle: r_ne22_pg_na23
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -0.1218
+  worst_at:
+    t9: 1.6
+- network: mesa_151
+  key: h1*1+o18*1=>he4*1+n15*1
+  mesa_handle: r_o18_pa_n15
+  category: reaclib_forward
+  band: 0.004
+  worst_dlog10: -0.0556
+  worst_at:
+    t9: 2.5
+- network: mesa_151
+  key: h1*2=>h2*1;wk
+  mesa_handle: r_h1_h1_wk_h2
+  category: weak_reaclib
+  band: 0.05
+  worst_dlog10: 1.0769
+  worst_at:
+    t9: 7.9
+    rho: 10000000.0
+    ye: 0.45
+- network: mesa_151
+  key: ca43*1=>sc43*1
+  mesa_handle: r_ca43_wk-minus_sc43
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.7993
+  worst_at:
+    t9: 4.0
+    rho: 1000000000.0
+    ye: 0.45
+- network: mesa_151
+  key: ca48*1=>sc48*1
+  mesa_handle: r_ca48_wk-minus_sc48
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.6154
+  worst_at:
+    t9: 1.6
+    rho: 100000000.0
+    ye: 0.45
+- network: mesa_151
+  key: k40*1=>ca40*1
+  mesa_handle: r_k40_wk-minus_ca40
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5935
+  worst_at:
+    t9: 7.9
+    rho: 1000000000.0
+    ye: 0.45
+- network: mesa_151
+  key: sc44*1=>ti44*1
+  mesa_handle: r_sc44_wk-minus_ti44
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5706
+  worst_at:
+    t9: 6.3
+    rho: 1000000000.0
+    ye: 0.45
+- network: mesa_151
+  key: si30*1=>p30*1
+  mesa_handle: r_si30_wk-minus_p30
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5117
+  worst_at:
+    t9: 7.9
+    rho: 1000000000.0
+    ye: 0.45
+- network: mesa_151
+  key: mg26*1=>al26*1
+  mesa_handle: r_mg26_wk-minus_al26
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5094
+  worst_at:
+    t9: 2.5
+    rho: 1000000000.0
+    ye: 0.45
+- network: mesa_151
+  key: ca44*1=>sc44*1
+  mesa_handle: r_ca44_wk-minus_sc44
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5073
+  worst_at:
+    t9: 4.0
+    rho: 1000000000.0
+    ye: 0.45
+- network: mesa_151
+  key: p31*1=>s31*1
+  mesa_handle: r_p31_wk-minus_s31
+  category: weak_tabular
+  band: 0.1
+  worst_dlog10: -0.5051
+  worst_at:
+    t9: 7.9
+    rho: 1000000000.0
+    ye: 0.498
