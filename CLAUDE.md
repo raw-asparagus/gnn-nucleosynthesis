@@ -72,6 +72,10 @@ These are testable facts, not preferences. Code that violates them is wrong by d
   (see docs/phase0-checklist.md): slope ≈ 1 → keep/tighten; slope ≈ 0.5 (random-walk)
   → may relax toward ~5e-5.
 - End-to-end Yₑ physics floor: 5e-3 to 1.5e-2 per trajectory (FFN→LMP anchor).
+- κ/flux construction gate (Step 4, RESULTS.md 2026-07-10): every κ_r or flux
+  computation builds reverse rates as pynucastro DerivedRate(use_pf=True) or takes
+  MESA-side rates — raw JINA v-flag reverses are FORBIDDEN at T9 ≥ 3 (pf-free fits
+  manufacture spurious κ floors up to 0.8 at NSE; docs/rate-crosscheck.md §κ-floor).
 - Kill-test thresholds: Target A viable if the active set {r : κ_r > 0.1} carries ≥95%
   of |ΔYₑ| (and of |ΔX| for dominant isotopes) at the median timestep; FAIL if net flow
   spreads over >~30% of reactions near the κ floor. cond(S_active) < 1e6 pass,

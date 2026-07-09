@@ -9,12 +9,12 @@ Operative gate until item 12 is measured: per-step |ΔYₑ| ≲ 3e-6 (systematic
 
 | # | Done | Measurement | Sets / gates | Measured value (script, date) |
 |---|------|-------------|--------------|-------------------------------|
-| 1 | [x] | Reaction count + graph radius/diameter of mesa_80/151/204 (pynucastro export) | Depth K ≈ ⌈radius⌉+2; flux-head output dim | mesa_80: 610 reactions; mesa_151: 1522; bipartite radius 3 / diameter 6 (both nets) ⇒ K = 5 (K = 4 with I→I edges); PROVISIONAL rate set pending Step-4 MESA cross-check; mesa_204 not in scope of the shipped data (scripts/graph_metrics.py, 2026-07-08, RESULTS.md) |
+| 1 | [x] | Reaction count + graph radius/diameter of mesa_80/151/204 (pynucastro export) | Depth K ≈ ⌈radius⌉+2; flux-head output dim | 2026-07-08: mesa_80 610 reactions / mesa_151 1522, PROVISIONAL rate set pending Step-4 MESA cross-check (scripts/graph_metrics.py, RESULTS.md 2026-07-08). 2026-07-09 UPDATE — PROVISIONAL caveat RETIRED by measurement (Step 4 Task 1): reconciled against MESA r23.05.1 softwired nets, MESA_ONLY = 0 on both networks and post-drop counts equal MESA exactly — mesa_80: **607** reactions, mesa_151: **1518** (= flux-head output dims); conservation gate + projector re-passed at unchanged tolerances; bipartite radius 3 / diameter 6 unchanged ⇒ K = 5 (K = 4 with I→I edges); mesa_204 not in scope of the shipped data (measured, scripts/reconcile_reactions.py + scripts/export_stoich_matrix.py, commit b559dde, RESULTS.md 2026-07-09; ADR 0003) |
 | 2 | [ ] | Feature distributions of all proposed channels across the regime box | Normalization; dead-channel detection | |
 | 3 | [ ] | Per-channel ablation of the 4 added physics channels (retain if ≥0.005 MAE) | Component A feature set | |
 | 4 | [ ] | Weight-shared vs untied processor at equal step count (within 0.01 MAE?) | Recurrent vs untied default; latent-ODE option | |
 | 5 | [ ] | Zero-shot mesa_80→151 transfer on neutron-rich isotopes (≤2× internal Yₑ error?) | Size-transfer claim (transferable vs adaptable) | |
-| 6 | [ ] | Per-reaction κ_r = \|net\|/(gross_f+gross_r) distribution | Target A vs B; mask design; **the load-bearing unknown** | |
+| 6 | [ ] | Per-reaction κ_r = \|net\|/(gross_f+gross_r) distribution | Target A vs B; mask design; **the load-bearing unknown** | Still open — Step-6 kill-test quantity. 2026-07-10 note: the Step-4 κ-floor screen (Task 3) now gates this row's methodology — reverse rates must be built as DerivedRate(use_pf=True) or taken MESA-side; raw v-flag reverses FORBIDDEN at T9 ≥ 3 (blocking gate, root CLAUDE.md + RESULTS.md 2026-07-10) — and the spurious-floor screen this row depends on is complete (measured, scripts/kappa_floor_screen.py, commit f66328a) |
 | 7 | [~] | cond(ν) full and active-set | Target A→B switch at cond(S_active) > 1e6 | FULL: cond(ν) = 41.7 (mesa_80) / 57.6 (mesa_151), nullity 1; cond(CCᵀ) = 3.9e4 / 1.0e5 (scripts/graph_metrics.py, 2026-07-08, RESULTS.md). Active-set cond(S_active) is the Step-6 kill-test quantity — row stays open until then |
 | 8 | [ ] | Guidry ε sweep {3e-3, 1e-2, 3e-2} on Si-burning trajectories | Mask threshold; ε≈0.01 transfer hypothesis | |
 | 9 | [ ] | Mask membership churn per step along real T(t), ρ(t) tracks | Hybrid vs frozen-Guidry fallback (freeze if >5%/step) | |
@@ -29,17 +29,51 @@ Operative gate until item 12 is measured: per-step |ΔYₑ| ≲ 3e-6 (systematic
 
 - [ ] Exact mesa_80/mesa_151 isotope lists (Grichener 2025 App. A) and which Yₑ-controllers
       each contains (esp. neutron-rich β-decay partners ⁶¹Fe, ⁶¹,⁶³Co)
-- [ ] Which weak-rate tables bbq/MESA r23.05.1 loads (LMP > Oda > FFN precedence) and
-      off-grid-edge extrapolation behavior
+- [x] Which weak-rate tables bbq/MESA r23.05.1 loads (LMP > Oda > FFN precedence) and
+      off-grid-edge extrapolation behavior — MEASURED and CLOSED (2026-07-10, Step 4
+      Task 2): per-pair table sources parsed from the weakreactions.tables headers,
+      0 mismatches vs the graphs post-ADR-0003 — LMP > Oda > FFN with
+      use_suzuki_weak_rates=.false. confirmed as the label configuration. Off-grid:
+      the regime box is interior to all weak tables (T9 ≤ 7.9 < 30,
+      logρYₑ ≤ 8.7 < 11); outside the table MESA CLIPS to the edge
+      (rates/private/eval_weak.f90) while pynucastro EXTRAPOLATES (measured at
+      T9 = 40, 100) (measured, scripts/crosscheck_rates.py, commit 156c73f,
+      RESULTS.md 2026-07-10; docs/rate-crosscheck.md)
 - [ ] MESA average-neutrino-energy handling (⟨Eν⟩) for the neutrino head
-- [ ] Softwired inverse-rate equilibrium cleanliness: does κ_r → 0 without a spurious
+- [x] Softwired inverse-rate equilibrium cleanliness: does κ_r → 0 without a spurious
       floor? (Appendix-B-class artifact screen — MUST precede any kill-test conclusion)
+      — MEASURED and CLOSED (2026-07-10, Step 4 Tasks 3–4). Appendix-B state: stock
+      r23.05.1 HAS the gh-575 bug (10.0–22.7 dex on 9/11 multi-body inverse channels;
+      measured, scripts/appendixb_check.py, commit b8665c0); the training labels used
+      the authors' FIXED MESA; MESA 24.08.1 installed side-by-side and the fix
+      verified (residual ≤ 1.9 dex; measured, scripts/appendixb_check.py +
+      mesa_probe24, commit 156c73f). κ screen at NSE: graphs-as-built raw v-flag
+      reverses give a pervasive SPURIOUS floor (median κ 6.6e-2 / 1.3e-1, suspects
+      268/280 and 656/672 pairs > 1e-3, mesa_80/151), attributed dispositively to
+      pf-free v-flag fits — DerivedRate(use_pf=True) reverses collapse to
+      1e-13…1e-11; stock-MESA's own residual floor median 3.6e-3 / 3.3e-3 (measured,
+      scripts/kappa_floor_screen.py, commit f66328a). Consequence: NEW BLOCKING
+      Step-5/6 gate recorded in root CLAUDE.md + RESULTS.md 2026-07-10 — reverse
+      rates must be DerivedRate(use_pf=True) or MESA-side; raw v-flag reverses
+      FORBIDDEN at T9 ≥ 3 (see checklist row 6 note)
 - [ ] Precise meaning of Farmer 2016 "30%/10%" (η = 1−2Yₑ vs relative Yₑ)
-- [~] pynucastro TabularRate precedence and interpolation defaults in the installed version
+- [x] pynucastro TabularRate precedence and interpolation defaults in the installed version
       — precedence MEASURED (2.12.0 default ordering ffn < oda < pruet_fuller < langanke
       < suzuki, later wins; exposed as a parameter in gnn_nucleo.graph.network;
-      RESULTS.md 2026-07-08). Interpolation defaults + comparison against MESA weaklib's
-      LMP > Oda > FFN remain open for Step 4
+      RESULTS.md 2026-07-08). Comparison against MESA weaklib MEASURED and CLOSED
+      (2026-07-09, Step 4 Task 1): DEFAULT_TABULAR_ORDERING now suzuki < pruet_fuller
+      < ffn < oda < langanke (later wins), reproducing MESA weaklib's LMP > Oda > FFN
+      with use_suzuki_weak_rates=.false. — the training-label configuration; zero
+      weak-table source mismatches remain (measured, scripts/reconcile_reactions.py,
+      commit b559dde, RESULTS.md 2026-07-09; ADR 0003). Interpolation-default behavior
+      is a rate-VALUE question carried with the Task-2 numeric rate cross-check
+      (RESULTS.md 2026-07-09 "carried to Task 2" row). 2026-07-10 UPDATE — carried
+      interpolation-default sub-question MEASURED and CLOSED (Step 4 Task 2): at the
+      T9 = 5 weak-table node median |Δlog10| = 0.003 (0.7%); off-node spreads of
+      0.03–0.18 dex are MESA-bilinear vs pynucastro-interpolant differences on the
+      same tables (β⁻ tail ≤ 0.8 dex); the training labels contain MESA's bilinear
+      values (measured, scripts/crosscheck_rates.py, commit 156c73f, RESULTS.md
+      2026-07-10; docs/rate-crosscheck.md)
 
 ## Kill-test grid (from the prediction-target report §6.4)
 

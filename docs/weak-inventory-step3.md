@@ -1,9 +1,12 @@
-# Weak-reaction inventory — mesa_80 / mesa_151 (Step 3)
+# Weak-reaction inventory — mesa_80 / mesa_151 (Step 3; reconciled Step 4)
 
-**Derived** by `scripts/graph_metrics.py --weak-inventory` (2026-07-08, commit edef464); regenerate with that command.
-Rate set: pynucastro 2.12.0 REACLIB + tabular (ordering ffn<oda<pruet_fuller<langanke<suzuki,
-later wins), duplicate links resolved tabular-wins. **Provisional** pending the Step-4
-MESA r23.05.1 cross-check (see ADR 0002). dYe direction: EC/β⁺ lower Yₑ (−1), β⁻ raises it (+1).
+**Derived** by `scripts/graph_metrics.py --weak-inventory` (2026-07-09, commit b559dde); regenerate with that command.
+Rate set: pynucastro 2.12.0 REACLIB + tabular (ordering suzuki<pruet_fuller<ffn<oda<langanke,
+later wins — reproduces MESA weaklib LMP > Oda > FFN, the training-label configuration; ADR 0003),
+duplicate links resolved tabular-wins, PYNA_ONLY channels dropped per
+configs/reaction_disposition_*.yaml. **Reconciled against MESA r23.05.1** (Step 4,
+docs/reaction-reconciliation.md); per-pair table sources verified to match weaklib.
+dYe direction: EC/β⁺ lower Yₑ (−1), β⁻ raises it (+1).
 
 ## mesa_80 — 46 weak reactions (27 lower Yₑ, 19 raise Yₑ)
 
@@ -17,14 +20,28 @@ MESA r23.05.1 cross-check (see ADR 0002). dYe direction: EC/β⁺ lower Yₑ (�
 | -1 | beta_pos | reaclib:bet+ | `p + p ⟶ H2 + e⁺ + 𝜈` |
 | -1 | electron_capture | reaclib:ec | `p + p + e⁻ ⟶ H2 + 𝜈` |
 | -1 | beta_pos | reaclib:bet+ | `He3 + p ⟶ He4 + e⁺ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `F17 + e⁻ ⟶ O17 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `O17 ⟶ F17 + e⁻ + 𝜈` |
 | +1 | beta_neg | tabular:oda | `F18 ⟶ Ne18 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `F18 + e⁻ ⟶ O18 + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Ne18 + e⁻ ⟶ F18 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `O18 ⟶ F18 + e⁻ + 𝜈` |
 | +1 | beta_neg | tabular:oda | `F19 ⟶ Ne19 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Ne19 + e⁻ ⟶ F19 + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Na21 + e⁻ ⟶ Ne21 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Ne21 ⟶ Na21 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Na22 + e⁻ ⟶ Ne22 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Ne22 ⟶ Na22 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Mg23 + e⁻ ⟶ Na23 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Na23 ⟶ Mg23 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Mg24 + e⁻ ⟶ Na24 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `Na24 ⟶ Mg24 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Al25 + e⁻ ⟶ Mg25 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Mg25 ⟶ Al25 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Al26 + e⁻ ⟶ Mg26 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Mg26 ⟶ Al26 + e⁻ + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Al27 ⟶ Si27 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Si27 + e⁻ ⟶ Al27 + 𝜈` |
 | -1 | electron_capture | tabular:oda | `P30 + e⁻ ⟶ Si30 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Si30 ⟶ P30 + e⁻ + 𝜈` |
 | +1 | beta_neg | tabular:oda | `P31 ⟶ S31 + e⁻ + 𝜈` |
@@ -41,22 +58,8 @@ MESA r23.05.1 cross-check (see ADR 0002). dYe direction: EC/β⁺ lower Yₑ (�
 | +1 | beta_neg | tabular:langanke | `Ni59 ⟶ Cu59 + e⁻ + 𝜈` |
 | +1 | beta_neg | tabular:langanke | `n ⟶ p + e⁻ + 𝜈` |
 | -1 | electron_capture | tabular:langanke | `p + e⁻ ⟶ n + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `F17 + e⁻ ⟶ O17 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `O17 ⟶ F17 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `F18 + e⁻ ⟶ O18 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Ne18 + e⁻ ⟶ F18 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `O18 ⟶ F18 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Ne19 + e⁻ ⟶ F19 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Na21 + e⁻ ⟶ Ne21 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Na22 + e⁻ ⟶ Ne22 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Mg23 + e⁻ ⟶ Na23 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Mg24 + e⁻ ⟶ Na24 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `Na24 ⟶ Mg24 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Al25 + e⁻ ⟶ Mg25 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Al26 + e⁻ ⟶ Mg26 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Si27 + e⁻ ⟶ Al27 + 𝜈` |
 
-## mesa_151 — 174 weak reactions (89 lower Yₑ, 85 raise Yₑ)
+## mesa_151 — 173 weak reactions (89 lower Yₑ, 84 raise Yₑ)
 
 | dYₑ | type | source | rate |
 | --- | --- | --- | --- |
@@ -66,7 +69,6 @@ MESA r23.05.1 cross-check (see ADR 0002). dYe direction: EC/β⁺ lower Yₑ (�
 | +1 | beta_neg | reaclib:wc12 | `N16 ⟶ O16 + e⁻ + 𝜈` |
 | -1 | beta_pos | reaclib:wc12 | `O15 ⟶ N15 + e⁺ + 𝜈` |
 | -1 | beta_pos | reaclib:wc12 | `B8 ⟶ He4 + He4 + e⁺ + 𝜈` |
-| +1 | beta_neg | reaclib:wc12 | `N16 ⟶ He4 + C12 + e⁻ + 𝜈` |
 | -1 | beta_pos | reaclib:bet+ | `p + p ⟶ H2 + e⁺ + 𝜈` |
 | -1 | electron_capture | reaclib:ec | `p + p + e⁻ ⟶ H2 + 𝜈` |
 | -1 | beta_pos | reaclib:bet+ | `He3 + p ⟶ He4 + e⁺ + 𝜈` |
@@ -92,13 +94,36 @@ MESA r23.05.1 cross-check (see ADR 0002). dYe direction: EC/β⁺ lower Yₑ (�
 | -1 | electron_capture | tabular:ffn | `Sc44 + e⁻ ⟶ Ca44 + 𝜈` |
 | +1 | beta_neg | tabular:ffn | `Sc44 ⟶ Ti44 + e⁻ + 𝜈` |
 | -1 | electron_capture | tabular:ffn | `Ti44 + e⁻ ⟶ Sc44 + 𝜈` |
+| -1 | electron_capture | tabular:oda | `F17 + e⁻ ⟶ O17 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `O17 ⟶ F17 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `F18 + e⁻ ⟶ O18 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `O18 ⟶ F18 + e⁻ + 𝜈` |
 | +1 | beta_neg | tabular:oda | `F19 ⟶ Ne19 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `F19 + e⁻ ⟶ O19 + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Ne19 + e⁻ ⟶ F19 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `O19 ⟶ F19 + e⁻ + 𝜈` |
+| +1 | beta_neg | tabular:oda | `F20 ⟶ Ne20 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Ne20 + e⁻ ⟶ F20 + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Na21 + e⁻ ⟶ Ne21 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Ne21 ⟶ Na21 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Na22 + e⁻ ⟶ Ne22 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Ne22 ⟶ Na22 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Mg23 + e⁻ ⟶ Na23 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Na23 ⟶ Mg23 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Na23 + e⁻ ⟶ Ne23 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `Ne23 ⟶ Na23 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Mg24 + e⁻ ⟶ Na24 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `Na24 ⟶ Mg24 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Al25 + e⁻ ⟶ Mg25 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Mg25 ⟶ Al25 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Al26 + e⁻ ⟶ Mg26 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Mg26 ⟶ Al26 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Al27 + e⁻ ⟶ Mg27 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Al27 ⟶ Si27 + e⁻ + 𝜈` |
+| +1 | beta_neg | tabular:oda | `Mg27 ⟶ Al27 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Si27 + e⁻ ⟶ Al27 + 𝜈` |
+| +1 | beta_neg | tabular:oda | `Al28 ⟶ Si28 + e⁻ + 𝜈` |
+| -1 | electron_capture | tabular:oda | `Si28 + e⁻ ⟶ Al28 + 𝜈` |
 | -1 | electron_capture | tabular:oda | `P30 + e⁻ ⟶ Si30 + 𝜈` |
 | +1 | beta_neg | tabular:oda | `Si30 ⟶ P30 + e⁻ + 𝜈` |
 | +1 | beta_neg | tabular:oda | `P31 ⟶ S31 + e⁻ + 𝜈` |
@@ -211,27 +236,4 @@ MESA r23.05.1 cross-check (see ADR 0002). dYe direction: EC/β⁺ lower Yₑ (�
 | -1 | electron_capture | tabular:langanke | `Ni61 + e⁻ ⟶ Co61 + 𝜈` |
 | +1 | beta_neg | tabular:langanke | `n ⟶ p + e⁻ + 𝜈` |
 | -1 | electron_capture | tabular:langanke | `p + e⁻ ⟶ n + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `F17 + e⁻ ⟶ O17 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `O17 ⟶ F17 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `F18 + e⁻ ⟶ O18 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `O18 ⟶ F18 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `F19 + e⁻ ⟶ O19 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Ne19 + e⁻ ⟶ F19 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `O19 ⟶ F19 + e⁻ + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `F20 ⟶ Ne20 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Ne20 + e⁻ ⟶ F20 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Na21 + e⁻ ⟶ Ne21 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Na22 + e⁻ ⟶ Ne22 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Mg23 + e⁻ ⟶ Na23 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Na23 + e⁻ ⟶ Ne23 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `Ne23 ⟶ Na23 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Mg24 + e⁻ ⟶ Na24 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `Na24 ⟶ Mg24 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Al25 + e⁻ ⟶ Mg25 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Al26 + e⁻ ⟶ Mg26 + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Al27 + e⁻ ⟶ Mg27 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `Mg27 ⟶ Al27 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Si27 + e⁻ ⟶ Al27 + 𝜈` |
-| +1 | beta_neg | tabular:suzuki | `Al28 ⟶ Si28 + e⁻ + 𝜈` |
-| -1 | electron_capture | tabular:suzuki | `Si28 + e⁻ ⟶ Al28 + 𝜈` |
 
