@@ -11,3 +11,9 @@ variants:
   a28_up:
     a_min: 28
     exclude_light: true
+  # boundary-at-46 variant: includes the A=45 edge (sc45) in the Si group so
+  # the literature bridge 45Sc(p,g)46Ti is a group-boundary crossing
+  a24_46:
+    a_min: 24
+    a_max: 46
+    exclude_light: true
