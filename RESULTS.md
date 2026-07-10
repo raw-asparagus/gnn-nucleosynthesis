@@ -257,3 +257,22 @@ data/mesa_cache/kappa_nse_mesa_{80,151}.csv.
 | 2026-07-10 | κ at NSE, stock MESA r23.05.1 | median 3.6e-3 / 3.3e-3, p90 1.2e-2/7.2e-3 (own pf-interpolation + winvn provenance); κ → 1.0 exactly on gh-575 channels | measured | scripts/kappa_floor_screen.py | f66328a | MESA r23.05.1 |
 | 2026-07-10 | κ at NSE, MESA 24.08.1 | median 5.3e-3/4.9e-3 but p90 0.76: subset of (n,α)/(p,α) pairs κ ~ 0.75 that are clean in stock — consistent with its newer REACLIB snapshot carrying independently-fitted non-DB-linked pair members; open observation (not the label config) | measured | scripts/kappa_floor_screen.py | f66328a | MESA 24.08.1 |
 | 2026-07-10 | BLOCKING Step-5/6 gate | every κ_r / kill-test computation must build reverse rates as DerivedRate(use_pf=True) or take MESA-side rates; raw v-flag reverses forbidden at T9 ≥ 3 (they manufacture κ floors up to 0.8 and would corrupt the Target-A viability verdict) | measured (basis) | scripts/kappa_floor_screen.py | f66328a | — |
+
+## Flux engine: compiled evaluator + pf-corrected reverses (2026-07-10, Step 5 WP2)
+
+Engine = src/gnn_nucleo/fluxes/ (compile/engine/screening/db_reverses):
+canonical 607/1518 collections with every raw v-flag reverse replaced by
+DerivedRate(source_rate=fwd, use_pf=True) (the Step-4 gate), all rates
+evaluated as one coefficient-tensor matmul + rebuilt pf splines + vectorized
+tabular bilinear + vectorized chugunov_2007. Column order = ν export.
+Oracles: pynucastro 2.12.0 scalar paths on the same states.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-10 | v-flag replacement census | mesa_80: 280/280 replaced, mesa_151: 672/672 replaced; ALL forward partners found in-collection; 0 failures (spin states available throughout); pf-table-less nuclei (log_pf=0 fallback, same as pyna): light sector only (d, He3, He4, Li7, Be7/9/10, B8, C12/13, N13/14/15) | measured | tests/test_flux_compile.py + fluxes.db_reverses | 20f1bb2 | pynucastro 2.12.0 |
+| 2026-07-10 | engine λ vs pyna rate.eval (all rates × 6 box states) | worst rel 1.3e-12 (gate 5e-12; floor = fp association of DB terms baked into set coefficients vs added at runtime, \|Q/kT\| ~ O(500) in exponent); tabular + screened paths within same gate; chugunov_2007 vec vs scalar ≤ 1e-12 | measured | tests/test_flux_compile.py | 20f1bb2 | pynucastro 2.12.0 |
+| 2026-07-10 | ν·R vs pyna evaluate_ydots (NSE states) | within 1e-12 × per-species GROSS flux Σ_j\|ν_ij\|R_j on every species/state (net ẏ is cancellation-dominated at NSE — gross-relative is the honest gate, cf. conservation-gate convention) | measured | tests/test_flux_engine.py | 20f1bb2 | pynucastro 2.12.0 |
+| 2026-07-10 | κ at NSE, pf-corrected engine, screening OFF (T9 ≥ 5, flux-carrying strong pairs = upper half by f⁺) | median 2.6e-12, p90 8.2e-12, max 1.5e-11 — Step-4 spurious floor (6.6e-2/1.3e-1) ELIMINATED; detailed balance exact to rate-eval precision | measured | tests/test_flux_engine.py + inline bench | 20f1bb2 | pynucastro 2.12.0 |
+| 2026-07-10 | κ at NSE, label screening config (chugunov_2007 ON) | median ~7.4e-2 over flux-carrying strong pairs (mesa_80, T9 6.3, ρ 1e9): screening is applied per reaction from its OWN reactant pairs, so a screened capture pairs with an unscreened photodissociation and κ ≈ \|Δln scor\| — REAL property of the rate configuration (pyna and MESA net_screen both per-reaction), NOT a pf artifact; Step-6 κ thresholds must use the unscreened κ for equilibrium detection or account for the screening offset | measured | tests/test_flux_engine.py | 20f1bb2 | pynucastro 2.12.0 |
+| 2026-07-10 | mesa_probe24 spot checks (mesa_80) | clean forwards (si28/s32/ca40 (α,γ) fwd) ≤ 0.004 dex; pf-corrected DB reverses ≤ 0.1 dex vs 24.08.1 reverses; gh-575 channel c12→3α within fixed-class band (≤2 dex vs stock's ~10) | measured | tests/test_flux_mesa_spot.py | 20f1bb2 | MESA 24.08.1 |
+| 2026-07-10 | engine throughput (4096-state batches, single core) | mesa_80: 7.06e5 states/min/core, mesa_151: 2.20e5 states/min/core (gate ≥ 1e3: exceeded 706×/220×); full 1,041,400-state corpus = 1.5 / 4.7 core-minutes compute (I/O-dominated in practice); compile 6.0/6.4 s | measured | inline bench (README of data/fluxes run to follow) | 20f1bb2 | pynucastro 2.12.0 |
