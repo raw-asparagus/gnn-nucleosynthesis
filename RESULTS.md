@@ -331,3 +331,18 @@ Script: scripts/step5_bridges.py.
 | 2026-07-10 | mesa_151 ⁴⁵Sc(p,γ)⁴⁶Ti literature cross-check | CONFIRMED on relaxed states: rank **2/251** inter-group carriers (share 0.094) on pre-stall trajectory rows at Yₑ ≥ 0.483, T9 ∈ [3.3, 5.0) under the a24_46 group (boundary at A = 46; the default 24 ≤ A < 45 places ⁴⁵Sc outside the group — boundary placement matters and is now a config variant); its feeder Ca44(p,γ)Sc45 is #4 under the default boundary. On the RANDOM subsample it ranks only 31/251 — the bottleneck is a relaxed-flow feature, invisible on the training distribution | measured | scripts/step5_bridges.py --trajectories | d1a9c4a | ditto |
 | 2026-07-10 | mesa_80 empirical bridge set (no ⁴⁵Sc) | relaxed high-Yₑ QSE-window rows: Ne22(α,n)Mg25 (0.18), Al27(p,α)Mg24 (0.12), P31(p,α)Si28 (0.10), Na23(α,p)Mg26, Mg26(p,γ)Al27 — top-20 carry 0.86; on the random subsample the boundary flow is instead (n,α)-dominated (Al26(n,α)Na23 0.34, S31(n,α)Si28, Si27(n,α)Mg24 — free-neutron artifact of random comps) | measured | scripts/step5_bridges.py --trajectories | d1a9c4a | ditto |
 | 2026-07-10 | inter-group concentration (top-k) | relaxed high-Yₑ rows: top-10 ≈ 0.66–0.67, top-20 ≈ 0.82–0.86 (both nets, both group variants) — Si-group boundary flow is concentrated in ≲20 channels, GOOD for Target A's active-set premise on physical states | measured | scripts/step5_bridges.py --trajectories | d1a9c4a | ditto |
+
+## Step-5 flux-data artifacts (2026-07-10, provenance)
+
+data/fluxes/<net>/<run_id>/chunk_*.h5 (gitignored). Generation:
+scripts/step5_run_fluxes.py at commit 75b32b7 (engine 20f1bb2), screening
+chugunov_2007 unless noted; ids from configs/step5_subsample_<net>_ids.json
+(sha256 4b87368b…/6a492ec6…); chunk = 16,384 states; f⁺/ydot/dYe_weak stored,
+f⁻/φ/κ derived on read. sha256 over sorted chunk files:
+
+| run | mesa_80 | mesa_151 |
+| --- | --- | --- |
+| subsample (30,000 states) | 2 chunks, 76c9485e4ee16ce8… | 2 chunks, 3a511290c5e28f21… |
+| subsample-unscreened | 2 chunks, 145029819880cb48… | 2 chunks, 5de65620f9a5a221… |
+| trajectories (20 × 1002 rows) | 20 chunks, c438c19f09b10f98… | 20 chunks, 46f6592b62f02f0d… |
+| full corpus (1,041,400 states) | 64 chunks, 1892e1e3b87c2491… (4.9 GB) | 64 chunks, 56effd5b6eabc1db… (12 GB) |
