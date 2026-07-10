@@ -65,7 +65,6 @@ def trajectory_diagnostics(net: str, t9_min: float = 3.5) -> None:
     from gnn_nucleo.fluxes.compile import compile_network
     from gnn_nucleo.fluxes.engine import evaluate_fluxes
     from gnn_nucleo.fluxes.store import FluxStore
-    from gnn_nucleo.graph import load_isotope_table
     from gnn_nucleo.qse import (
         build_inputs,
         delta_species,
@@ -77,7 +76,6 @@ def trajectory_diagnostics(net: str, t9_min: float = 3.5) -> None:
     )
 
     inputs = build_inputs(net)
-    table = load_isotope_table(net)
     A = inputs.A
     group = load_group_mask(net)
     group_alt = load_group_mask(net, "a28_up")
@@ -178,7 +176,8 @@ def trajectory_diagnostics(net: str, t9_min: float = 3.5) -> None:
         )
         print(f"  r_QSE non-group spread: median {np.median(arr[:, 2]):.4f}")
         ug = np.array([u for *_, u in rows_all])
-        print(f"  u_group [MeV]: median {np.median(ug):+.4f}, p90 |u| {np.quantile(np.abs(ug), .9):.4f}")
+        p90u = np.quantile(np.abs(ug), 0.9)
+        print(f"  u_group [MeV]: median {np.median(ug):+.4f}, p90 |u| {p90u:.4f}")
     if corr_pairs_k:
         rho_s, p = spearmanr(corr_pairs_k, corr_pairs_d)
         print(
