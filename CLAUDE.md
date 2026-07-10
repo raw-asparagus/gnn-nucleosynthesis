@@ -116,6 +116,12 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 
 ## Engineering conventions
 
+- The Sobol training grid (2²⁰ states/net) is **unseeded-scrambled Sobol — NON-REGENERABLE**:
+  the shipped Zenodo file is the only ground truth. Anything keyed to states must persist
+  explicit state_id lists (state_id = row index; joins on state_id ONLY, never on
+  (logT, logRho)). Future training data needs a fresh sampling design
+  (adaptive/DeePODE-style); the authors' 4 TB bbq superset is the only route to more
+  same-distribution data.
 - Every derived quantity carries a **sourced / derived / measured** tag.
 - Measured numbers go to `RESULTS.md` with date, code version (commit hash), and data
   provenance; docs and papers cite RESULTS.md rows, never bare numbers.
