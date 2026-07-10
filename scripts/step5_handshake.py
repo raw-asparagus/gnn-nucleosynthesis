@@ -195,8 +195,9 @@ def run_trajectory_mode(net: str, run_id: str = "trajectories") -> None:
         e_flux = (Q @ chunk.f_plus) * constants.MeV2erg * constants.N_A
         e_bbq = data[:, 2]
         ok = np.abs(e_bbq) > 0
+        t9_here = 10.0 ** chunk.attrs["logT"] / 1e9
         with np.errstate(divide="ignore", invalid="ignore"):
-            e_ratio.append((e_flux[ok] / e_bbq[ok], np.full(ok.sum(), 10.0 ** chunk.attrs["logT"] / 1e9)))
+            e_ratio.append((e_flux[ok] / e_bbq[ok], np.full(ok.sum(), t9_here)))
 
     # merge
     from dataclasses import fields

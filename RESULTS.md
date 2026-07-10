@@ -276,3 +276,24 @@ Oracles: pynucastro 2.12.0 scalar paths on the same states.
 | 2026-07-10 | κ at NSE, label screening config (chugunov_2007 ON) | median ~7.4e-2 over flux-carrying strong pairs (mesa_80, T9 6.3, ρ 1e9): screening is applied per reaction from its OWN reactant pairs, so a screened capture pairs with an unscreened photodissociation and κ ≈ \|Δln scor\| — REAL property of the rate configuration (pyna and MESA net_screen both per-reaction), NOT a pf artifact; Step-6 κ thresholds must use the unscreened κ for equilibrium detection or account for the screening offset | measured | tests/test_flux_engine.py | 20f1bb2 | pynucastro 2.12.0 |
 | 2026-07-10 | mesa_probe24 spot checks (mesa_80) | clean forwards (si28/s32/ca40 (α,γ) fwd) ≤ 0.004 dex; pf-corrected DB reverses ≤ 0.1 dex vs 24.08.1 reverses; gh-575 channel c12→3α within fixed-class band (≤2 dex vs stock's ~10) | measured | tests/test_flux_mesa_spot.py | 20f1bb2 | MESA 24.08.1 |
 | 2026-07-10 | engine throughput (4096-state batches, single core) | mesa_80: 7.06e5 states/min/core, mesa_151: 2.20e5 states/min/core (gate ≥ 1e3: exceeded 706×/220×); full 1,041,400-state corpus = 1.5 / 4.7 core-minutes compute (I/O-dominated in practice); compile 6.0/6.4 s | measured | inline bench (README of data/fluxes run to follow) | 20f1bb2 | pynucastro 2.12.0 |
+
+## dt = 1e-6 s label handshake (2026-07-10, Step 5 Task 2)
+
+Flux-side analogue of the Step-2 model handshake: engine ΔX_pred vs shipped
+labels, no model in between. Grid mode on the 30k stratified subsample
+(configs/step5_subsample_*), trajectory mode on the 20 selected
+constant-(T,ρ) test trajectories per net (trapezoid prediction from engine ẏ
+at both interval ends; RHS-stability + 1e-15-floor censoring; net tolerance
+max(0.1·|ΔX_lab|, 3ε_lab(Xᵢ+X_f), 2e-15) with ε_lab = robust 10×median
+calibration; rate-level residual = |ΔX_pred−ΔX_lab|/(A·gross·dt)).
+Script: scripts/step5_handshake.py.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-10 | grid-mode premise (dt₁ = 1.0110e-6/1.0090e-6 s) | VOID: 99.99% / 100.00% (mesa_80/151) of (state,isotope) cells have τ < dt — Sobol initial compositions carry free nucleons (median X_neut 1.7e-2), the shortest label step is a STIFF RELAXATION (label \|ΔX\|/X median ~1), not a linear step; 20 / 0 linearizable cells of 2.4M/4.5M. Consequence for the emulator: dt=1e-6 labels encode full relaxations everywhere in the box | measured | scripts/step5_handshake.py --grid | 8394ed0 | Zenodo 14873443 |
+| 2026-07-10 | trajectory handshake, rate-level residual (linearizable cells: τ>10Δt, RHS-stable, uncensored) | mesa_80: median 3.6e-3, p90 4.7e-2, ≤5% for 90.3% of 292,959 cells; mesa_151: median 2.8e-3, p90 2.6e-2, ≤5% for 94.4% of 596,607 cells | measured | scripts/step5_handshake.py --trajectories | 8394ed0 | ditto |
+| 2026-07-10 | trajectory handshake, net-tolerance agreement vs per-isotope cancellation c | rises monotonically: c≥0.1 → 0.894/0.937, c≥0.5 → 0.923/0.959, c≥0.9 → 0.937/0.970 (mesa_80/151) — net-flux errors amplify as 1/c, exactly the QSE-cancellation structure the kill-test targets | measured | scripts/step5_handshake.py --trajectories | 8394ed0 | ditto |
+| 2026-07-10 | departure classification (rate-level failures, 9.7%/5.6% of linearizable cells) | mesa_80: 69.4% DB-reverse pf-provenance class (Step-4 0.05–0.1 dex band), 25.1% subfloor-controller (dominant channel's reactant below the 1e-15 label floor — unresolvable to the emulator), 5.4% weak-tabular interpolation class, 9 cells UNEXPLAINED (He3_Li7_to_n_p_He4_He4, light-sector multibody — footnoted). mesa_151: 63.6% / 12.6% / 23.8%, UNEXPLAINED **NONE** | measured | scripts/step5_handshake.py --trajectories | 8394ed0 | ditto |
+| 2026-07-10 | stiffness tracking | agreement rises monotonically with τ/Δt decade: 0.000 → 0.005/0.006 → 0.23/0.36 → 0.63/0.71 → 0.75/0.79 → 0.87/0.89 (mesa_80/151) — departures track the stiffness proxy as required | measured | scripts/step5_handshake.py --trajectories | 8394ed0 | ditto |
+| 2026-07-10 | e_nuc flux-route vs bbq eps_nuc column (trajectories) | UNRESOLVED: ratio off by orders with sign scatter — trajectory-file eps_nuc units/normalization/sign convention not yet pinned (training-CSV 1e16 normalization does not obviously apply). OPEN item; invariant-#5 proper (flux-route vs composition-route, both engine-internal) is a Step-6 quantity | measured (open) | scripts/step5_handshake.py --trajectories | 8394ed0 | ditto |
+| 2026-07-10 | screening confirmation | removing chugunov_2007 drops trajectory net agreement 0.76 → 0.53 (single-trajectory probe) — labels definitively carry screening; exact-vs-filename-rounded (T,ρ) changes agreement by <0.3% | measured | inline diagnostics | 8394ed0 | ditto |
