@@ -1,0 +1,13 @@
+# Silicon-group membership rules for the QSE solver (Step 5).
+# sourced: Hix & Thielemann 1996 (ApJ 460, 869) large single Si cluster;
+# the default follows their 24 <= A < 45 span; the sensitivity variant uses
+# the A >= 28 convention. Both are RUN and REPORTED (RESULTS.md); the
+# operational rule for Step 6 is 'default' until measurements say otherwise.
+variants:
+  default:
+    a_min: 24
+    a_max: 45
+    exclude_light: true   # Z > 2 (n, p, he4, ... never group members)
+  a28_up:
+    a_min: 28
+    exclude_light: true

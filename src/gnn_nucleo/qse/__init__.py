@@ -9,3 +9,28 @@ Contract: the equilibrium gate built from these quantities must NEVER include
 weak-reaction columns in its eligible set (CLAUDE.md invariant #2) — the
 eligible mask is constructed structurally from weak_mask, not by convention.
 """
+
+from .coeffs import NseInputs, build_inputs, nse_log_coeffs
+from .diagnostics import (
+    delta_species,
+    eligible_mask,
+    load_group_mask,
+    r_qse,
+    reaction_delta,
+)
+from .solver import NSEResult, QSEResult, solve_nse, solve_qse
+
+__all__ = [
+    "NseInputs",
+    "build_inputs",
+    "nse_log_coeffs",
+    "NSEResult",
+    "QSEResult",
+    "solve_nse",
+    "solve_qse",
+    "delta_species",
+    "r_qse",
+    "reaction_delta",
+    "eligible_mask",
+    "load_group_mask",
+]
