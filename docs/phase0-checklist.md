@@ -25,6 +25,15 @@ Operative gate until item 12 is measured: per-step |ΔYₑ| ≲ 3e-6 (systematic
 | 14 | [ ] | Per-isotope error distribution, Fe-peak A≈45–65 nuclei | Loss up-weighting (raise until 99th-pct effect on Yₑ ≤3e-6/step) | |
 | 15 | [ ] | Timescale-governor holds gate at Δt ≥ 0.1 s; noise-on-non-eq vs noise-on-all; log-Δt-grid vs latent-NODE need | Components C/D | |
 
+**Trajectory-data caveat (2026-07-10)** for every row measured on the shipped
+constant-(T,ρ) test trajectories (rows 8, 9, 13; also row 6's remaining
+relaxed-κ item, already noted there): the shipped trajectories STALL —
+composition frozen (max \|ΔX\| < 1e-10 per interval) from median age
+2.2e5 s / 3.9e4 s (mesa_80/151) at non-equilibrium states while eps_nuc keeps
+rising; the frozen states are NOT NSE. Use PRE-STALL rows only; fully relaxed
+trajectories need bbq reruns (measured, scripts/step5_qse.py, RESULTS.md
+2026-07-10 trajectory-anomaly row).
+
 ## Local code-level confirmations (retire before sizing or training)
 
 - [ ] Exact mesa_80/mesa_151 isotope lists (Grichener 2025 App. A) and which Yₑ-controllers
@@ -79,6 +88,14 @@ Operative gate until item 12 is measured: per-step |ΔYₑ| ≲ 3e-6 (systematic
 
 T₉ ∈ {1.6, 2.5, 3.3, 4.0, 5.0, 6.3, 7.9} × ρ ∈ {1e7, 1e8, 1e9} g/cm³ ×
 Yₑ ∈ {0.45, 0.48, 0.498} × dt ∈ {1e-6, 1e-3, 1, 1e2} s — prioritize 3.3–5 GK.
+
+Note (2026-07-10): the dt = 1e-6 s point's linear-step premise is measured
+VOID on the training grid — 99.99% / 100.00% (mesa_80/151) of
+(state, isotope) cells have τ < dt (Sobol initial compositions carry free
+nucleons, median X_neut 1.7e-2), so the shortest label step is a STIFF
+RELAXATION, not a linear step; dt = 1e-6 labels encode full relaxations
+everywhere in the box (measured, scripts/step5_handshake.py --grid,
+RESULTS.md 2026-07-10 grid-mode-premise row).
 
 Provisional pass/fail (to calibrate against measured κ_r and the floor):
 - Target A viable: {r : κ_r > 0.1} carries ≥95% of |ΔYₑ| and dominant-isotope |ΔX|

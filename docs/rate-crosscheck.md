@@ -146,6 +146,27 @@ rates); raw v-flag reverses are forbidden at T9 ≥ 3 — they manufacture
 Target-A viability verdict. (Light nuclei lacking pf tables default to
 log pf = 0 — harmless, pf ≈ 1 there.)
 
+**Status update 2026-07-10 — gate IMPLEMENTED and measured (Step 5 WP2).**
+The compiled flux engine (`src/gnn_nucleo/fluxes/`) enforces the gate at
+compile time: every raw v-flag reverse is replaced by
+`DerivedRate(source_rate=forward, use_pf=True)` (280/280 mesa_80,
+672/672 mesa_151; measured, tests/test_flux_compile.py), and any
+non-compliant construction raises `PfGateError`. κ at NSE with the
+pf-corrected engine, screening off: median 2.6e-12, p90 8.2e-12,
+max 1.5e-11 — the spurious floor above is ELIMINATED (measured,
+RESULTS.md 2026-07-10 Step 5 WP2 rows; ADR 0004).
+
+**New measured caveat for κ thresholds (2026-07-10):** with the
+label-screening configuration (chugunov_2007 ON), κ at NSE carries a
+REAL median offset of ~7.4e-2 (mesa_80 probe at T9 = 6.3, ρ = 1e9):
+screening is applied per reaction from its own reactant pairs, so a
+screened capture pairs with an unscreened photodissociation and
+κ ≈ \|Δln scor\|. This is a property of the rate configuration (both
+pynucastro and MESA net_screen screen per-reaction), NOT a pf artifact —
+equilibrium detection (mask/κ thresholds) must use UNSCREENED κ or
+explicitly account for the screening offset (measured, RESULTS.md
+2026-07-10 Step 5 WP2 row).
+
 ## Step-5 consequences
 
 1. Flux derivations use pynucastro forwards freely (bit-identical), but
@@ -155,3 +176,9 @@ log pf = 0 — harmless, pf ≈ 1 there.)
 3. 135 severe channels (`rate_outliers.yaml`) are excluded-or-footnoted in
    any Step-5 flux derivation until individually explained; they cluster
    in the pp/CNO light sector, away from the Yₑ-controller set.
+
+*2026-07-10 note: item 1 is implemented and measured — pf-corrected
+reverses are compiled into `src/gnn_nucleo/fluxes/` and the κ-at-NSE
+floor is eliminated (unscreened median 2.6e-12; measured, RESULTS.md
+2026-07-10 Step 5 WP2 rows; ADR 0004). See the gate status update in the
+κ-floor section above, including the new measured screened-κ caveat.*
