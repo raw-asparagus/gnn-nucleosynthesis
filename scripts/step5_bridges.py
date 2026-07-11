@@ -47,14 +47,11 @@ def _load_run(net: str, run_id: str):
 def trajectory_bridges(net: str) -> None:
     """Inter-group concentration on PRE-STALL trajectory rows in the QSE
     window — the relaxed-state view the random subsample cannot give."""
-    from pathlib import Path
-
+    from gnn_nucleo.data.trajectories import load_trajectory, select_rows
     from gnn_nucleo.fluxes.store import FluxStore
     from gnn_nucleo.graph import npz_path
     from gnn_nucleo.qse import load_group_mask
 
-    repo = Path(__file__).resolve().parent.parent
-    test_sets = repo / "data/zenodo/NuclearNeuralNetworks/test_datasets"
     with np.load(npz_path(net), allow_pickle=False) as z:
         nu = z["nu"]
         rate_fnames = [str(s) for s in z["rate_fnames"]]
@@ -70,15 +67,9 @@ def trajectory_bridges(net: str) -> None:
         if not 3.3 <= t9 < 5.0:
             continue
         pair_col, is_fwd = chunk.pair_col, chunk.is_forward_member
-        data = np.loadtxt(
-            test_sets / net / f"{net}_output_files" / chunk.attrs["trajectory_file"],
-            skiprows=1,
-        )
-        X = data[:, 4:]
-        dmax = np.abs(np.diff(X, axis=0)).max(axis=1)
-        stalled = np.nonzero(dmax < 1e-10)[0]
-        stall_row = int(stalled[0]) if stalled.size else len(X) - 1
-        sel = np.arange(1, stall_row)
+        traj = load_trajectory(net, chunk.attrs["trajectory_file"])
+        # pre-stall rows only (guard in data.trajectories); drop the initial row
+        sel = select_rows(traj)[1:]
         phi_rows.append(chunk.phi[:, sel])
         ye_rows.append(chunk.ye[sel])
     print(f"\n== {net} inter-group concentration on PRE-STALL trajectory rows "

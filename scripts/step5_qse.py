@@ -18,12 +18,8 @@ from __future__ import annotations
 
 import argparse
 import warnings
-from pathlib import Path
 
 import numpy as np
-
-REPO = Path(__file__).resolve().parent.parent
-TEST_SETS = REPO / "data/zenodo/NuclearNeuralNetworks/test_datasets"
 
 
 def crosscheck_27grid(net: str) -> None:
@@ -62,6 +58,8 @@ def crosscheck_27grid(net: str) -> None:
 def trajectory_diagnostics(net: str, t9_min: float = 3.5) -> None:
     from scipy.stats import spearmanr
 
+    from gnn_nucleo.data.trajectories import load_trajectory
+    from gnn_nucleo.data.trajectories import stall_row as tj_stall_row
     from gnn_nucleo.fluxes.compile import compile_network
     from gnn_nucleo.fluxes.engine import evaluate_fluxes
     from gnn_nucleo.fluxes.store import FluxStore
@@ -97,18 +95,12 @@ def trajectory_diagnostics(net: str, t9_min: float = 3.5) -> None:
             continue
         rho = 10.0 ** chunk.attrs["logRho"]
         fname = chunk.attrs["trajectory_file"]
-        data = np.loadtxt(
-            TEST_SETS / net / f"{net}_output_files" / fname, skiprows=1
-        )
-        X = data[:, 4:]
-        age = data[:, 0]
-        # STALL DETECTION (RESULTS.md 2026-07-10 anomaly): shipped
-        # trajectories freeze at non-equilibrium states once the output dt
-        # outgrows the physical timescales — composition stops changing while
-        # eps_nuc keeps rising. Only PRE-STALL rows are physical evolution.
-        dmax = np.abs(np.diff(X, axis=0)).max(axis=1)
-        stalled = np.nonzero(dmax < 1e-10)[0]
-        stall_row = int(stalled[0]) if stalled.size else len(X) - 1
+        traj = load_trajectory(net, fname)
+        X = traj.X
+        age = traj.age
+        # STALL GUARD (RESULTS.md 2026-07-10 anomaly): only PRE-STALL rows
+        # are physical evolution — rule lives in data.trajectories now.
+        stall_row = tj_stall_row(X)
         stall_report.append((fname, t9, stall_row, float(age[stall_row])))
         # sample pre-stall mid-burn rows, log-spaced
         lo = int(np.searchsorted(age, 1e-6))
