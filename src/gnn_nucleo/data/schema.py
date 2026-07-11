@@ -40,6 +40,10 @@ Units and normalization of raw labels
   hinted alternate 1e13 normalization at dt ≥ 10 s was measured ABSENT from
   the training sets — see RESULTS.md 2026-07-08). Loaders must multiply by
   ``EPS_NORMALIZATION``; ``StepLabels`` carries physical units.
+  TRAJECTORY (test-set output) files carry a DIFFERENT convention — see
+  ``data/trajectories.py``: eps_nuc integrated per output row NET of
+  neutrino losses, eps_neu a rate, and NO 1e16 normalization (pinned by
+  scripts/step6_eps_pin.py; RESULTS.md 2026-07-11).
 - ``EPS_NU_QUARANTINED`` lists (network, dt_label) pairs whose eps_nu labels
   failed the normalization-continuity check. Measured empty; the mechanism
   stays so any future re-extraction re-checks before training touches ε_ν.

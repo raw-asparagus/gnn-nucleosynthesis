@@ -156,13 +156,18 @@ class TestEpsConverters:
             X=_synthetic_X(n, 6, freeze_at=None),
         )
 
-    def test_unpinned_convention_raises(self):
+    def test_unpinned_convention_raises(self, monkeypatch):
         traj = self._frame()
-        if tj.TRAJ_EPS_CONVENTION is None:
-            with pytest.raises(RuntimeError, match="not pinned"):
-                tj.eps_nuc_rate(traj)
-            with pytest.raises(RuntimeError, match="not pinned"):
-                tj.eps_nuc_integrated(traj)
+        monkeypatch.setattr(tj, "TRAJ_EPS_CONVENTION", None)
+        with pytest.raises(RuntimeError, match="not pinned"):
+            tj.eps_nuc_rate(traj)
+        with pytest.raises(RuntimeError, match="not pinned"):
+            tj.eps_nuc_integrated(traj)
+
+    def test_pinned_convention_is_integrated(self):
+        # the step6_eps_pin.py verdict (RESULTS.md 2026-07-11); a change here
+        # must come with a new measurement
+        assert tj.TRAJ_EPS_CONVENTION == "integrated"
 
     def test_integrated_convention_roundtrip(self):
         traj = self._frame()

@@ -19,11 +19,14 @@ previously inlined in scripts/step5_qse.py and scripts/step5_bridges.py.
 eps_nuc convention
 ------------------
 Trajectory files carry a DIFFERENT eps convention from the training CSVs
-(``schema.EPS_NORMALIZATION`` does not apply here). ``TRAJ_EPS_CONVENTION``
-is pinned empirically by scripts/step6_eps_pin.py; until pinned the
-converters refuse to run. Sourced prior (bbq src/lib_bbq.f90:453):
-``out% eps_nuc = avg_eps_nuc * in% time`` — integrated erg/g over the row's
-own dt — while eps_neu is written as a rate [erg/g/s].
+(``schema.EPS_NORMALIZATION`` does NOT apply here). PINNED (measured,
+scripts/step6_eps_pin.py; RESULTS.md 2026-07-11): the eps_nuc column is the
+INTEGRATED specific energy release over the row's own dt [erg/g], NET of
+neutrino losses (median log10 ratio vs the composition route minus ∫eps_neu:
+0.000, IQR ≈ 0, sign agreement 0.9933/0.9981 for mesa_80/151, slope vs dt
+decade 0.000 across 20 decades; the rate reading shows the wrong-convention
+slope +1.0). The eps_neu column is a RATE [erg/g/s]. Matches the source read
+(bbq src/lib_bbq.f90:453: ``out% eps_nuc = avg_eps_nuc * in% time``).
 """
 
 from __future__ import annotations
@@ -53,10 +56,10 @@ _REPO = Path(__file__).resolve().parents[3]
 STALL_TOL: float = 1e-10
 
 #: Empirically pinned meaning of the trajectory-file eps_nuc column:
-#: "integrated" (erg/g over the row's own dt) or "rate" (erg/g/s).
-#: None until scripts/step6_eps_pin.py has rendered the verdict — the
-#: converters below refuse to run unpinned.
-TRAJ_EPS_CONVENTION: str | None = None
+#: "integrated" (erg/g over the row's own dt, NET of neutrino losses) or
+#: "rate" (erg/g/s). Pinned "integrated" by scripts/step6_eps_pin.py
+#: (RESULTS.md 2026-07-11); the converters refuse to run if reset to None.
+TRAJ_EPS_CONVENTION: str | None = "integrated"
 
 _FNAME_RE = re.compile(r"_T_(?P<logT>[0-9.]+)_rho_(?P<logRho>[0-9.]+)\.txt$")
 
@@ -200,7 +203,8 @@ def _resolve_convention(convention: str | None) -> str:
 def eps_nuc_rate(
     traj: TrajectoryFrame, *, convention: str | None = None
 ) -> np.ndarray:
-    """eps_nuc as a RATE [erg/g/s] per row, under the pinned convention."""
+    """eps_nuc as a RATE [erg/g/s] per row (interval-averaged, net of
+    neutrino losses), under the pinned convention."""
     conv = _resolve_convention(convention)
     if conv == "rate":
         return traj.eps_nuc_raw.copy()
@@ -211,8 +215,8 @@ def eps_nuc_rate(
 def eps_nuc_integrated(
     traj: TrajectoryFrame, *, convention: str | None = None
 ) -> np.ndarray:
-    """eps_nuc INTEGRATED over each row's own dt [erg/g], under the pinned
-    convention."""
+    """eps_nuc INTEGRATED over each row's own dt [erg/g], net of neutrino
+    losses, under the pinned convention."""
     conv = _resolve_convention(convention)
     if conv == "integrated":
         return traj.eps_nuc_raw.copy()
