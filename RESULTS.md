@@ -383,3 +383,17 @@ label-active.
 | 2026-07-11 | **attribution witness** (exact label conditions, initial comps) | stock r23.05.1 bbq reproduces the shipped labels to **0.01 / 0.03 dex** (states 80 / 646) including the displaced attractor; MESA **24.08.1** bbq (gh-575 fix verified) instead relaxes toward NSE (state 80: fe56 0.985, 1.2 dex residual with Yₑ still evolving; state 646: he4 0.521 + fe56 0.378). Independent pf-true reference integrator agrees with 24.08.1/NSE (state 80 @ 1e-6 s: fe56 0.70 vs 24.08.1's 0.66) | measured | scripts/step6_label_nse_census.py | 3479512 | MESA r23.05.1 stock + 24.08.1 + pyna 2.12.0 |
 | 2026-07-11 | Yₑ consequence | at state 80 the label/stock path evolves Yₑ 0.4717 → 0.4713 over 1e2 s while the fixed-MESA path gives 0.4717 → 0.4619 — the bug displaces WHICH species host EC, so **the labels' Yₑ evolution itself is wrong at T9 ≳ 5**, not just the composition detail | measured | scripts/step6_label_nse_census.py | 3479512 | ditto |
 | 2026-07-11 | consequences recorded | (a) rerun-campaign comparability VALIDATED (stock = label behavior to 0.01 dex — ADR 0005's choice measured-correct); (b) Step-5 trajectory-stall anomaly reinterpreted: frozen states are the bug's displaced pseudo-equilibria (the output-dt-blowup hypothesis is at most secondary); (c) validate_campaign's terminal-NSE check must expect the DISPLACED equilibrium on stock reruns at T9 ≳ 5 (24.08.1 witness = the physics-true reference); (d) Phase-1 supervision at T9 ≳ 5 faces a benchmark-vs-physics fork — escalated to the user in STEP6_REPORT (human decision); (e) NNN itself was trained on these labels — external-communication decision also escalated | measured | scripts/step6_label_nse_census.py | 3479512 | ditto |
+
+## Kill-test Task 2A: training-grid distribution at full corpus scale (2026-07-11, Step 6)
+
+Instrument: src/gnn_nucleo/killtest/ + scripts/run_killtest.py
+--training-grid. κ convention: UNSCREENED (thresholds) from the 30k
+stratified subsample twin; corpus-scale confirmation from the screened
+full run (κ ≈ 1 dwarfs the 7e-2 offset there). cond = rank-revealing
+(nonzero singular values, graph/metrics definition — the conservation
+left-null vectors of ν are structural).
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-11 | κ on the training grid, corpus scale (1,034,704 in-strata states/net) | vacuous-pass picture CONFIRMED at full scale: med log10 κ ≈ −0.05 in EVERY stratum, frac κ>0.1 = 0.985–0.999 (mesa_80) / 0.974–0.997 (mesa_151), frac κ<1e-3 = 0.000; per-state κ-active fraction median 0.987–1.000 (subsample, unscreened). Matches the Step-5 subsample numbers exactly — the training distribution has no cancellation structure anywhere | measured | scripts/run_killtest.py --training-grid | 590dfcd | Zenodo 14873443 + data/fluxes full runs |
+| 2026-07-11 | cond(S_active) on the training grid | union κ-active net columns = ALL net columns (327/327, 846/846) in every stratum ⇒ S_active ≈ full ν: cond 41.8 / 57.4 (mesa_80/151; full-ν 41.6 / 57.9) — ≪ the 1e6 gate, trivially PASS but vacuous (nothing equilibrated on this distribution; the verdict quantity is the relaxed-manifold cond) | measured | scripts/run_killtest.py --training-grid | 590dfcd | ditto |
