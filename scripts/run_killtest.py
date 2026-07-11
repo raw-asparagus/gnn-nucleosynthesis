@@ -202,35 +202,47 @@ def relaxed(net: str, include_reruns: bool, churn: bool) -> None:
             f"median {np.median(cov_med):.4f}"
         )
 
-    # ---- κ-active coverage (the CLAUDE.md primary gate) ------------------
+    # ---- κ-active coverage (the CLAUDE.md primary gate), split by ------
+    # relaxation phase: RELAXING (before first-quiet arrival) vs ATTRACTOR
+    # (the weak-drift tail — Target A's hybrid operating regime)
     print("-- κ-active {κ>0.1} coverage of dominant-isotope |ΔX| turnover "
-          "(per stratum: median over rows of min-over-dominant-isotopes) --")
-    for b, lab in enumerate(T9_LABELS):
-        sel_rows = np.nonzero((t9b == b))[0]
-        if sel_rows.size == 0:
-            continue
-        mins, meds, spread = [], [], []
-        for r in sel_rows:
-            act = (rows.kappa[:, r] > 0.1) & net_cols
-            dom = rows.X[r] > dom_thresh
-            cov = carried_fractions(
-                nu[:, net_cols], rows.phi[net_cols, r], act[net_cols]
-            )[dom]
-            cov = cov[np.isfinite(cov)]
-            if cov.size == 0:
+          "(per stratum × phase: median over rows of min/median over "
+          "dominant isotopes) --")
+    for phase, pmask in (("relaxing", ~rows.attractor), ("attractor", rows.attractor)):
+        for b, lab in enumerate(T9_LABELS):
+            sel_rows = np.nonzero((t9b == b) & pmask)[0]
+            if sel_rows.size == 0:
                 continue
-            mins.append(float(cov.min()))
-            meds.append(float(np.median(cov)))
-            contrib = np.abs(rows.phi[net_cols, r])
-            low = ~act[net_cols]
-            spread.append(float((contrib[low] > 0).sum() / max((contrib > 0).sum(), 1)))
-        if not mins:
-            continue
-        print(
-            f"  T9 {lab:<11} rows {len(mins):>5}  min-cov median {np.median(mins):.4f} "
-            f"p10 {np.quantile(mins, .1):.4f}  med-cov median {np.median(meds):.4f}  "
-            f"low-κ col share median {np.median(spread):.3f}"
-        )
+            mins, meds, spread, kbal = [], [], [], []
+            for r in sel_rows:
+                act = (rows.kappa[:, r] > 0.1) & net_cols
+                dom = rows.X[r] > dom_thresh
+                cov = carried_fractions(
+                    nu[:, net_cols], rows.phi[net_cols, r], act[net_cols]
+                )[dom]
+                cov = cov[np.isfinite(cov)]
+                if cov.size == 0:
+                    continue
+                mins.append(float(cov.min()))
+                meds.append(float(np.median(cov)))
+                contrib = np.abs(rows.phi[net_cols, r])
+                low = ~act[net_cols]
+                spread.append(
+                    float((contrib[low] > 0).sum() / max((contrib > 0).sum(), 1))
+                )
+                sf = strong_fwd & (rows.f_plus[:, r] > 0)
+                kbal.append(
+                    float((rows.kappa[sf, r] < 1e-3).sum() / max(sf.sum(), 1))
+                )
+            if not mins:
+                continue
+            print(
+                f"  [{phase:<9}] T9 {lab:<11} rows {len(mins):>5}  "
+                f"min-cov median {np.median(mins):.4f} p10 {np.quantile(mins, .1):.4f}  "
+                f"med-cov median {np.median(meds):.4f}  "
+                f"low-κ col share {np.median(spread):.3f}  "
+                f"κ-balanced pair frac {np.median(kbal):.3f}"
+            )
     # dYe: weak columns are never maskable and κ≡1 there ⇒ structural
     assert not (weak & ~net_cols).any() or True
     print("  |dẎₑ| coverage by any active set: 1.0000 STRUCTURALLY "

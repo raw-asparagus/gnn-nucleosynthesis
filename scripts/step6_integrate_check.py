@@ -52,18 +52,51 @@ def pick_states(net: str, n: int) -> np.ndarray:
     return np.sort(ids[np.concatenate(picked)])
 
 
+_G: dict = {}
+
+
+def _worker_init(net: str) -> None:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        from gnn_nucleo.fluxes.compile import compile_network
+
+        _G["cn"] = compile_network(net)
+
+
+def _measure_state(args) -> tuple[int, float, int, bool, np.ndarray, np.ndarray]:
+    s, T, rho, Xi, dts = args
+    import warnings as w
+
+    w.simplefilter("ignore")
+    from gnn_nucleo.fluxes.integrate import integrate_state
+
+    cn = _G["cn"]
+    A = cn.stoich.A.astype(np.float64)
+    t0 = time.perf_counter()
+    res = integrate_state(cn, T, rho, Xi / A, dts[-1], t_eval=dts)
+    wall = time.perf_counter() - t0
+    if not res.success:
+        n = len(dts)
+        return s, wall, res.nfev, False, np.full((n, len(Xi)), np.nan), np.full(
+            (n, cn.n_reactions), np.nan
+        )
+    return s, wall, res.nfev, True, res.Y, res.Phi
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--net", required=True, choices=["mesa_80", "mesa_151"])
     ap.add_argument("--n", type=int, default=36)
+    ap.add_argument("--workers", type=int, default=10)
     args = ap.parse_args()
     net = args.net
     warnings.simplefilter("ignore")
 
+    import multiprocessing as mp
+    from concurrent.futures import ProcessPoolExecutor
+
     from gnn_nucleo.data.labels import load_step_frame
     from gnn_nucleo.data.schema import DT_LABELS, load_measured_dt
-    from gnn_nucleo.fluxes.compile import compile_network
-    from gnn_nucleo.fluxes.integrate import integrate_state
     from gnn_nucleo.graph import load_isotope_table, npz_path
 
     table = load_isotope_table(net)
@@ -71,7 +104,6 @@ def main() -> None:
     mass = np.array([nuc.mass for nuc in table.nuclei])
     with np.load(npz_path(net), allow_pickle=False) as z:
         Q = z["Q"]
-    cn = compile_network(net)
     dts = np.array(load_measured_dt(net))
 
     ids = pick_states(net, args.n)
@@ -86,36 +118,45 @@ def main() -> None:
             net, lab, columns=[f"final_{x}" for x in table.names], state_ids=ids
         )
         finals[lab] = f.to_numpy()
+    print(f"{net}: labels loaded for {len(ids)} states; integrating with "
+          f"{args.workers} workers", flush=True)
 
     n_states = len(ids)
     frac = np.full((n_states, len(DT_LABELS)), np.nan)
     e_resid = np.full((n_states, len(DT_LABELS)), np.nan)
     wall = np.full(n_states, np.nan)
     nfev = np.zeros(n_states, dtype=int)
-    for s in range(n_states):
-        t0 = time.perf_counter()
-        res = integrate_state(cn, T[s], rho[s], Xi[s] / A, dts[-1], t_eval=dts)
-        wall[s] = time.perf_counter() - t0
-        nfev[s] = res.nfev
-        if not res.success:
-            print(f"  state {ids[s]}: solver FAILED ({res.message})", flush=True)
-            continue
-        for k, lab in enumerate(DT_LABELS):
-            dX_pred = A * (res.Y[k] - Xi[s] / A)
-            Xf = finals[lab][s]
-            dX_lab = Xf - Xi[s]
-            tol = np.maximum(0.1 * np.abs(dX_lab), 3 * EPS_LAB * (Xi[s] + Xf))
-            tol = np.maximum(tol, 2e-15)
-            frac[s, k] = float(np.mean(np.abs(dX_pred - dX_lab) <= tol))
-            e_flux = float(Q @ res.Phi[k])
-            e_comp = -float(mass @ (res.Y[k] - Xi[s] / A))
-            if e_comp != 0.0:
-                e_resid[s, k] = abs(e_flux - e_comp) / abs(e_comp)
-        print(
-            f"  state {ids[s]:>7} T9 {T[s] / 1e9:5.2f}: wall {wall[s]:6.1f}s "
-            f"nfev {nfev[s]:>6} frac(1e-6) {frac[s, 0]:.3f} frac(1e2) {frac[s, -1]:.3f}",
-            flush=True,
-        )
+    jobs = [(s, T[s], rho[s], Xi[s], dts) for s in range(n_states)]
+    ctx = mp.get_context("fork")
+    with ProcessPoolExecutor(
+        max_workers=args.workers,
+        mp_context=ctx,
+        initializer=_worker_init,
+        initargs=(net,),
+    ) as ex:
+        for s, w_s, nf, ok, Yk, Phik in ex.map(_measure_state, jobs):
+            wall[s] = w_s
+            nfev[s] = nf
+            if not ok:
+                print(f"  state {ids[s]}: solver FAILED", flush=True)
+                continue
+            for k, lab in enumerate(DT_LABELS):
+                dX_pred = A * (Yk[k] - Xi[s] / A)
+                Xf = finals[lab][s]
+                dX_lab = Xf - Xi[s]
+                tol = np.maximum(0.1 * np.abs(dX_lab), 3 * EPS_LAB * (Xi[s] + Xf))
+                tol = np.maximum(tol, 2e-15)
+                frac[s, k] = float(np.mean(np.abs(dX_pred - dX_lab) <= tol))
+                e_flux = float(Q @ Phik[k])
+                e_comp = -float(mass @ (Yk[k] - Xi[s] / A))
+                if e_comp != 0.0:
+                    e_resid[s, k] = abs(e_flux - e_comp) / abs(e_comp)
+            print(
+                f"  state {ids[s]:>7} T9 {T[s] / 1e9:5.2f}: wall {wall[s]:6.1f}s "
+                f"nfev {nfev[s]:>6} frac(1e-6) {frac[s, 0]:.3f} "
+                f"frac(1e2) {frac[s, -1]:.3f}",
+                flush=True,
+            )
 
     t9 = T / 1e9
     t9_bin = np.digitize(t9, T9_EDGES) - 1

@@ -23,7 +23,9 @@ class RelaxedRows:
 
     phi/kappa/f_plus are (n_rxn, n_rows) in the run's ν-column order;
     X is (n_rows, n_species). ``delta_r`` is (n_rxn, n_rows) Guidry
-    reaction departure vs the row's NSE reference.
+    reaction departure vs the row's NSE reference. ``attractor`` marks rows
+    at/after the first-quiet arrival row (strong-relaxation done; the
+    weak-drift tail) — the relaxation-degree split of the kill-test.
     """
 
     network: str
@@ -39,6 +41,7 @@ class RelaxedRows:
     kappa: np.ndarray | None = None
     delta_r: np.ndarray | None = None
     nse_converged: np.ndarray | None = None
+    attractor: np.ndarray | None = None
 
     @property
     def n_rows(self) -> int:
@@ -77,10 +80,11 @@ def assemble(
     ``max_rows_per_traj`` per trajectory. δ_r per row via the independent
     NSE solver (cached on rounded state keys).
     """
-    from gnn_nucleo.data.trajectories import select_rows
+    from gnn_nucleo.data.trajectories import select_rows, stall_row
     from gnn_nucleo.fluxes.store import FluxStore
     from gnn_nucleo.graph import load_isotope_table, npz_path
-    from gnn_nucleo.qse import build_inputs, delta_species, reaction_delta, solve_nse
+    from gnn_nucleo.qse import build_inputs, delta_species, solve_nse
+    from gnn_nucleo.qse.diagnostics import reaction_delta_batch
 
     table = load_isotope_table(network)
     A = table.A.astype(np.float64)
@@ -91,7 +95,7 @@ def assemble(
     out = RelaxedRows(network=network)
     cols: dict[str, list] = {k: [] for k in
                              ("age", "T", "rho", "ye", "X", "f_plus", "phi",
-                              "kappa", "delta_r", "nse_converged")}
+                              "kappa", "delta_r", "nse_converged", "attractor")}
     nse_cache: dict[tuple, object] = {}
 
     for run_id in run_ids:
@@ -116,6 +120,8 @@ def assemble(
                 )
                 rows = pick
             rho = 10.0 ** float(chunk.attrs["logRho"])
+            arrival = stall_row(traj.X, mode="first_quiet")
+            key_base = str(chunk.attrs.get("run_key", traj.fname))
             for r in rows:
                 Y = traj.X[r] / A
                 ye = float((table.Z * Y).sum() / (A * Y).sum())
@@ -127,7 +133,8 @@ def assemble(
                 cols["f_plus"].append(chunk.f_plus[:, r])
                 cols["phi"].append(chunk.phi[:, r])
                 cols["kappa"].append(chunk.kappa[:, r])
-                out.traj_key.append(f"{run_id}:{traj.fname}")
+                cols["attractor"].append(bool(r >= arrival))
+                out.traj_key.append(f"{run_id}:{key_base}")
                 out.source.append(traj.source)
                 if with_delta:
                     key = (round(t9, 3), round(np.log10(rho), 3), round(ye, 4))
@@ -137,7 +144,7 @@ def assemble(
                         nse_cache[key] = nse
                     if nse.converged:
                         d = delta_species(Y, nse.X / A)
-                        cols["delta_r"].append(reaction_delta(nu, d))
+                        cols["delta_r"].append(reaction_delta_batch(nu, d[None, :])[0])
                         cols["nse_converged"].append(True)
                     else:
                         cols["delta_r"].append(np.full(nu.shape[1], np.nan))
@@ -153,6 +160,7 @@ def assemble(
     out.f_plus = np.column_stack(cols["f_plus"])
     out.phi = np.column_stack(cols["phi"])
     out.kappa = np.column_stack(cols["kappa"])
+    out.attractor = np.array(cols["attractor"], dtype=bool)
     if with_delta:
         out.delta_r = np.column_stack(cols["delta_r"])
         out.nse_converged = np.array(cols["nse_converged"])
