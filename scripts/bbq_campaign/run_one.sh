@@ -10,6 +10,8 @@ export MESASDK_ROOT="${MESASDK_ROOT:-$HOME/mesasdk}"
 source "$MESASDK_ROOT/bin/mesasdk_init.sh" > /dev/null 2>&1 || true
 export MESA_DIR="${MESA_DIR:-$HOME/mesa-r23.05.1}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
+# alternate binary (e.g. ~/bbq_24081/bbq against MESA 24.08.1) via BBQ_BIN
+BBQ_BIN="${BBQ_BIN:-$HOME/bbq/bbq}"
 
 cd "$RUNDIR" || exit 97
-exec "$HOME/bbq/bbq" inlist > run.log 2>&1
+exec "$BBQ_BIN" inlist > run.log 2>&1
