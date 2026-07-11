@@ -346,3 +346,18 @@ f⁻/φ/κ derived on read. sha256 over sorted chunk files:
 | subsample-unscreened | 2 chunks, 145029819880cb48… | 2 chunks, 5de65620f9a5a221… |
 | trajectories (20 × 1002 rows) | 20 chunks, c438c19f09b10f98… | 20 chunks, 46f6592b62f02f0d… |
 | full corpus (1,041,400 states) | 64 chunks, 1892e1e3b87c2491… (4.9 GB) | 64 chunks, 56effd5b6eabc1db… (12 GB) |
+
+## Trajectory-file eps_nuc convention pin (2026-07-11, Step 6 Task 0)
+
+Retires the 2026-07-10 OPEN row "e_nuc flux-route vs bbq eps_nuc column".
+Per pre-stall output interval (state k−1 → k over the row's own dt), the
+file column is compared against the engine-independent composition route
+E_comp = −N_A Σᵢ mᵢ[MeV] ΔYᵢ · MeV2erg (label ΔX × pynucastro atomic
+masses; exact, quadrature-free) and the flux route (trapezoid of ΣQⱼRⱼ on
+rate-stable intervals), under candidates {integrated, rate} × {×1, ×1e-16}
+× {gross, net-of-neutrinos}. Script: scripts/step6_eps_pin.py.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-11 | trajectory eps_nuc convention | **INTEGRATED over the row's own dt [erg/g], NET of neutrino losses, NO 1e16 normalization**: vs (E_comp − ∫eps_neu dt) median log10\|ratio\| −0.000 with IQR [−0.000, +0.000], sign agreement 0.9933 / 0.9981 (mesa_80/151; 15,746 / 13,506 pre-stall intervals, dt spanning 1e-10…9.5e9 s), slope of median log-ratio vs dt decade 0.000; the RATE reading shows the wrong-convention slope +1.00 and median offset −2.2/−1.3 dex. Net-of-ν beats gross decisively (sign agreement 0.91/0.81 gross). Matches the source read (sourced: bbq src/lib_bbq.f90:453, out%eps_nuc = avg_eps_nuc·in%time; eps_neu written as a rate). Consequence: eps_neu column is a RATE [erg/g/s]; Step-5's rate-vs-column comparison was a convention mismatch, not an engine error | measured | scripts/step6_eps_pin.py | efaffd4 | Zenodo 14873443 |
+| 2026-07-11 | engine cross-check on the pin | flux-route ∫ΣQⱼRⱼdt / E_comp on rate-stable pre-stall intervals: median 0.979 / 0.996 (mesa_80/151) — engine energies consistent with label composition changes at the few-% level (heavy tails on near-cancelling intervals where E_comp → 0, as expected); invariant-#5 proper (≤1% gate) is measured by the Step-6 integrator | measured | scripts/step6_eps_pin.py | efaffd4 | ditto |
