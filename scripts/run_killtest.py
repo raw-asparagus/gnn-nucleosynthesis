@@ -275,14 +275,21 @@ def relaxed(net: str, include_reruns: bool, churn: bool) -> None:
                           f"(share {share[order][rank - 1] / share.sum():.4f})")
 
     # ---- 4. timescale separation ----------------------------------------
-    print("-- timescale separation: fastest maskable(ε=1e-2) gross rate / "
+    # Two equilibrated-set definitions: Guidry maskable(ε=1e-2) — empty
+    # wherever δ_r is referenced to TRUE NSE but the label manifold sits at
+    # the displaced attractor (RESULTS 2026-07-11) — and κ-balance
+    # (strong pairs with κ < 1e-3), which detects pair equilibrium directly
+    # from the fluxes on the label manifold.
+    print("-- timescale separation: fastest equilibrated gross rate / "
           "slowest 95%-inter-group-bottleneck net rate --")
     gdef = load_group_mask(net)
     ag = (table.A.astype(float) * gdef) @ nu
     cross = (np.abs(ag) > 0) & net_cols
-    ratios = {b: [] for b in range(len(T9_LABELS))}
+    ratios_g = {b: [] for b in range(len(T9_LABELS))}
+    ratios_k = {b: [] for b in range(len(T9_LABELS))}
     for r in np.nonzero(ok)[0]:
         maskable = guidry_masks(rows.delta_r[:, r], weak, (1e-2,))[1e-2]
+        kappa_eq = strong_fwd & (rows.kappa[:, r] < 1e-3) & (rows.f_plus[:, r] > 0)
         flow = np.abs(ag * rows.phi[:, r]) * cross
         order = np.argsort(-flow)
         cum = np.cumsum(flow[order])
@@ -291,18 +298,20 @@ def relaxed(net: str, include_reruns: bool, churn: bool) -> None:
         n95 = int(np.searchsorted(cum / cum[-1], 0.95)) + 1
         bottleneck = np.zeros_like(cross)
         bottleneck[order[:n95]] = True
-        ratio = timescale_separation(
-            rows.f_plus[:, r], rows.phi[:, r], maskable, bottleneck
-        )
-        if np.isfinite(ratio) and t9b[r] >= 0:
-            ratios[t9b[r]].append(np.log10(ratio))
-    for b, lab in enumerate(T9_LABELS):
-        v = np.array(ratios[b])
-        if v.size < 5:
-            continue
-        print(f"  T9 {lab:<11} n {v.size:>5}  log10 ratio median "
-              f"{np.median(v):+5.2f}  [p10 {np.quantile(v, .1):+5.2f}, "
-              f"p90 {np.quantile(v, .9):+5.2f}]")
+        for eq, ratios in ((maskable, ratios_g), (kappa_eq, ratios_k)):
+            ratio = timescale_separation(
+                rows.f_plus[:, r], rows.phi[:, r], eq, bottleneck
+            )
+            if np.isfinite(ratio) and t9b[r] >= 0:
+                ratios[t9b[r]].append(np.log10(ratio))
+    for tag, ratios in (("Guidry ε=1e-2", ratios_g), ("κ<1e-3 pairs", ratios_k)):
+        for b, lab in enumerate(T9_LABELS):
+            v = np.array(ratios[b])
+            if v.size < 5:
+                continue
+            print(f"  [{tag}] T9 {lab:<11} n {v.size:>5}  log10 ratio median "
+                  f"{np.median(v):+5.2f}  [p10 {np.quantile(v, .1):+5.2f}, "
+                  f"p90 {np.quantile(v, .9):+5.2f}]")
 
     # ---- 5. mask churn ----------------------------------------------------
     if churn:
