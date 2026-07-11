@@ -1,0 +1,159 @@
+"""Relaxed-manifold row assembly (Task 2B): pre-stall shipped trajectory
+rows + local bbq rerun rows, with per-row δ_r (vs NSE) and unscreened κ.
+
+Rows come from FluxStore trajectory-style runs (one chunk per trajectory,
+attrs: trajectory_file, logT, logRho, age, source). The pre-stall guard is
+applied through data.trajectories (composition read from the same file the
+fluxes were computed on). NSE references are cached on rounded
+(T9, logρ, Yₑ) keys.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+import numpy as np
+
+__all__ = ["RelaxedRows", "assemble"]
+
+
+@dataclass
+class RelaxedRows:
+    """Column-stacked per-row arrays over the relaxed manifold.
+
+    phi/kappa/f_plus are (n_rxn, n_rows) in the run's ν-column order;
+    X is (n_rows, n_species). ``delta_r`` is (n_rxn, n_rows) Guidry
+    reaction departure vs the row's NSE reference.
+    """
+
+    network: str
+    traj_key: list[str] = field(default_factory=list)
+    source: list[str] = field(default_factory=list)
+    age: np.ndarray | None = None
+    T: np.ndarray | None = None
+    rho: np.ndarray | None = None
+    ye: np.ndarray | None = None
+    X: np.ndarray | None = None
+    f_plus: np.ndarray | None = None
+    phi: np.ndarray | None = None
+    kappa: np.ndarray | None = None
+    delta_r: np.ndarray | None = None
+    nse_converged: np.ndarray | None = None
+
+    @property
+    def n_rows(self) -> int:
+        return 0 if self.T is None else self.T.size
+
+
+def _traj_for_chunk(network: str, attrs) -> "object":
+    from gnn_nucleo.data.trajectories import load_trajectory
+
+    src = str(attrs.get("source", "zenodo"))
+    fname = attrs["trajectory_file"]
+    if src == "zenodo":
+        return load_trajectory(network, fname)
+    return load_trajectory(
+        network,
+        fname,
+        source="rerun",
+        logT=float(attrs["logT"]),
+        logRho=float(attrs["logRho"]),
+    )
+
+
+def assemble(
+    network: str,
+    run_ids: list[str],
+    *,
+    prestall: bool = True,
+    max_rows_per_traj: int = 24,
+    with_delta: bool = True,
+    t9_min: float = 0.0,
+) -> RelaxedRows:
+    """Assemble relaxed-manifold rows from UNSCREENED trajectory-style runs.
+
+    Rows are log-spaced over each trajectory's pre-stall range (row 0
+    excluded — diff-based guards need a predecessor), at most
+    ``max_rows_per_traj`` per trajectory. δ_r per row via the independent
+    NSE solver (cached on rounded state keys).
+    """
+    from gnn_nucleo.data.trajectories import select_rows
+    from gnn_nucleo.fluxes.store import FluxStore
+    from gnn_nucleo.graph import load_isotope_table, npz_path
+    from gnn_nucleo.qse import build_inputs, delta_species, reaction_delta, solve_nse
+
+    table = load_isotope_table(network)
+    A = table.A.astype(np.float64)
+    inputs = build_inputs(network) if with_delta else None
+    with np.load(npz_path(network), allow_pickle=False) as z:
+        nu = z["nu"]
+
+    out = RelaxedRows(network=network)
+    cols: dict[str, list] = {k: [] for k in
+                             ("age", "T", "rho", "ye", "X", "f_plus", "phi",
+                              "kappa", "delta_r", "nse_converged")}
+    nse_cache: dict[tuple, object] = {}
+
+    for run_id in run_ids:
+        store = FluxStore(network, run_id)
+        for chunk in store.iter_chunks():
+            scr = str(chunk.attrs.get("screening", "None"))
+            if scr not in ("None", "none"):
+                raise ValueError(
+                    f"{run_id}: κ/δ analysis requires the UNSCREENED run "
+                    f"(got screening={scr!r})"
+                )
+            t9 = 10.0 ** float(chunk.attrs["logT"]) / 1e9
+            if t9 < t9_min:
+                continue
+            traj = _traj_for_chunk(network, chunk.attrs)
+            rows = select_rows(traj, prestall=prestall)[1:]
+            if rows.size == 0:
+                continue
+            if rows.size > max_rows_per_traj:
+                pick = np.unique(
+                    np.geomspace(rows[0], rows[-1], max_rows_per_traj).astype(int)
+                )
+                rows = pick
+            rho = 10.0 ** float(chunk.attrs["logRho"])
+            for r in rows:
+                Y = traj.X[r] / A
+                ye = float((table.Z * Y).sum() / (A * Y).sum())
+                cols["age"].append(traj.age[r])
+                cols["T"].append(t9 * 1e9)
+                cols["rho"].append(rho)
+                cols["ye"].append(ye)
+                cols["X"].append(traj.X[r])
+                cols["f_plus"].append(chunk.f_plus[:, r])
+                cols["phi"].append(chunk.phi[:, r])
+                cols["kappa"].append(chunk.kappa[:, r])
+                out.traj_key.append(f"{run_id}:{traj.fname}")
+                out.source.append(traj.source)
+                if with_delta:
+                    key = (round(t9, 3), round(np.log10(rho), 3), round(ye, 4))
+                    nse = nse_cache.get(key)
+                    if nse is None:
+                        nse = solve_nse(inputs, t9 * 1e9, rho, ye)
+                        nse_cache[key] = nse
+                    if nse.converged:
+                        d = delta_species(Y, nse.X / A)
+                        cols["delta_r"].append(reaction_delta(nu, d))
+                        cols["nse_converged"].append(True)
+                    else:
+                        cols["delta_r"].append(np.full(nu.shape[1], np.nan))
+                        cols["nse_converged"].append(False)
+
+    if not cols["T"]:
+        return out
+    out.age = np.array(cols["age"])
+    out.T = np.array(cols["T"])
+    out.rho = np.array(cols["rho"])
+    out.ye = np.array(cols["ye"])
+    out.X = np.vstack(cols["X"])
+    out.f_plus = np.column_stack(cols["f_plus"])
+    out.phi = np.column_stack(cols["phi"])
+    out.kappa = np.column_stack(cols["kappa"])
+    if with_delta:
+        out.delta_r = np.column_stack(cols["delta_r"])
+        out.nse_converged = np.array(cols["nse_converged"])
+    return out

@@ -1,13 +1,14 @@
-"""Kill-test harness (Step 6 — stub).
+"""QSE-cancellation kill-test measurement package (Step 6, Task 2).
 
-Will implement the Target A viability measurements on real bbq trajectories:
-- active-set coverage: does {r : kappa_r > 0.1} carry >= 95% of |dYe| (and of
-  |dX| for dominant isotopes) at the median timestep?
-- spread failure: does net flow spread over >~30% of reactions near the
-  kappa floor?
-- conditioning: cond(S_active) < 1e6 pass, > 1e8 fail (between: judgement +
-  RESULTS.md entry).
+Measures — never concludes: thresholds live in docs/phase0-checklist.md and
+docs/phase0-killtest-verdict.md. Driven by scripts/run_killtest.py.
 
-Priority window 3.3-5 GK; instrument the high-Ye bottleneck reaction
-45Sc(p,gamma)46Ti. Entry point: scripts/run_killtest.py.
+Submodules: strata (T9/Yₑ bins), distributions (streaming κ over FluxStore
+runs), active_set (Guidry masks / cond(S_active) / top-k / churn /
+timescale-separation primitives), manifold (relaxed-row assembly with δ_r
+and the pre-stall guard).
 """
+
+from . import active_set, distributions, manifold, strata
+
+__all__ = ["active_set", "distributions", "manifold", "strata"]

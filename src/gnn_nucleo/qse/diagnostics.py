@@ -16,6 +16,7 @@ __all__ = [
     "delta_species",
     "r_qse",
     "reaction_delta",
+    "reaction_delta_batch",
     "eligible_mask",
     "load_group_mask",
 ]
@@ -43,6 +44,19 @@ def reaction_delta(nu: np.ndarray, delta: np.ndarray) -> np.ndarray:
     out = np.full(nu.shape[1], 0.0)
     for j in range(nu.shape[1]):
         out[j] = d[part[:, j]].max() if part[:, j].any() else np.inf
+    return out
+
+
+def reaction_delta_batch(nu: np.ndarray, delta: np.ndarray) -> np.ndarray:
+    """Vectorized ``reaction_delta`` over rows: ``delta`` is
+    (n_rows, n_species) → (n_rows, n_rxn). Identical semantics (max δᵢ over
+    participants; ∞ where a participant's δ is non-finite)."""
+    part = nu != 0.0  # (n_species, n_rxn)
+    d = np.where(np.isfinite(delta), delta, np.inf)  # (n_rows, n_species)
+    stacked = np.where(part[None, :, :], d[:, :, None], -np.inf)
+    out = stacked.max(axis=1)
+    empty = ~part.any(axis=0)
+    out[:, empty] = np.inf
     return out
 
 
