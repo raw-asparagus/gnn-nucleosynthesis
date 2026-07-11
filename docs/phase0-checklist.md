@@ -19,7 +19,7 @@ Operative gate until item 12 is measured: per-step |ΔYₑ| ≲ 3e-6 (systematic
 | 8 | [ ] | Guidry ε sweep {3e-3, 1e-2, 3e-2} on Si-burning trajectories | Mask threshold; ε≈0.01 transfer hypothesis | |
 | 9 | [ ] | Mask membership churn per step along real T(t), ρ(t) tracks | Hybrid vs frozen-Guidry fallback (freeze if >5%/step) | |
 | 10 | [x] | Target B projection drift at realistic (20-decade) dynamic range | Target B viability | max relative constraint residual 6.7e-17 / 1.0e-16 (mesa_80/151) across dY scales 1e0…1e-20, gate ≤ 1e-12; weak dYₑ preserved to ≤ 3.4e-21 (scripts/check_projector.py, 2026-07-08, RESULTS.md). Static-operator viability confirmed; training-stability half of the question stays with the kill-test |
-| 11 | [ ] | e_nuc flux-route − composition-route residual, 3–4 GK band (≤1%?) | Energy-head partition-function consistency | |
+| 11 | [~] | e_nuc flux-route − composition-route residual, 3–4 GK band (≤1%?) | Energy-head partition-function consistency | Prerequisite convention pin MEASURED (Step 6 Task 0), retiring the Step-5 open item "trajectory eps_nuc units not pinned": trajectory-file eps_nuc is INTEGRATED per output row [erg/g] over the row's own dt, NET of neutrino losses, NO 1e16 normalization (the training CSVs differ: ÷1e16), and eps_neu is a RATE [erg/g/s] — Step-5's rate-vs-column comparison was a convention mismatch, not an engine error (measured, scripts/step6_eps_pin.py, commit efaffd4, RESULTS.md 2026-07-11). Engine cross-check on the pin: flux-route/composition-route median 0.979 / 0.996 (mesa_80/151) on rate-stable pre-stall intervals (same provenance). The ≤1% gate proper is measured by the Step-6 integrator (src/gnn_nucleo/fluxes/integrate.py, the reference producer of (Φ, ΔY = νΦ) pairs) — row stays open until then |
 | 12 | [ ] | Yₑ-residual accumulation slope: log\|cumulative\| vs log N (≈1 systematic, ≈0.5 random walk) | **The pass/fail gate — biggest single lever** (3e-6 vs 5e-7 vs 5e-5) | |
 | 13 | [ ] | Sobol→real-MESA 99th-pct Yₑ error ratio | Retrain trajectory-aware if >3× | |
 | 14 | [ ] | Per-isotope error distribution, Fe-peak A≈45–65 nuclei | Loss up-weighting (raise until 99th-pct effect on Yₑ ≤3e-6/step) | |
@@ -33,6 +33,14 @@ composition frozen (max \|ΔX\| < 1e-10 per interval) from median age
 rising; the frozen states are NOT NSE. Use PRE-STALL rows only; fully relaxed
 trajectories need bbq reruns (measured, scripts/step5_qse.py, RESULTS.md
 2026-07-10 trajectory-anomaly row).
+
+2026-07-11 update: the pre-stall rule is now enforced in code — shipped-trajectory
+consumers go through `gnn_nucleo.data.trajectories.select_rows`, which defaults to
+`prestall=True`; post-stall rows require an explicit override. The stall caveat
+itself REMAINS TRUE for the shipped data. Separately, the eps-convention
+ambiguity noted here ("eps_nuc keeps rising") is RESOLVED by the row-11 pin
+(integrated per row, net of ν losses, no 1e16 normalization; eps_neu a rate;
+measured, scripts/step6_eps_pin.py, commit efaffd4, RESULTS.md 2026-07-11).
 
 ## Local code-level confirmations (retire before sizing or training)
 
@@ -96,6 +104,24 @@ nucleons, median X_neut 1.7e-2), so the shortest label step is a STIFF
 RELAXATION, not a linear step; dt = 1e-6 labels encode full relaxations
 everywhere in the box (measured, scripts/step5_handshake.py --grid,
 RESULTS.md 2026-07-10 grid-mode-premise row).
+
+Conventions codified 2026-07-11 (root CLAUDE.md, Physics conventions):
+- **Two κ conventions — never mixed in one analysis.** Equilibrium detection and
+  every κ threshold below (incl. the 0.1 active-set gate) are evaluated on
+  UNSCREENED κ_r; the label config (chugunov_2007, per-reaction screening)
+  carries a REAL ~7e-2 κ offset at NSE (κ ≈ |Δln scor|) — screened κ is used
+  only for screening-offset diagnostics (measured, RESULTS.md 2026-07-10;
+  docs/rate-crosscheck.md screened-κ caveat).
+- **Si-group boundary is a config variant** (configs/qse_groups.yaml): default
+  24 ≤ A < 45 vs a24_46 (boundary at A = 46, ⁴⁵Sc inside the group). Every
+  group/bridge/inter-group analysis reports BOTH variants; a verdict that flips
+  between them is promoted to a measured decision (ADR 0004 revisit clause).
+- **Target A's φ is a TIME-INTEGRATED effective flux per step**, Φⱼ = ∫φⱼ dt over
+  the label interval, not an instantaneous rate — every label encodes a
+  relaxation (dt = 1e-6 s is already stiff over the box: grid-premise note
+  above); src/gnn_nucleo/fluxes/integrate.py (Step-6 integrator) is the
+  reference producer of (Φ, ΔY = νΦ) pairs. Instantaneous fluxes remain the
+  right objects for κ_r itself.
 
 Provisional pass/fail (to calibrate against measured κ_r and the floor):
 - Target A viable: {r : κ_r > 0.1} carries ≥95% of |ΔYₑ| and dominant-isotope |ΔX|

@@ -103,6 +103,25 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 - All conservation checks in float64. asinh/signed-log transforms are internal latents
   only — never the space where a sum constraint or projection is evaluated (the NuGNN
   failure mode).
+- **Two κ conventions — never mix in one analysis.** Equilibrium detection uses
+  UNSCREENED κ_r (detailed-balance diagnostic). The label config (chugunov_2007) applies
+  screening per-reaction, so a screened capture pairs with an unscreened
+  photodissociation: κ at NSE carries a REAL ~7e-2 offset (κ ≈ |Δln scor|) that is a
+  config property, not a pf artifact (RESULTS.md 2026-07-10). κ thresholds (e.g. the
+  0.1 active-set gate) are evaluated on unscreened runs; screened κ only for
+  screening-offset diagnostics.
+- **Si-group boundary is a config variant** (`configs/qse_groups.yaml`): default
+  24 ≤ A < 45 vs `a24_46` (boundary at A = 46, ⁴⁵Sc inside the group). Every
+  group/bridge/inter-group analysis reports BOTH variants; a verdict that flips between
+  them is a measured decision (ADR 0004 revisit clause).
+- **Target A's φ is a TIME-INTEGRATED effective flux per step**, Φⱼ = ∫φⱼ dt over the
+  label interval — not an instantaneous rate. Every label encodes a relaxation (the
+  dt=1e-6 grid step is already stiff: RESULTS.md 2026-07-10 grid-premise row);
+  `src/gnn_nucleo/fluxes/integrate.py` is the reference producer of (Φ, ΔY = νΦ) pairs.
+- Trajectory-file eps_nuc is INTEGRATED per output row, net of neutrino losses, no 1e16
+  normalization (differs from training CSVs; pinned, RESULTS.md 2026-07-11;
+  `data/trajectories.py`). Shipped-trajectory rows pass through the pre-stall guard
+  (`select_rows(prestall=True)`) by default.
 - Regime box: T = 1.6–7.9 GK (1e9.2–1e9.9 K), ρ = 1e7–1e9 g/cm³, 0.45 < Yₑ < 0.5.
   QSE onset ~3–3.3 GK; kill-test priority window 3.3–5 GK. High-Yₑ bottleneck reaction
   ⁴⁵Sc(p,γ)⁴⁶Ti — **mesa_151 only** (⁴⁵Sc is absent from mesa_80, whose only Sc is

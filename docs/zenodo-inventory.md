@@ -47,6 +47,9 @@ no MESA source, no bbq runs here.
   ε_ν is a *rate* [erg/g/s]. A commented-out line in their eval warns that for
   dt ≥ 10 s ε_ν may have been normalized by 1e13 instead — **measured ABSENT**
   (Step 3): all 18 CSVs use ÷1e16 for both columns (RESULTS.md 2026-07-08).
+  NOTE: the ÷1e16 normalization is a training-CSV property only — the
+  test-set trajectory files carry UNNORMALIZED values (see below; measured,
+  scripts/step6_eps_pin.py, commit efaffd4, RESULTS.md 2026-07-11).
 
 ## test_datasets/
 
@@ -65,6 +68,20 @@ no MESA source, no bbq runs here.
   one more `_Ye_*` component and need a patch to parse these).
 - These are constant-(T,ρ) composition *trajectories* — the only
   trajectory-like data in the package.
+- **eps convention (pinned 2026-07-11, Step 6 Task 0, retiring the Step-5
+  open item "trajectory eps_nuc units not pinned"):** the trajectory-file
+  `eps_nuc` column is the INTEGRATED specific energy per output row
+  [erg/g] over the row's own dt, NET of neutrino losses, with **NO 1e16
+  normalization** (unlike the training CSVs above); `eps_neu` is a RATE
+  [erg/g/s] (measured, scripts/step6_eps_pin.py, commit efaffd4,
+  RESULTS.md 2026-07-11; corroborated by the bbq source,
+  `out%eps_nuc = avg_eps_nuc·in%time`, src/lib_bbq.f90:453).
+- **Stall guard:** the shipped trajectories STALL — composition frozen at
+  non-equilibrium states from median age 2.2e5 s / 3.9e4 s (mesa_80/151)
+  (measured, scripts/step5_qse.py, RESULTS.md 2026-07-10). Consumers read
+  them via `gnn_nucleo.data.trajectories`; `select_rows` defaults to
+  PRE-STALL rows (`prestall=True`), post-stall rows require an explicit
+  override.
 
 ## trained_NNN_models/
 
@@ -123,7 +140,7 @@ outputs in `forward`, last 2 outputs linear. Loading requires their
 | `sobol_id: int` per record | no id column anywhere; the 9 dt files per network are exactly row-aligned — measured (RESULTS.md 2026-07-08). (logT,logRho) is **NOT** unique (154,405 duplicate rows — measured, RESULTS.md 2026-07-08) and must not be used as a join key | resolved: `sobol_id` renamed `state_id` = row index; row identity is by row alignment, never by (logT,logRho) join |
 | `StepLabels.e_nuc` documented [erg/g/s] | e_nuc is integrated [erg/g] (÷1e16 in CSVs); ε_ν is a rate [erg/g/s] (÷1e16 in all 18 CSVs; the dt≥10 s 1e13 suspicion measured ABSENT, RESULTS.md 2026-07-08) | resolved: units corrected in schema docstrings; `EPS_NU_QUARANTINED` mechanism exists (currently empty) |
 | X, X_post full-precision float64 | CSV text full precision, but `final_*` floored at 1e-15, and the models are float32 with a log-softmax head (ΣX=1 enforced in float32) | note for conservation analysis: shipped labels sum to 1 only to ~1e-15 (floor), NNN outputs to float32 |
-| single-step records only | test sets are 1001-step trajectories; training sets are single-step | schema fine for training data; test trajectories need their own (future) record type |
+| single-step records only | test sets are 1001-step trajectories; training sets are single-step | schema fine for training data; trajectory record type resolved in Step 6: `gnn_nucleo.data.trajectories` (TrajectoryFrame + pre-stall guard, `select_rows(prestall=True)` default) |
 | `N_TIMESTEPS = 9`, log-spaced 1e-6…1e2 | confirmed (nominally) | ok |
 | `NETWORKS = {mesa_80: 80, mesa_151: 151}` | confirmed (definitive isotope lists in `configs/`) | ok |
 | inputs `log_T`, `log_rho`, linear X | confirmed (`logT`, `logRho` columns; linear mass fractions) | ok |

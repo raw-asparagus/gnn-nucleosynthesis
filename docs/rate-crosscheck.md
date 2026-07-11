@@ -167,6 +167,12 @@ equilibrium detection (mask/κ thresholds) must use UNSCREENED κ or
 explicitly account for the screening offset (measured, RESULTS.md
 2026-07-10 Step 5 WP2 row).
 
+*Codified 2026-07-11 as the two-κ-conventions rule (root CLAUDE.md,
+Physics conventions): equilibrium detection and every κ threshold — e.g.
+the 0.1 active-set gate — are evaluated on UNSCREENED κ runs; screened κ
+serves only screening-offset diagnostics; the two conventions are never
+mixed within one analysis.*
+
 ## Step-5 consequences
 
 1. Flux derivations use pynucastro forwards freely (bit-identical), but
