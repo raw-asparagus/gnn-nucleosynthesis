@@ -68,8 +68,8 @@ def trajectory_bridges(net: str) -> None:
             continue
         pair_col, is_fwd = chunk.pair_col, chunk.is_forward_member
         traj = load_trajectory(net, chunk.attrs["trajectory_file"])
-        # pre-stall rows only (guard in data.trajectories); drop the initial row
-        sel = select_rows(traj)[1:]
+        # historical Step-5 selection (pre-attractor-arrival rows); drop row 0
+        sel = select_rows(traj, mode="first_quiet")[1:]
         phi_rows.append(chunk.phi[:, sel])
         ye_rows.append(chunk.ye[sel])
     print(f"\n== {net} inter-group concentration on PRE-STALL trajectory rows "

@@ -98,9 +98,9 @@ def trajectory_diagnostics(net: str, t9_min: float = 3.5) -> None:
         traj = load_trajectory(net, fname)
         X = traj.X
         age = traj.age
-        # STALL GUARD (RESULTS.md 2026-07-10 anomaly): only PRE-STALL rows
-        # are physical evolution — rule lives in data.trajectories now.
-        stall_row = tj_stall_row(X)
+        # historical Step-5 selection: rows before ARRIVAL AT THE ATTRACTOR
+        # (first-quiet rule; reinterpretation RESULTS.md 2026-07-11)
+        stall_row = tj_stall_row(X, mode="first_quiet")
         stall_report.append((fname, t9, stall_row, float(age[stall_row])))
         # sample pre-stall mid-burn rows, log-spaced
         lo = int(np.searchsorted(age, 1e-6))

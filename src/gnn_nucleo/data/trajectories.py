@@ -8,13 +8,16 @@ initial state (dt is a 1e-10 placeholder there).
 
 Stall guard
 -----------
-The shipped constant-(T, rho) trajectories STALL at non-equilibrium states
-(RESULTS.md 2026-07-10): composition frozen (max_i |dX_i| < 1e-10 per
-interval) from median age 2.2e5 s (mesa_80) / 3.9e4 s (mesa_151) while the
-file's own eps_nuc keeps rising. Only PRE-STALL rows are physical evolution.
-``select_rows`` therefore defaults to ``prestall=True``; consumers wanting
-post-stall rows must override explicitly. ``stall_row`` is the exact rule
-previously inlined in scripts/step5_qse.py and scripts/step5_bridges.py.
+Two-stage understanding (RESULTS.md 2026-07-10 anomaly row, reinterpreted
+2026-07-11): on the shipped constant-(T, rho) trajectories the composition
+change per interval drops below 1e-10 at median age 2.2e5 s (mesa_80) /
+3.9e4 s (mesa_151) — that row marks ARRIVAL AT THE (Appendix-B-displaced)
+strong-equilibrium attractor; afterwards the composition keeps drifting
+slowly under weak reactions (eps_nuc rising), so the tail rows are
+legitimate relaxed states of the label dynamics, not artifacts.
+``stall_row``/``select_rows`` default to the ``"terminal"`` semantics
+(exclude only a trajectory-ending quiet tail); ``mode="first_quiet"``
+reproduces the Step-5 rule (rows before attractor arrival).
 
 eps_nuc convention
 ------------------
@@ -160,31 +163,56 @@ def load_trajectory(
     )
 
 
-def stall_row(X: np.ndarray, tol: float = STALL_TOL) -> int:
-    """First row index at which the composition freeze sets in.
+def stall_row(X: np.ndarray, tol: float = STALL_TOL, mode: str = "terminal") -> int:
+    """Start row of the composition-quiet regime, under two semantics.
 
-    Exact lift of the Step-5 rule: the first output interval whose
-    max_i |dX_i| drops below ``tol`` marks the stall; if none does, the last
-    row index is returned (so pre-stall selection drops only the final row).
+    ``mode="terminal"`` (the guard default, Step-6 refinement): the row
+    after the LAST output interval whose max_i |dX_i| reaches ``tol`` —
+    only a trajectory-ending quiet tail is excluded. Rationale (RESULTS.md
+    2026-07-11): (a) rerun trajectories with slow-burning starts (pure Si
+    at 2.5 GK over 1e-8-s early steps) have sub-tolerance EARLY intervals
+    followed by real burning — a first-quiet rule discards the whole run;
+    (b) on the shipped files the first-quiet row marks ARRIVAL AT THE
+    (bug-displaced) strong-equilibrium attractor, after which composition
+    keeps drifting slowly under weak reactions (eps_nuc rising — the
+    Step-5 "stall" reinterpreted): those tail rows are legitimate relaxed
+    states, not artifacts, and the two rules genuinely differ there
+    (459/1508 shipped files).
+
+    ``mode="first_quiet"``: the historical Step-5 rule (first interval with
+    max_i |dX_i| < tol) — kept for reproducing Step-5 row selections and as
+    the arrival-at-attractor marker.
     """
     dmax = np.abs(np.diff(X, axis=0)).max(axis=1)
-    stalled = np.nonzero(dmax < tol)[0]
-    return int(stalled[0]) if stalled.size else X.shape[0] - 1
+    if mode == "first_quiet":
+        quiet = np.nonzero(dmax < tol)[0]
+        return int(quiet[0]) if quiet.size else X.shape[0] - 1
+    if mode != "terminal":
+        raise ValueError(f"unknown stall_row mode {mode!r}")
+    last_active = np.nonzero(dmax >= tol)[0]
+    if last_active.size == 0:
+        return 0  # quiet from the start
+    return min(int(last_active[-1]) + 1, X.shape[0] - 1)
 
 
 def select_rows(
-    traj: TrajectoryFrame, *, prestall: bool = True, tol: float = STALL_TOL
+    traj: TrajectoryFrame,
+    *,
+    prestall: bool = True,
+    tol: float = STALL_TOL,
+    mode: str = "terminal",
 ) -> np.ndarray:
     """Row indices eligible for physics analysis.
 
     ``prestall=True`` (the default and the guard) returns rows strictly
-    before the stall onset; ``prestall=False`` must be passed explicitly to
-    see post-stall rows (frozen non-equilibrium states — RESULTS.md
-    2026-07-10). Row 0 (the initial state) is included; slice it off at the
+    before the terminal quiet tail; ``prestall=False`` must be passed
+    explicitly to see the frozen tail rows. ``mode="first_quiet"``
+    reproduces the Step-5 selection (rows before arrival at the
+    attractor). Row 0 (the initial state) is included; slice it off at the
     call site when diff-based quantities are needed.
     """
     if prestall:
-        return np.arange(stall_row(traj.X, tol))
+        return np.arange(stall_row(traj.X, tol, mode))
     return np.arange(traj.n_rows)
 
 

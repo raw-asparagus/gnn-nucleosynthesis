@@ -34,22 +34,55 @@ def _synthetic_X(n_rows: int, n_species: int, freeze_at: int | None) -> np.ndarr
 
 
 class TestStallRow:
-    def test_freeze_at_known_row(self):
+    def test_terminal_freeze_both_modes_agree(self):
         X = _synthetic_X(50, 8, freeze_at=20)
-        # first sub-tolerance diff is X[21]-X[20] → diff index 20
+        # first sub-tolerance diff is X[21]-X[20] → diff index 20; the
+        # freeze is terminal so the two semantics coincide
         assert tj.stall_row(X) == 20
+        assert tj.stall_row(X, mode="first_quiet") == 20
 
     def test_no_stall_returns_last_row(self):
         X = _synthetic_X(50, 8, freeze_at=None)
         assert tj.stall_row(X) == 49
+        assert tj.stall_row(X, mode="first_quiet") == 49
+
+    def test_quiet_start_kept_by_terminal_rule(self):
+        """Slow-burning start (rerun class): early quiet intervals followed
+        by real burning — the terminal rule keeps the run, first-quiet
+        truncates it at the start."""
+        X = _synthetic_X(50, 8, freeze_at=None)
+        X[1] = X[0]
+        X[2] = X[1]  # two exactly-quiet early intervals
+        assert tj.stall_row(X, mode="first_quiet") == 0
+        assert tj.stall_row(X) == 49
+
+    def test_mid_run_quiet_gap_not_a_stall(self):
+        """Quiet gap with resumed activity (shipped attractor-arrival +
+        weak-drift tail class): terminal rule keeps everything up to the
+        last active interval."""
+        X = _synthetic_X(60, 8, freeze_at=None)
+        X[30] = X[29]
+        X[31] = X[30]
+        assert tj.stall_row(X, mode="first_quiet") == 29
+        assert tj.stall_row(X) == 59
+
+    def test_quiet_from_start(self):
+        X = np.tile(_synthetic_X(1, 8, freeze_at=None), (10, 1))
+        assert tj.stall_row(X) == 0
 
     def test_matches_step5_inline_rule(self):
-        """Behavior-identical to the code lifted from step5_qse/step5_bridges."""
+        """first_quiet mode is behavior-identical to the code previously
+        inlined in step5_qse/step5_bridges."""
         X = _synthetic_X(80, 12, freeze_at=33)
         dmax = np.abs(np.diff(X, axis=0)).max(axis=1)
         stalled = np.nonzero(dmax < 1e-10)[0]
         expected = int(stalled[0]) if stalled.size else len(X) - 1
-        assert tj.stall_row(X) == expected
+        assert tj.stall_row(X, mode="first_quiet") == expected
+
+    def test_unknown_mode_refused(self):
+        X = _synthetic_X(10, 4, freeze_at=None)
+        with pytest.raises(ValueError, match="mode"):
+            tj.stall_row(X, mode="whenever")
 
 
 class TestSelectRows:
