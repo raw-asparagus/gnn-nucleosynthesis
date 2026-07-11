@@ -361,3 +361,25 @@ rate-stable intervals), under candidates {integrated, rate} × {×1, ×1e-16}
 | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-11 | trajectory eps_nuc convention | **INTEGRATED over the row's own dt [erg/g], NET of neutrino losses, NO 1e16 normalization**: vs (E_comp − ∫eps_neu dt) median log10\|ratio\| −0.000 with IQR [−0.000, +0.000], sign agreement 0.9933 / 0.9981 (mesa_80/151; 15,746 / 13,506 pre-stall intervals, dt spanning 1e-10…9.5e9 s), slope of median log-ratio vs dt decade 0.000; the RATE reading shows the wrong-convention slope +1.00 and median offset −2.2/−1.3 dex. Net-of-ν beats gross decisively (sign agreement 0.91/0.81 gross). Matches the source read (sourced: bbq src/lib_bbq.f90:453, out%eps_nuc = avg_eps_nuc·in%time; eps_neu written as a rate). Consequence: eps_neu column is a RATE [erg/g/s]; Step-5's rate-vs-column comparison was a convention mismatch, not an engine error | measured | scripts/step6_eps_pin.py | efaffd4 | Zenodo 14873443 |
 | 2026-07-11 | engine cross-check on the pin | flux-route ∫ΣQⱼRⱼdt / E_comp on rate-stable pre-stall intervals: median 0.979 / 0.996 (mesa_80/151) — engine energies consistent with label composition changes at the few-% level (heavy tails on near-cancelling intervals where E_comp → 0, as expected); invariant-#5 proper (≤1% gate) is measured by the Step-6 integrator | measured | scripts/step6_eps_pin.py | efaffd4 | ditto |
+
+## HIGH-T9 TRAINING-LABEL PATHOLOGY: labels carry the Appendix-B bug (2026-07-11, Step 6)
+
+Discovered while validating the reference integrator against shipped labels.
+Every measured number: scripts/step6_label_nse_census.py (witness bbq runs
+under data/bbq_reruns/diag_state{80,646}_{stock,24081}/). SUPERSEDES the
+Step-4 working premise "training labels used the authors' FIXED MESA"
+(RESULTS 2026-07-09 verdict row; docs/phase0-checklist.md Appendix-B row) at
+the fixed-point level for T9 ≳ 5: the premise may still hold for the paper's
+own light-sector channel list, but the chapter-8 1→3 reverses this project
+found "beyond the paper" (c12→3α low by 9.5–11.3 dex in stock; RESULTS
+2026-07-09) control light↔heavy equilibration and are demonstrably
+label-active.
+
+| date | quantity | value | tag | script | code version | data version |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-11 | label(dt=1e2) vs independent Saha NSE, T9 > 5 subsample (120 states/bin) | max \|Δlog10 X\| over X > 1e-6 species: median rises 6.9 → 11.5 dex (mesa_80) and 6.7 → 13.0 dex (mesa_151) across T9 bins [5.0,5.5)…[7.0,7.94); frac > 1 dex = **1.000 in every bin, both nets** — NO sampled high-T9 label endpoint is near NSE | measured | scripts/step6_label_nse_census.py | 3479512 | Zenodo 14873443 |
+| 2026-07-11 | displaced-attractor classes | high ρ: si30/si29/mg26-dominated (e.g. state 80: T9 7.08, ρ 3.0e8 — si30 X = 0.578 vs NSE fe56 = 0.72); low ρ: c12/o16-dominated (state 646: T9 7.78, ρ 2.0e7 — c12 0.294 + o16 0.266 vs NSE he4/fe-group). Same class as the Step-5 trajectory-stall frozen states (si30-dominated at T9 6.1) | measured | scripts/step6_label_nse_census.py | 3479512 | ditto |
+| 2026-07-11 | dt-freeze signature | state 80 final composition FROZEN across dt = 1e-5 … 1e1 (si30 5.615e-1 identical to 4 digits; reached already at dt 1e-6) — the attractor is a fixed point of the label generator, not a slow transient | measured | scripts/step6_label_nse_census.py | 3479512 | ditto |
+| 2026-07-11 | **attribution witness** (exact label conditions, initial comps) | stock r23.05.1 bbq reproduces the shipped labels to **0.01 / 0.03 dex** (states 80 / 646) including the displaced attractor; MESA **24.08.1** bbq (gh-575 fix verified) instead relaxes toward NSE (state 80: fe56 0.985, 1.2 dex residual with Yₑ still evolving; state 646: he4 0.521 + fe56 0.378). Independent pf-true reference integrator agrees with 24.08.1/NSE (state 80 @ 1e-6 s: fe56 0.70 vs 24.08.1's 0.66) | measured | scripts/step6_label_nse_census.py | 3479512 | MESA r23.05.1 stock + 24.08.1 + pyna 2.12.0 |
+| 2026-07-11 | Yₑ consequence | at state 80 the label/stock path evolves Yₑ 0.4717 → 0.4713 over 1e2 s while the fixed-MESA path gives 0.4717 → 0.4619 — the bug displaces WHICH species host EC, so **the labels' Yₑ evolution itself is wrong at T9 ≳ 5**, not just the composition detail | measured | scripts/step6_label_nse_census.py | 3479512 | ditto |
+| 2026-07-11 | consequences recorded | (a) rerun-campaign comparability VALIDATED (stock = label behavior to 0.01 dex — ADR 0005's choice measured-correct); (b) Step-5 trajectory-stall anomaly reinterpreted: frozen states are the bug's displaced pseudo-equilibria (the output-dt-blowup hypothesis is at most secondary); (c) validate_campaign's terminal-NSE check must expect the DISPLACED equilibrium on stock reruns at T9 ≳ 5 (24.08.1 witness = the physics-true reference); (d) Phase-1 supervision at T9 ≳ 5 faces a benchmark-vs-physics fork — escalated to the user in STEP6_REPORT (human decision); (e) NNN itself was trained on these labels — external-communication decision also escalated | measured | scripts/step6_label_nse_census.py | 3479512 | ditto |

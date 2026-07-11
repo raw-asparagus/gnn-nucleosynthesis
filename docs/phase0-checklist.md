@@ -62,7 +62,13 @@ measured, scripts/step6_eps_pin.py, commit efaffd4, RESULTS.md 2026-07-11).
       — MEASURED and CLOSED (2026-07-10, Step 4 Tasks 3–4). Appendix-B state: stock
       r23.05.1 HAS the gh-575 bug (10.0–22.7 dex on 9/11 multi-body inverse channels;
       measured, scripts/appendixb_check.py, commit b8665c0); the training labels used
-      the authors' FIXED MESA; MESA 24.08.1 installed side-by-side and the fix
+      the authors' FIXED MESA [SUPERSEDED 2026-07-11 at the fixed-point level for
+      T9 ≳ 5: stock r23.05.1 bbq reproduces the shipped labels to 0.01/0.03 dex
+      INCLUDING the bug-displaced pseudo-equilibrium (si30- / c12,o16-attractors,
+      7–13 dex from NSE, frozen across dt decades), while MESA 24.08.1 relaxes to
+      NSE — the labels were generated with the chapter-8 1→3 reverses (c12→3α
+      class) still bugged; measured, scripts/step6_label_nse_census.py, commit
+      3479512, RESULTS.md 2026-07-11]; MESA 24.08.1 installed side-by-side and the fix
       verified (residual ≤ 1.9 dex; measured, scripts/appendixb_check.py +
       mesa_probe24, commit 156c73f). κ screen at NSE: graphs-as-built raw v-flag
       reverses give a pervasive SPURIOUS floor (median κ 6.6e-2 / 1.3e-1, suspects
