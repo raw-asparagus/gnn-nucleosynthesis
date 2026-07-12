@@ -21,7 +21,10 @@ Every numeric claim must be tagged with exactly one of:
   write the script or relabel as assumed.
 - **assumed** — an internal estimate, stated with its retirement plan (usually a
   Phase-0 checklist item). Known standing examples that must NEVER appear as
-  sourced: the "6–8 orders of magnitude" timescale separation, the 0.1–0.5
+  sourced: the "6–8 orders of magnitude" timescale separation (RETIRED by
+  measurement 2026-07-12 — not supported on the label manifold; see the
+  phase0-checklist retirement note and RESULTS.md 2026-07-12; the entry stays
+  here as the canonical example of the rule), the 0.1–0.5
   CPU-hr/sample cost, GPU training-time estimates, the per-step Yₑ budget
   derivation (the floor's *anchor* is sourced; the per-step translation is an
   inference under a stated accumulation model).
