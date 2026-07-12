@@ -243,10 +243,13 @@ def relaxed(net: str, include_reruns: bool, churn: bool) -> None:
                 f"low-κ col share {np.median(spread):.3f}  "
                 f"κ-balanced pair frac {np.median(kbal):.3f}"
             )
-    # dYe: weak columns are never maskable and κ≡1 there ⇒ structural
-    assert not (weak & ~net_cols).any() or True
-    print("  |dẎₑ| coverage by any active set: 1.0000 STRUCTURALLY "
-          "(weak ⊂ active always; invariant #2)")
+    # dYe: weak columns are unpaired (f⁻ ≡ 0) ⇒ κ = 1 wherever f⁺ > 0 —
+    # verify on the assembled rows, then the coverage is 1 by arithmetic
+    wk = weak[:, None] & (rows.f_plus > 0)
+    assert np.all(rows.kappa[wk] == 1.0), "weak κ convention violated"
+    print(f"  |dẎₑ| coverage by the κ-active set: 1.0000 — verified κ = 1.0 "
+          f"exactly on {int(wk.sum())} (weak column × row) samples with "
+          "f⁺ > 0 (weak also never maskable; invariant #2)")
 
     # ---- 3. top-k concentration -----------------------------------------
     zeta = Zrow @ nu

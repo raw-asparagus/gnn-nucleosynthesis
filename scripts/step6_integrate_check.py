@@ -88,6 +88,9 @@ def main() -> None:
     ap.add_argument("--net", required=True, choices=["mesa_80", "mesa_151"])
     ap.add_argument("--n", type=int, default=36)
     ap.add_argument("--workers", type=int, default=10)
+    ap.add_argument("--deadline", type=float, default=5400.0,
+                    help="global wall cap [s]; unfinished states are "
+                    "reported as censored (>= their elapsed wall)")
     args = ap.parse_args()
     net = args.net
     warnings.simplefilter("ignore")
@@ -126,37 +129,66 @@ def main() -> None:
     e_resid = np.full((n_states, len(DT_LABELS)), np.nan)
     wall = np.full(n_states, np.nan)
     nfev = np.zeros(n_states, dtype=int)
+    from concurrent.futures import TimeoutError as FutTimeout
+    from concurrent.futures import wait
+
     jobs = [(s, T[s], rho[s], Xi[s], dts) for s in range(n_states)]
     ctx = mp.get_context("fork")
-    with ProcessPoolExecutor(
+    censored = np.zeros(n_states, dtype=bool)
+    t_start = time.perf_counter()
+    ex = ProcessPoolExecutor(
         max_workers=args.workers,
         mp_context=ctx,
         initializer=_worker_init,
         initargs=(net,),
-    ) as ex:
-        for s, w_s, nf, ok, Yk, Phik in ex.map(_measure_state, jobs):
-            wall[s] = w_s
-            nfev[s] = nf
-            if not ok:
-                print(f"  state {ids[s]}: solver FAILED", flush=True)
-                continue
-            for k, lab in enumerate(DT_LABELS):
-                dX_pred = A * (Yk[k] - Xi[s] / A)
-                Xf = finals[lab][s]
-                dX_lab = Xf - Xi[s]
-                tol = np.maximum(0.1 * np.abs(dX_lab), 3 * EPS_LAB * (Xi[s] + Xf))
-                tol = np.maximum(tol, 2e-15)
-                frac[s, k] = float(np.mean(np.abs(dX_pred - dX_lab) <= tol))
-                e_flux = float(Q @ Phik[k])
-                e_comp = -float(mass @ (Yk[k] - Xi[s] / A))
-                if e_comp != 0.0:
-                    e_resid[s, k] = abs(e_flux - e_comp) / abs(e_comp)
-            print(
-                f"  state {ids[s]:>7} T9 {T[s] / 1e9:5.2f}: wall {wall[s]:6.1f}s "
-                f"nfev {nfev[s]:>6} frac(1e-6) {frac[s, 0]:.3f} "
-                f"frac(1e2) {frac[s, -1]:.3f}",
-                flush=True,
-            )
+    )
+    futs = {ex.submit(_measure_state, j): j[0] for j in jobs}
+    pending = set(futs)
+    try:
+        while pending:
+            left = args.deadline - (time.perf_counter() - t_start)
+            if left <= 0:
+                raise FutTimeout
+            done, pending = wait(pending, timeout=min(left, 60.0),
+                                 return_when="FIRST_COMPLETED")
+            for fut in done:
+                s, w_s, nf, ok, Yk, Phik = fut.result()
+                wall[s] = w_s
+                nfev[s] = nf
+                if not ok:
+                    print(f"  state {ids[s]}: solver FAILED", flush=True)
+                    continue
+                for k, lab in enumerate(DT_LABELS):
+                    dX_pred = A * (Yk[k] - Xi[s] / A)
+                    Xf = finals[lab][s]
+                    dX_lab = Xf - Xi[s]
+                    tol = np.maximum(
+                        0.1 * np.abs(dX_lab), 3 * EPS_LAB * (Xi[s] + Xf)
+                    )
+                    tol = np.maximum(tol, 2e-15)
+                    frac[s, k] = float(np.mean(np.abs(dX_pred - dX_lab) <= tol))
+                    e_flux = float(Q @ Phik[k])
+                    e_comp = -float(mass @ (Yk[k] - Xi[s] / A))
+                    if e_comp != 0.0:
+                        e_resid[s, k] = abs(e_flux - e_comp) / abs(e_comp)
+                print(
+                    f"  state {ids[s]:>7} T9 {T[s] / 1e9:5.2f}: "
+                    f"wall {wall[s]:6.1f}s nfev {nfev[s]:>6} "
+                    f"frac(1e-6) {frac[s, 0]:.3f} frac(1e2) {frac[s, -1]:.3f}",
+                    flush=True,
+                )
+    except FutTimeout:
+        for fut in pending:
+            censored[futs[fut]] = True
+        print(
+            f"  DEADLINE {args.deadline:.0f}s: {len(pending)} states censored "
+            f"(wall >= {args.deadline - 60:.0f}s each): "
+            f"{[int(ids[futs[f]]) for f in pending]}",
+            flush=True,
+        )
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
+    wall[censored] = args.deadline  # lower bound for the throughput stats
 
     t9 = T / 1e9
     t9_bin = np.digitize(t9, T9_EDGES) - 1
@@ -195,11 +227,13 @@ def main() -> None:
     corpus_core_h = 1_041_400 * per_state / 3600.0
     print(f"\n== {net} throughput (full nine-dt integration per state) ==")
     print(
-        f"  median wall {per_state:.1f} s/state (p90 {np.quantile(wall[ok], .9):.1f}), "
-        f"median nfev {int(np.median(nfev[ok]))} → {per_hour:.1f} states/h/core"
+        f"  median wall {per_state:.1f} s/state (p90 {np.quantile(wall[ok], .9):.1f}; "
+        f"{int(censored.sum())}/{n_states} censored at the deadline — medians are "
+        f"LOWER BOUNDS if any censored), median nfev {int(np.median(nfev[ok & (nfev > 0)]))} "
+        f"→ ≤ {per_hour:.1f} states/h/core"
     )
     print(
-        f"  corpus extrapolation: 1,041,400 states ≈ {corpus_core_h:,.0f} core-h "
+        f"  corpus extrapolation: 1,041,400 states ≥ {corpus_core_h:,.0f} core-h "
         f"({corpus_core_h / 12:,.0f} h on 12 cores)"
     )
 
