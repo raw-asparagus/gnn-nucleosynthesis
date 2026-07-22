@@ -10,7 +10,7 @@ weak-reaction columns in its eligible set (CLAUDE.md invariant #2) — the
 eligible mask is constructed structurally from weak_mask, not by convention.
 """
 
-from .coeffs import NseInputs, build_inputs, nse_log_coeffs
+from .coeffs import NseInputs, build_inputs, nse_log_coeffs, nse_log_coeffs_batch
 from .diagnostics import (
     delta_species,
     eligible_mask,
@@ -18,16 +18,30 @@ from .diagnostics import (
     r_qse,
     reaction_delta,
 )
-from .solver import NSEResult, QSEResult, solve_nse, solve_qse
+from .solver import (
+    NSEBatchResult,
+    NSEResult,
+    QSEBatchResult,
+    QSEResult,
+    solve_nse,
+    solve_nse_batch,
+    solve_qse,
+    solve_qse_batch,
+)
 
 __all__ = [
     "NseInputs",
     "build_inputs",
     "nse_log_coeffs",
+    "nse_log_coeffs_batch",
     "NSEResult",
     "QSEResult",
+    "NSEBatchResult",
+    "QSEBatchResult",
     "solve_nse",
     "solve_qse",
+    "solve_nse_batch",
+    "solve_qse_batch",
     "delta_species",
     "r_qse",
     "reaction_delta",

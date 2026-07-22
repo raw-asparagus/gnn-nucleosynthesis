@@ -50,6 +50,16 @@ WITNESS = {
 }
 
 
+def _dex_distance(X, nse_X):
+    """max |Δlog10 X| over species present in either composition (floor 1e-15)."""
+    m = (X > 1e-6) | (nse_X > 1e-6)
+    return float(
+        np.abs(
+            np.log10(np.maximum(X[m], 1e-15)) - np.log10(np.maximum(nse_X[m], 1e-15))
+        ).max()
+    )
+
+
 def nse_distance(inputs, X, t9, rho, Z, A):
     from gnn_nucleo.qse import solve_nse
 
@@ -57,11 +67,7 @@ def nse_distance(inputs, X, t9, rho, Z, A):
     nse = solve_nse(inputs, t9 * 1e9, rho, ye)
     if not nse.converged:
         return np.nan, None
-    m = (X > 1e-6) | (nse.X > 1e-6)
-    d = np.abs(
-        np.log10(np.maximum(X[m], 1e-15)) - np.log10(np.maximum(nse.X[m], 1e-15))
-    ).max()
-    return float(d), nse
+    return _dex_distance(X, nse.X), nse
 
 
 def census(net: str, n_per_bin: int = 120) -> None:
@@ -83,12 +89,24 @@ def census(net: str, n_per_bin: int = 120) -> None:
     Xf = df[[f"final_{n}" for n in names]].to_numpy()
     print(f"== {net}: label(dt=1e2) vs NSE by T9 bin "
           f"(max|dlog10 X| over species with X > 1e-6) ==")
+    from gnn_nucleo.qse import solve_nse_batch
+
+    ZA = Z / A
     for lo, hi in [(5.0, 5.5), (5.5, 6.0), (6.0, 6.5), (6.5, 7.0), (7.0, 7.94)]:
         sel = np.nonzero((t9 >= lo) & (t9 < hi))[0][:n_per_bin]
-        ds = [
-            nse_distance(inputs, Xf[k], t9[k], rho[k], Z, A)[0] for k in sel
-        ]
-        ds = np.array([d for d in ds if np.isfinite(d)])
+        if sel.size == 0:
+            print(f"  T9 [{lo},{hi}): n    0")
+            continue
+        # one batched NSE solve per bin (was a per-state scalar comprehension)
+        ye = Xf[sel] @ ZA
+        res = solve_nse_batch(inputs, t9[sel] * 1e9, rho[sel], ye)
+        ds = np.array(
+            [
+                _dex_distance(Xf[k], res.X[m])
+                for m, k in enumerate(sel)
+                if res.converged[m]
+            ]
+        )
         print(
             f"  T9 [{lo},{hi}): n {len(ds):>4}  median {np.median(ds):6.2f} dex"
             f"  frac>1dex {(ds > 1).mean():.3f}  frac>3dex {(ds > 3).mean():.3f}"

@@ -16,6 +16,24 @@ Usage: uv run python scripts/step6_ingest_reruns.py --net both --workers 8
 
 from __future__ import annotations
 
+# Single-thread the BLAS/OpenMP pools BEFORE numpy is imported. This script fans
+# out over runs with a fork-based ProcessPoolExecutor; each worker's per-row
+# work is single-threaded NumPy ufuncs, so letting every worker's OpenBLAS spawn
+# its own thread pool oversubscribes the cores. A fork inherits the parent's
+# already-initialized pool, so setting these in the worker initializer is too
+# late — they must precede `import numpy`. setdefault lets an explicit outer
+# environment override win.
+import os
+
+for _v in (
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+):
+    os.environ.setdefault(_v, "1")
+
 import argparse
 import hashlib
 import multiprocessing as mp

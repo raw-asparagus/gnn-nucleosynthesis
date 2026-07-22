@@ -83,7 +83,7 @@ def assemble(
     from gnn_nucleo.data.trajectories import select_rows, stall_row
     from gnn_nucleo.fluxes.store import FluxStore
     from gnn_nucleo.graph import load_isotope_table, npz_path
-    from gnn_nucleo.qse import build_inputs, delta_species, solve_nse
+    from gnn_nucleo.qse import build_inputs, delta_species, solve_nse_batch
     from gnn_nucleo.qse.diagnostics import reaction_delta_batch
 
     table = load_isotope_table(network)
@@ -95,8 +95,13 @@ def assemble(
     out = RelaxedRows(network=network)
     cols: dict[str, list] = {k: [] for k in
                              ("age", "T", "rho", "ye", "X", "f_plus", "phi",
-                              "kappa", "delta_r", "nse_converged", "attractor")}
-    nse_cache: dict[tuple, object] = {}
+                              "kappa", "attractor")}
+    # Per-row NSE-reference key (rounded state) + the first-occurrence exact
+    # (T, ρ, Yₑ) for each distinct key — the NSE reference is solved ONCE per
+    # key at the first row that hits it (preserves the scalar cache semantics),
+    # then all distinct keys are solved in ONE batched Newton pass below.
+    row_keys: list[tuple] = []
+    key_state: dict[tuple, tuple[float, float, float]] = {}
 
     for run_id in run_ids:
         store = FluxStore(network, run_id)
@@ -138,17 +143,8 @@ def assemble(
                 out.source.append(traj.source)
                 if with_delta:
                     key = (round(t9, 3), round(np.log10(rho), 3), round(ye, 4))
-                    nse = nse_cache.get(key)
-                    if nse is None:
-                        nse = solve_nse(inputs, t9 * 1e9, rho, ye)
-                        nse_cache[key] = nse
-                    if nse.converged:
-                        d = delta_species(Y, nse.X / A)
-                        cols["delta_r"].append(reaction_delta_batch(nu, d[None, :])[0])
-                        cols["nse_converged"].append(True)
-                    else:
-                        cols["delta_r"].append(np.full(nu.shape[1], np.nan))
-                        cols["nse_converged"].append(False)
+                    row_keys.append(key)
+                    key_state.setdefault(key, (t9 * 1e9, rho, ye))
 
     if not cols["T"]:
         return out
@@ -162,6 +158,27 @@ def assemble(
     out.kappa = np.column_stack(cols["kappa"])
     out.attractor = np.array(cols["attractor"], dtype=bool)
     if with_delta:
-        out.delta_r = np.column_stack(cols["delta_r"])
-        out.nse_converged = np.array(cols["nse_converged"])
+        # One batched Newton over the DISTINCT NSE-reference keys, then scatter
+        # per-row and compute δ_r for every row at once (reaction_delta_batch is
+        # row-vectorized). Equivalent to the former per-row cached scalar solves.
+        keys = list(key_state)
+        kT = np.array([key_state[k][0] for k in keys])
+        krho = np.array([key_state[k][1] for k in keys])
+        kye = np.array([key_state[k][2] for k in keys])
+        res = solve_nse_batch(inputs, kT, krho, kye)
+        conv_by_key = {k: bool(res.converged[i]) for i, k in enumerate(keys)}
+        yref_by_key = {k: res.X[i] / A for i, k in enumerate(keys)}
+        n_rows = out.X.shape[0]
+        Y_all = out.X / A
+        yref = np.ones_like(Y_all)  # placeholder for non-converged rows
+        conv = np.zeros(n_rows, dtype=bool)
+        for j, k in enumerate(row_keys):
+            conv[j] = conv_by_key[k]
+            if conv[j]:
+                yref[j] = yref_by_key[k]
+        delta = delta_species(Y_all, yref)  # (n_rows, n_species)
+        dr = reaction_delta_batch(nu, delta)  # (n_rows, n_rxn)
+        dr[~conv] = np.nan
+        out.delta_r = dr.T
+        out.nse_converged = conv
     return out

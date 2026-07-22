@@ -340,7 +340,7 @@ def churn_report(net: str, run_ids: list[str], nu: np.ndarray, weak: np.ndarray)
     from gnn_nucleo.graph import load_isotope_table
     from gnn_nucleo.killtest.active_set import EPS_SWEEP, mask_churn
     from gnn_nucleo.killtest.manifold import _traj_for_chunk
-    from gnn_nucleo.qse import build_inputs, delta_species, solve_nse
+    from gnn_nucleo.qse import build_inputs, delta_species, solve_nse_batch
     from gnn_nucleo.qse.diagnostics import eligible_mask, reaction_delta_batch
 
     table = load_isotope_table(net)
@@ -358,19 +358,23 @@ def churn_report(net: str, run_ids: list[str], nu: np.ndarray, weak: np.ndarray)
             if rows.size < 10:
                 continue
             rho = 10.0 ** float(chunk.attrs["logRho"])
-            cache: dict[float, object] = {}
-            deltas = np.full((rows.size, table.n), np.inf)
-            good = np.zeros(rows.size, dtype=bool)
-            for i, r in enumerate(rows):
-                Y = traj.X[r] / A
-                ye = round(float((table.Z * Y).sum() / (A * Y).sum()), 4)
-                nse = cache.get(ye)
-                if nse is None:
-                    nse = solve_nse(inputs, t9 * 1e9, rho, ye)
-                    cache[ye] = nse
-                if nse.converged:
-                    deltas[i] = delta_species(Y, nse.X / A)
-                    good[i] = True
+            # NSE reference per row, deduplicated on rounded Yₑ (t9/ρ constant
+            # within the chunk) and solved in one batched Newton pass.
+            Yr = traj.X[rows] / A  # (rows, n_species)
+            ye = np.round(
+                (table.Z @ Yr.T) / (A @ Yr.T), 4
+            )  # (rows,) rounded key = solved Yₑ
+            uye, inv = np.unique(ye, return_inverse=True)
+            res = solve_nse_batch(
+                inputs,
+                np.full(uye.size, t9 * 1e9),
+                np.full(uye.size, rho),
+                uye,
+            )
+            good = res.converged[inv]
+            deltas = np.where(
+                good[:, None], delta_species(Yr, res.X[inv] / A), np.inf
+            )
             if good.sum() < 10:
                 continue
             d_r = reaction_delta_batch(nu, deltas[good])

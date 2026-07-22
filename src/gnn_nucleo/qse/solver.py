@@ -20,9 +20,18 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .coeffs import EXP_CLIP, NseInputs, nse_log_coeffs
+from .coeffs import EXP_CLIP, NseInputs, nse_log_coeffs, nse_log_coeffs_batch
 
-__all__ = ["NSEResult", "QSEResult", "solve_nse", "solve_qse"]
+__all__ = [
+    "NSEResult",
+    "QSEResult",
+    "NSEBatchResult",
+    "QSEBatchResult",
+    "solve_nse",
+    "solve_qse",
+    "solve_nse_batch",
+    "solve_qse_batch",
+]
 
 _MAX_STEP_MEV = 2.0
 _MAX_ITER = 200
@@ -245,4 +254,328 @@ def solve_qse(
             lo_g = u_g
     return QSEResult(
         X, u_p, u_n, u_g, False, _MAX_ITER + 200, "bisection", np.abs(F).max()
+    )
+
+
+# ---------------------------------------------------------------------------
+# Batched solvers
+#
+# The Newton kernels above are already vectorized over the species axis; the
+# only per-state scalars are (T, ρ, Yₑ, group_mass) and the unknowns u. The
+# batched entry points stack those to a leading state axis and run one
+# vectorized damped-Newton loop over ALL states at once (per-row convergence
+# masking + per-row damping), then hand any state that fails to converge in the
+# Newton phase to the proven SCALAR solver (which retries Newton and applies its
+# bisection fallback) — so the result is identical to a per-state loop while the
+# hot, well-conditioned majority is computed in a handful of array ops. Same
+# constants (EXP_CLIP, _MAX_STEP_MEV, _MAX_ITER), same float64, same tol.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class NSEBatchResult:
+    """Stacked :class:`NSEResult` over M states (see solve_nse_batch)."""
+
+    X: np.ndarray  # (M, n) mass fractions
+    u_p: np.ndarray  # (M,)
+    u_n: np.ndarray  # (M,)
+    converged: np.ndarray  # (M,) bool
+    n_iter: np.ndarray  # (M,) int
+    method: np.ndarray  # (M,) object ("newton" | "bisection")
+    residual: np.ndarray  # (M,)
+
+    def __len__(self) -> int:
+        return self.X.shape[0]
+
+    def row(self, i: int) -> NSEResult:
+        """The i-th state as a scalar :class:`NSEResult` (drop-in for callers
+        that consume per-row ``.converged`` / ``.X``)."""
+        return NSEResult(
+            self.X[i],
+            float(self.u_p[i]),
+            float(self.u_n[i]),
+            bool(self.converged[i]),
+            int(self.n_iter[i]),
+            str(self.method[i]),
+            float(self.residual[i]),
+        )
+
+
+@dataclass(frozen=True)
+class QSEBatchResult:
+    """Stacked :class:`QSEResult` over M states (see solve_qse_batch)."""
+
+    X: np.ndarray
+    u_p: np.ndarray
+    u_n: np.ndarray
+    u_group: np.ndarray
+    converged: np.ndarray
+    n_iter: np.ndarray
+    method: np.ndarray
+    residual: np.ndarray
+
+    def __len__(self) -> int:
+        return self.X.shape[0]
+
+    def row(self, i: int) -> QSEResult:
+        return QSEResult(
+            self.X[i],
+            float(self.u_p[i]),
+            float(self.u_n[i]),
+            float(self.u_group[i]),
+            bool(self.converged[i]),
+            int(self.n_iter[i]),
+            str(self.method[i]),
+            float(self.residual[i]),
+        )
+
+
+def _mass_fractions_batch(logC, Z, N, u_p, u_n, kT, group=None, u_g=None):
+    """Vectorized :func:`_mass_fractions`: logC (M, n); Z, N (n,);
+    u_p, u_n, kT (M,) → X (M, n). ``group`` (n,) bool + ``u_g`` (M,) add the
+    silicon-cluster offset (QSE)."""
+    num = Z[None, :] * u_p[:, None] + N[None, :] * u_n[:, None]
+    if group is not None:
+        num = num + group[None, :].astype(np.float64) * u_g[:, None]
+    expo = logC + num / kT[:, None]
+    return np.exp(np.minimum(expo, EXP_CLIP))
+
+
+def _batched_2x2_step(a, b, c, d, F0, F1):
+    """Per-row Cramer solve of J·δ = −F for 2×2 J = [[a, b], [c, d]].
+
+    Closed form (never raises — a batched ``np.linalg.solve`` aborts the whole
+    batch if any single row is LAPACK-singular). Rows with a singular or
+    non-finite solve are flagged; the caller drops them to the scalar fallback.
+    """
+    det = a * d - b * c
+    with np.errstate(divide="ignore", invalid="ignore"):
+        d0 = (-d * F0 + b * F1) / det
+        d1 = (c * F0 - a * F1) / det
+    singular = ~np.isfinite(d0) | ~np.isfinite(d1) | (np.abs(det) < 1e-300)
+    d0 = np.where(singular, 0.0, d0)
+    d1 = np.where(singular, 0.0, d1)
+    return d0, d1, singular
+
+
+def _batched_3x3_step(J, F):
+    """Per-row closed-form solve of J·δ = −F for 3×3 J (adjugate / det, never
+    raises). ``J`` is (M, 3, 3), ``F`` is (M, 3). Returns (step (M, 3),
+    singular_mask (M,))."""
+    a, b, c = J[:, 0, 0], J[:, 0, 1], J[:, 0, 2]
+    d, e, f = J[:, 1, 0], J[:, 1, 1], J[:, 1, 2]
+    g, h, i = J[:, 2, 0], J[:, 2, 1], J[:, 2, 2]
+    A = e * i - f * h
+    B = -(d * i - f * g)
+    C = d * h - e * g
+    det = a * A + b * B + c * C
+    # inverse = adjugate / det (adjugate = transpose of the cofactor matrix)
+    inv = np.stack(
+        [
+            np.stack([A, -(b * i - c * h), b * f - c * e], axis=1),
+            np.stack([B, a * i - c * g, -(a * f - c * d)], axis=1),
+            np.stack([C, -(a * h - b * g), a * e - b * d], axis=1),
+        ],
+        axis=1,
+    )  # (M, 3, 3)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        step = (inv @ (-F)[:, :, None])[:, :, 0] / det[:, None]
+    singular = ~np.isfinite(step).all(axis=1) | (np.abs(det) < 1e-300)
+    step = np.where(singular[:, None], 0.0, step)
+    return step, singular
+
+
+def solve_nse_batch(
+    inputs: NseInputs,
+    T: np.ndarray,
+    rho: np.ndarray,
+    ye: np.ndarray,
+    init: tuple[float, float] = (-3.5, -15.0),
+    tol: float = 1.0e-11,
+) -> NSEBatchResult:
+    """Solve NSE for a batch of states. ``T, rho, ye`` are ``(M,)`` [K, g/cm³,
+    dimensionless]; returns a :class:`NSEBatchResult` (row order preserved).
+
+    Vectorized damped Newton over all states; any state not converged in the
+    Newton phase is delegated to the scalar :func:`solve_nse` (Newton retry +
+    bisection fallback), so the output matches a per-state loop.
+    """
+    from pynucastro.constants import constants
+
+    T = np.asarray(T, dtype=np.float64).ravel()
+    rho = np.asarray(rho, dtype=np.float64).ravel()
+    ye = np.asarray(ye, dtype=np.float64).ravel()
+    M, n = T.shape[0], inputs.n
+    kT = constants.k_MeV * T
+    logC = nse_log_coeffs_batch(inputs, T, rho)
+    Z, N, A = inputs.Z, inputs.N, inputs.A
+    ZA = Z / A
+
+    u_p = np.full(M, float(init[0]))
+    u_n = np.full(M, float(init[1]))
+    Xout = np.zeros((M, n), dtype=np.float64)
+    converged = np.zeros(M, dtype=bool)
+    n_iter = np.zeros(M, dtype=int)
+    method = np.empty(M, dtype=object)
+    residual = np.full(M, np.inf)
+    active = np.ones(M, dtype=bool)
+
+    for it in range(_MAX_ITER):
+        X = _mass_fractions_batch(logC, Z, N, u_p, u_n, kT)
+        F0 = X.sum(1) - 1.0
+        F1 = (ZA[None, :] * X).sum(1) - ye
+        r = np.maximum(np.abs(F0), np.abs(F1))
+        newly = active & (r < tol)
+        if newly.any():
+            converged[newly] = True
+            n_iter[newly] = it
+            method[newly] = "newton"
+            residual[newly] = r[newly]
+            Xout[newly] = X[newly]
+            active[newly] = False
+        if not active.any():
+            break
+        J00 = (X * Z).sum(1)
+        J01 = (X * N).sum(1)
+        J10 = (X * Z * Z / A).sum(1)
+        J11 = (X * Z * N / A).sum(1)
+        d0, d1, singular = _batched_2x2_step(
+            J00 / kT, J01 / kT, J10 / kT, J11 / kT, F0, F1
+        )
+        norm = np.maximum(np.abs(d0), np.abs(d1))
+        scale = np.where(
+            norm > _MAX_STEP_MEV, _MAX_STEP_MEV / np.where(norm > 0, norm, 1.0), 1.0
+        )
+        upd = active & ~singular
+        u_p = np.where(upd, u_p + d0 * scale, u_p)
+        u_n = np.where(upd, u_n + d1 * scale, u_n)
+        bad = ~np.isfinite(u_p) | ~np.isfinite(u_n)
+        active &= ~singular & ~bad
+
+    for i in np.nonzero(~converged)[0]:
+        res = solve_nse(
+            inputs, float(T[i]), float(rho[i]), float(ye[i]), init=init, tol=tol
+        )
+        Xout[i] = res.X
+        u_p[i] = res.u_p
+        u_n[i] = res.u_n
+        converged[i] = res.converged
+        n_iter[i] = res.n_iter
+        method[i] = res.method
+        residual[i] = res.residual
+
+    return NSEBatchResult(Xout, u_p, u_n, converged, n_iter, method, residual)
+
+
+def solve_qse_batch(
+    inputs: NseInputs,
+    T: np.ndarray,
+    rho: np.ndarray,
+    ye: np.ndarray,
+    group: np.ndarray,
+    group_mass: np.ndarray,
+    init: tuple[float, float, float] | None = None,
+    tol: float = 1.0e-11,
+) -> QSEBatchResult:
+    """Solve QSE for a batch of states (silicon-group cluster; see
+    :func:`solve_qse`). ``T, rho, ye, group_mass`` are ``(M,)``; ``group`` is
+    the shared ``(n,)`` bool mask. Non-converged rows fall back to the scalar
+    :func:`solve_qse`."""
+    from pynucastro.constants import constants
+
+    T = np.asarray(T, dtype=np.float64).ravel()
+    rho = np.asarray(rho, dtype=np.float64).ravel()
+    ye = np.asarray(ye, dtype=np.float64).ravel()
+    group_mass = np.asarray(group_mass, dtype=np.float64).ravel()
+    M, n = T.shape[0], inputs.n
+    if np.any((group_mass <= 0.0) | (group_mass >= 1.0)):
+        raise ValueError("group_mass outside (0, 1) for at least one state")
+    kT = constants.k_MeV * T
+    logC = nse_log_coeffs_batch(inputs, T, rho)
+    Z, N, A = inputs.Z, inputs.N, inputs.A
+    ZA = Z / A
+    g = np.asarray(group, dtype=bool)
+    dg = g.astype(np.float64)
+
+    if init is None:
+        seed = solve_nse_batch(inputs, T, rho, ye, tol=tol)
+        u_p, u_n = seed.u_p.copy(), seed.u_n.copy()
+        u_g = np.zeros(M)
+    else:
+        u_p = np.full(M, float(init[0]))
+        u_n = np.full(M, float(init[1]))
+        u_g = np.full(M, float(init[2]))
+
+    Xout = np.zeros((M, n), dtype=np.float64)
+    converged = np.zeros(M, dtype=bool)
+    n_iter = np.zeros(M, dtype=int)
+    method = np.empty(M, dtype=object)
+    residual = np.full(M, np.inf)
+    active = np.ones(M, dtype=bool)
+
+    for it in range(_MAX_ITER):
+        X = _mass_fractions_batch(logC, Z, N, u_p, u_n, kT, group=g, u_g=u_g)
+        F0 = X.sum(1) - 1.0
+        F1 = (ZA[None, :] * X).sum(1) - ye
+        F2 = X[:, g].sum(1) - group_mass
+        r = np.maximum(np.maximum(np.abs(F0), np.abs(F1)), np.abs(F2))
+        newly = active & (r < tol)
+        if newly.any():
+            converged[newly] = True
+            n_iter[newly] = it
+            method[newly] = "newton"
+            residual[newly] = r[newly]
+            Xout[newly] = X[newly]
+            active[newly] = False
+        if not active.any():
+            break
+        # 3×3 Jacobian per row (mirrors scalar solve_qse), all entries / kT
+        XZ, XN, Xdg = X * Z, X * N, X * dg
+        J = np.empty((M, 3, 3))
+        J[:, 0, 0] = XZ.sum(1)
+        J[:, 0, 1] = XN.sum(1)
+        J[:, 0, 2] = Xdg.sum(1)
+        J[:, 1, 0] = (XZ * Z / A).sum(1)
+        J[:, 1, 1] = (XZ * N / A).sum(1)
+        J[:, 1, 2] = (XZ * dg / A).sum(1)
+        J[:, 2, 0] = (XZ * dg).sum(1)
+        J[:, 2, 1] = (XN * dg).sum(1)
+        J[:, 2, 2] = Xdg.sum(1)
+        J /= kT[:, None, None]
+        F = np.stack([F0, F1, F2], axis=1)  # (M, 3)
+        step, singular = _batched_3x3_step(J, F)
+        norm = np.abs(step).max(1)
+        scale = np.where(
+            norm > _MAX_STEP_MEV, _MAX_STEP_MEV / np.where(norm > 0, norm, 1.0), 1.0
+        )
+        step = step * scale[:, None]
+        upd = active & ~singular
+        u_p = np.where(upd, u_p + step[:, 0], u_p)
+        u_n = np.where(upd, u_n + step[:, 1], u_n)
+        u_g = np.where(upd, u_g + step[:, 2], u_g)
+        bad = ~np.isfinite(u_p) | ~np.isfinite(u_n) | ~np.isfinite(u_g)
+        active &= ~singular & ~bad
+
+    for i in np.nonzero(~converged)[0]:
+        res = solve_qse(
+            inputs,
+            float(T[i]),
+            float(rho[i]),
+            float(ye[i]),
+            g,
+            float(group_mass[i]),
+            init=init,
+            tol=tol,
+        )
+        Xout[i] = res.X
+        u_p[i] = res.u_p
+        u_n[i] = res.u_n
+        u_g[i] = res.u_group
+        converged[i] = res.converged
+        n_iter[i] = res.n_iter
+        method[i] = res.method
+        residual[i] = res.residual
+
+    return QSEBatchResult(
+        Xout, u_p, u_n, u_g, converged, n_iter, method, residual
     )

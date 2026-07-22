@@ -21,7 +21,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
-__all__ = ["NseInputs", "build_inputs", "nse_log_coeffs", "EXP_CLIP"]
+__all__ = [
+    "NseInputs",
+    "build_inputs",
+    "nse_log_coeffs",
+    "nse_log_coeffs_batch",
+    "EXP_CLIP",
+]
 
 #: pynucastro clips the Saha exponent at 500 (nse_network.py:212)
 EXP_CLIP = 500.0
@@ -81,19 +87,46 @@ def build_inputs(network: str) -> NseInputs:
 
 
 def nse_log_coeffs(inputs: NseInputs, T: float, rho: float) -> np.ndarray:
-    """logC_i(T, ρ) per species (see module docstring). float64 (n,)."""
+    """logC_i(T, ρ) per species (see module docstring). float64 (n,).
+
+    Thin scalar wrapper over :func:`nse_log_coeffs_batch` (one shared code
+    path — no drift between the scalar and batched solvers).
+    """
+    return nse_log_coeffs_batch(
+        inputs, np.atleast_1d(np.float64(T)), np.atleast_1d(np.float64(rho))
+    )[0]
+
+
+def nse_log_coeffs_batch(
+    inputs: NseInputs, T: np.ndarray, rho: np.ndarray
+) -> np.ndarray:
+    """Vectorized :func:`nse_log_coeffs` over states.
+
+    ``T``, ``rho`` are ``(M,)`` [K, g/cm³] → ``(M, n)`` float64, one row per
+    state in network species order. Same term-for-term arithmetic as the
+    scalar form; only the state axis is added (broadcast), so the pynucastro
+    cross-check tolerance (tests/test_qse_coeffs.py, ≤1e-12) carries over.
+    """
     from pynucastro.constants import constants
 
-    kT_MeV = constants.k_MeV * T
-    T9 = T / 1.0e9
-    log_pf = np.array(
-        [0.0 if s is None else float(s(T9)) for s in inputs.pf_splines]
-    )
+    T = np.asarray(T, dtype=np.float64).ravel()
+    rho = np.asarray(rho, dtype=np.float64).ravel()
+    kT_MeV = constants.k_MeV * T  # (M,)
+    T9 = T / 1.0e9  # (M,)
+    log_pf = np.zeros((T.shape[0], inputs.n), dtype=np.float64)  # (M, n)
+    for m, s in enumerate(inputs.pf_splines):
+        if s is not None:
+            log_pf[:, m] = s(T9)
+    species = 2.5 * np.log(inputs.A_nuc * constants.m_u_C18) + np.log(
+        inputs.spin_states
+    )  # (n,)
+    bind = inputs.nucbind * inputs.A  # (n,)
+    state = -np.log(rho) + 1.5 * np.log(
+        constants.k * T / (2.0 * np.pi * constants.hbar**2)
+    )  # (M,)
     return (
-        2.5 * np.log(inputs.A_nuc * constants.m_u_C18)
-        + np.log(inputs.spin_states)
-        - np.log(rho)
-        + 1.5 * np.log(constants.k * T / (2.0 * np.pi * constants.hbar**2))
+        species[None, :]
+        + state[:, None]
         + log_pf
-        + inputs.nucbind * inputs.A / kT_MeV
+        + bind[None, :] / kT_MeV[:, None]
     )

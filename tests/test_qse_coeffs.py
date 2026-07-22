@@ -52,3 +52,18 @@ class TestCoeffsVsPyna:
         # neut/h1 have no binding
         names = list(inputs80.names)
         assert inputs80.nucbind[names.index("neut")] == 0.0
+
+    def test_batch_matches_scalar(self, inputs80):
+        """nse_log_coeffs_batch row == the scalar nse_log_coeffs (shared code
+        path; the scalar form is a thin N=1 wrapper — bit-identical)."""
+        from gnn_nucleo.crosscheck.grids import state_grid
+        from gnn_nucleo.qse.coeffs import nse_log_coeffs, nse_log_coeffs_batch
+
+        grid = state_grid()
+        T = np.array([t9 * 1e9 for t9, _, _ in grid])
+        rho = np.array([r for _, r, _ in grid])
+        batch = nse_log_coeffs_batch(inputs80, T, rho)
+        for i, (t9, r, _) in enumerate(grid):
+            np.testing.assert_array_equal(
+                batch[i], nse_log_coeffs(inputs80, t9 * 1e9, r)
+            )

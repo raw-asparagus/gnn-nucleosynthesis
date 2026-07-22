@@ -101,6 +101,101 @@ class TestQSE:
             assert not g[names.index(light)]
 
 
+class TestBatchedSolvers:
+    """The batched entry points must reproduce a per-state scalar loop: the
+    vectorized Newton handles the well-conditioned majority, and any row it
+    fails to converge is delegated to the proven scalar solver (Newton retry +
+    bisection). Grid spans the full regime box incl. cold T9 (bisection path)."""
+
+    def _grid(self):
+        from gnn_nucleo.crosscheck.grids import state_grid
+
+        grid = state_grid()  # full 63-state box (incl. cold T9 → fallback)
+        T = np.array([t9 * 1e9 for t9, _, _ in grid])
+        rho = np.array([r for _, r, _ in grid])
+        ye = np.array([y for _, _, y in grid])
+        return T, rho, ye
+
+    def test_nse_batch_matches_scalar_loop(self, inputs80):
+        from gnn_nucleo.qse.solver import solve_nse, solve_nse_batch
+
+        T, rho, ye = self._grid()
+        scal = [solve_nse(inputs80, T[i], rho[i], ye[i]) for i in range(T.size)]
+        bat = solve_nse_batch(inputs80, T, rho, ye)
+
+        assert np.array_equal(
+            np.array([s.converged for s in scal]), bat.converged
+        )
+        assert bat.converged.all(), "every box state must converge"
+        # both newton and bisection-fallback rows are exercised on this grid
+        assert set(bat.method.tolist()) == {"newton", "bisection"}
+        for i, s in enumerate(scal):
+            m = (s.X > 1e-10) & (bat.X[i] > 1e-10)
+            dlog = np.abs(np.log10(bat.X[i][m]) - np.log10(s.X[m]))
+            assert dlog.max() <= 1e-6, f"state {i}: max |dlog10 X| {dlog.max():.2e}"
+            assert abs(bat.u_p[i] - s.u_p) <= 1e-6
+            assert abs(bat.u_n[i] - s.u_n) <= 1e-6
+        # .row() accessor yields a scalar-equivalent NSEResult
+        r0 = bat.row(0)
+        assert r0.converged == bool(bat.converged[0])
+        np.testing.assert_array_equal(r0.X, bat.X[0])
+
+    def test_qse_batch_matches_scalar_loop(self, inputs80):
+        from gnn_nucleo.crosscheck.grids import state_grid
+        from gnn_nucleo.qse.diagnostics import load_group_mask
+        from gnn_nucleo.qse.solver import solve_nse, solve_qse, solve_qse_batch
+
+        # NSE-guaranteed subgrid (QSE seeded from NSE); group_mass from NSE
+        grid = state_grid((5.0, 6.3, 7.9))
+        T = np.array([t9 * 1e9 for t9, _, _ in grid])
+        rho = np.array([r for _, r, _ in grid])
+        ye = np.array([y for _, _, y in grid])
+        g = load_group_mask("mesa_80")
+        gm = np.array(
+            [solve_nse(inputs80, T[i], rho[i], ye[i]).X[g].sum() for i in range(T.size)]
+        )
+        scal = [
+            solve_qse(inputs80, T[i], rho[i], ye[i], g, gm[i]) for i in range(T.size)
+        ]
+        bat = solve_qse_batch(inputs80, T, rho, ye, g, gm)
+        assert np.array_equal(np.array([s.converged for s in scal]), bat.converged)
+        for i, s in enumerate(scal):
+            m = (s.X > 1e-10) & (bat.X[i] > 1e-10)
+            assert np.abs(np.log10(bat.X[i][m]) - np.log10(s.X[m])).max() <= 1e-6
+            assert abs(bat.u_group[i] - s.u_group) <= 1e-6
+
+    def test_qse_batch_degenerates_to_nse(self, inputs80):
+        """group_mass = NSE group mass ⇒ u_group → 0 and X → NSE, per row."""
+        from gnn_nucleo.qse.diagnostics import load_group_mask
+        from gnn_nucleo.qse.solver import solve_nse_batch, solve_qse_batch
+
+        T, rho, ye = self._grid()
+        keep = T / 1e9 >= 5.0  # NSE-guaranteed
+        T, rho, ye = T[keep], rho[keep], ye[keep]
+        g = load_group_mask("mesa_80")
+        nse = solve_nse_batch(inputs80, T, rho, ye)
+        gm = nse.X[:, g].sum(1)
+        qse = solve_qse_batch(inputs80, T, rho, ye, g, gm)
+        assert qse.converged.all()
+        assert np.abs(qse.u_group).max() < 1e-6
+        np.testing.assert_allclose(qse.X, nse.X, rtol=1e-6)
+
+    def test_qse_batch_rejects_bad_group_mass(self, inputs80):
+        from gnn_nucleo.qse.diagnostics import load_group_mask
+        from gnn_nucleo.qse.solver import solve_qse_batch
+
+        g = load_group_mask("mesa_80")
+        with pytest.raises(ValueError):
+            solve_qse_batch(
+                inputs80,
+                np.array([5e9, 6e9]),
+                np.array([1e8, 1e8]),
+                np.array([0.48, 0.48]),
+                g,
+                np.array([0.5, 1.5]),  # second is out of (0, 1)
+            )
+
+
 class TestEligibleMask:
     def test_weak_columns_structurally_excluded(self):
         from gnn_nucleo.qse.diagnostics import eligible_mask

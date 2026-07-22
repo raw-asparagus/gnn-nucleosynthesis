@@ -49,3 +49,9 @@ select = ["E", "F", "I", "W"]
 [tool.ruff.lint.per-file-ignores]
 # One-reaction-per-line nu-matrix setup uses semicolons deliberately.
 "tests/test_conservation.py" = ["E702"]
+# These fork-pool drivers must set OMP/OPENBLAS thread env vars BEFORE the
+# numpy import (a fork inherits the parent's already-initialized BLAS pool),
+# so a statement legitimately precedes the remaining module imports (E402).
+"scripts/step5_run_fluxes.py" = ["E402"]
+"scripts/step6_ingest_reruns.py" = ["E402"]
+"scripts/step6_integrate_check.py" = ["E402"]
