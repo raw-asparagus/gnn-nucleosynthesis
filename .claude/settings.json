@@ -42,7 +42,6 @@
       "Bash(pip install*)",
       "Bash(pip3 install*)",
       "Edit(./data/zenodo/**)",
-      "Write(./data/zenodo/**)",
       "Edit(./uv.lock)"
     ]
   },

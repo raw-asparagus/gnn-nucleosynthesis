@@ -22,6 +22,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "ipykernel>=7.3.0",
+    "jupyterlab>=4.6.1",
+    "jupytext>=1.19.4",
+    "nbstripout>=0.9.1",
     "pytest==9.1.1",
     "ruff==0.15.20",
 ]
@@ -55,3 +59,7 @@ select = ["E", "F", "I", "W"]
 "scripts/step5_run_fluxes.py" = ["E402"]
 "scripts/step6_ingest_reruns.py" = ["E402"]
 "scripts/step6_integrate_check.py" = ["E402"]
+# Notebook cells import mid-file (E402) and figure captions run long (E501).
+# I001: the bootstrap cell must sys.path-insert BETWEEN `import sys` and
+# `import nbsupport`, which no import ordering can express.
+"notebooks/**/*.ipynb" = ["E402", "E501", "I001"]

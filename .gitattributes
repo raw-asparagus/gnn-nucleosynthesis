@@ -1,0 +1,3 @@
+# Notebook outputs are never committed: run `uv run nbstripout --install`
+# once per clone to activate this filter (it writes to .git/config locally).
+*.ipynb filter=nbstripout
