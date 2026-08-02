@@ -217,14 +217,31 @@ $$
 \end{aligned}
 $$
 
-Across the box (ρ = 10⁷–10⁹, Si → Fe composition) **Γ ranges roughly 0.8 to 10**.
+Now scale it across the box. Γ ∝ n_i^{1/3}/T ∝ ρ^{1/3}/T, so **both** axes of the
+box move it, and the temperature axis moves it by more:
+
+| | Si (Z=14, Ā=28) | Fe (Z=26, Ā=56) |
+|---|---|---|
+| ρ = 10⁷, T₉ = 7.9 | **0.40** | 1.10 |
+| ρ = 10⁷, T₉ = 4 | 0.79 | 2.16 |
+| ρ = 10⁸, T₉ = 4 | 1.70 | 4.66 |
+| ρ = 10⁹, T₉ = 4 | 3.67 | 10.05 |
+| ρ = 10⁹, T₉ = 1.6 | 9.18 | **25.1** |
+
+So across the **full** box (ρ = 10⁷–10⁹ *and* T = 1.6–7.9 GK, Si → Fe)
+**Γ ranges roughly 0.4 to 25**. The often-quoted "0.8 to 10" is the ρ-only span
+at fixed T₉ = 4 — correct as far as it goes, but it silently freezes the axis
+that matters most. Quote the wider range.
 
 > **This is the derivation that justifies the screening config.**
 > Salpeter weak screening assumes Γ ≪ 1. Strong-screening asymptotics assume
-> Γ ≫ 1. Silicon burning sits in **neither** — squarely intermediate, where you
-> need a prescription that *interpolates across both limits*. That is exactly
-> what `chugunov_2007` is, and it is why the label configuration pins
-> `screening_mode = 'chugunov'` in `scripts/bbq_campaign/inlist.template`.
+> Γ ≫ 1. Silicon burning sits in **neither** — and the full-box range makes the
+> point more forcefully than the fixed-T one does, because Γ ~ 0.4 to ~25 is two
+> orders of magnitude straddling unity, with no sub-region where either
+> asymptotic is safe. You need a prescription that *interpolates across both
+> limits*. That is exactly what `chugunov_2007` is, and it is why the label
+> configuration pins `screening_mode = 'chugunov'` in
+> `scripts/bbq_campaign/inlist.template`.
 
 Carry this into **S4**: when you read `fluxes/screening.py`, you are reading an
 intermediate-coupling interpolation, and you now know why nothing simpler would
@@ -339,7 +356,15 @@ normalized so G → 1 as T → 0 (only the ground state populated).
 **Why it matters here, quantitatively.** Typical first excited states in
 Si–Fe-peak nuclei sit at E* ≈ 0.5–2 MeV. At T₉ = 4, kT = 0.345 MeV, so
 e^(−E*/kT) ranges from e^(−1.4) ≈ 0.24 down to e^(−5.8) ≈ 0.003. With
-degeneracy factors of order 5–10, G reaches 1.5–3 for well-deformed nuclei.
+degeneracy factors of order 5–10, G reaches ~1.5–3 for the nuclei with the
+lowest-lying, densest level schemes. Note *which* nuclei those are: odd-A and
+odd–odd species away from closure, whose first excited states sit lowest. The
+doubly-magic and near-magic Fe-peak nuclei (⁵⁶Ni above all) have high-lying
+first excited states and G much nearer 1 — so the pf correction is strongly
+species-dependent, and largest exactly where the level density is, not where the
+abundance is. ("Deformation" is the wrong word for this regime; near N = Z and
+Z = 28 these nuclei are close to spherical. What raises G here is level density
+at E* ~ kT.)
 
 > A factor of 2 in G is a factor of 2 in a detailed-balance reverse rate. That
 > is the entire reason `DerivedRate(use_pf=True)` is mandatory above T₉ ≈ 3,
@@ -536,9 +561,21 @@ scattering. (Coherent scattering on nuclei enhances σ by roughly A²/6, cutting
    the burning-stage acceleration table in §I.1 — the core must burn ever faster
    to replace energy leaking at c.
 2. **Lepton number leaves with it.** Each capture emits a ν that never comes
-   back, so Yₑ decreases monotonically. This is why the constraint matrix needs
-   a *separate neutrino ledger*: lepton number is conserved by the reaction but
-   then physically removed from the zone.
+   back. This is why the constraint matrix needs a *separate neutrino ledger*:
+   lepton number is conserved by the reaction but then physically removed from
+   the zone.
+
+   **Be careful with the next step, which is easy to overstate.** Free-streaming
+   does not itself *drive* Yₑ down — what drives it down is electron capture
+   outpacing β⁻ decay, a statement about net rates and about how degenerate the
+   electrons are (§0.1.5). What free-streaming does is *prevent the drop from
+   stopping*: if neutrinos were trapped they would build up a chemical potential
+   until forward and reverse weak rates balanced, and Yₑ would freeze at β
+   equilibrium. Escape removes that back-reaction, so the ratchet has nothing to
+   push against. Hence Yₑ declines essentially monotonically **through the
+   burning phase in aggregate**, not term-by-term — β⁻ decays run the other way
+   throughout, which is precisely why §I.4 treats mesa_80's *absence* of β-decay
+   partners as a structural defect rather than a harmless omission.
 
 That second point is worth pausing on. The three-row structure of C — baryon,
 charge (with the electron column), lepton number (e⁻ +1, ν +1, ν̄ −1) — is not
@@ -614,21 +651,55 @@ product counts:
 | 10 | e₁ + e₂ + e₃ + e₄ → e₅ + e₆ | −2 | |
 | 11 | e₁ → e₂ + e₃ + e₄ + e₅ | +3 | |
 
-**Why ΔN is the quantity that matters.** Detailed balance relates a forward rate
-to its reverse through a phase-space factor that carries one power of
-(kT/2πħ²)^(3/2)/N_A **per excess product** — i.e. per unit of |ΔN| (§0.2.3, and
-derived properly in S3). Chapters 4 and 2 (|ΔN| = 1) are the common capture /
-photodisintegration pairs, and they are handled correctly everywhere.
+**Why the chapter is the quantity that matters.** Detailed balance relates a
+forward rate to its reverse through a phase-space factor carrying one power of
 
-The gh-575 / Appendix-B bug lives exactly here: stock MESA applies the factor
-**only when the forward has a single product**, so reverses of chapters with
-n_out ≠ 1 and n_in ≠ n_out silently get no factor at all. That is why
-`configs/appendixb_excluded_channels.yaml` carries a `chapter` and a `dN` field
-on every entry, and why the affected set is chapters **6, 7, 9** — plus the
-reverses of chapter **8** (3α → ¹²C), whose inverses are 1→3 breakups.
+$$
+\left(\frac{\mu\,kT}{2\pi\hbar^2}\right)^{3/2}\Big/ N_A
+$$
 
-> Read that config now. Every row is one instance of "|ΔN| ≠ 1, so the phase-space
-> factor was dropped", and the `dlog10` column is how far wrong the rate was.
+**per excess product** — i.e. per unit of |ΔN| (§0.2.3, and derived properly in
+S3). Note the reduced mass μ inside: without it the factor is not a number
+density, and the bookkeeping does not close dimensionally.
+
+⚠ **Do not compress this to "|ΔN| ≠ 1 is the bug".** That is the natural guess
+and it is wrong — see below. The discriminator is the *arity* of the tabulated
+direction, not |ΔN|.
+
+The gh-575 / Appendix-B bug lives here: stock MESA's detailed-balance path
+handles only the **2 → 1** forward (chapter 4, giving the chapter-2 reverse),
+where exactly one power of the factor is required. Any tabulated direction with
+**three or more participants on a side** falls outside that path — either
+getting no factor, or getting one power where |ΔN| powers were needed. So the
+affected forward chapters are **6** (2→3), **7** (2→4), **8** (3→1), and **9**
+(3→2), and it is their *inverses* that MESA gets wrong.
+
+**Read the config with its convention in hand**, because it is not stated in the
+file: in `configs/appendixb_excluded_channels.yaml`, `chapter` is the chapter of
+the **tabulated forward**, while `mesa_handle` and `dN` describe the **inverse**
+— the direction actually being flagged. Hence rows like
+
+```
+chapter: 8   dN: +2    r_c12_to_he4_he4_he4     ← forward 3α→¹²C is ch-8;
+                                                  the flagged handle is its 1→3 inverse
+chapter: 6   dN: −1    r_he4_he4_he4_to_h1_b11  ← forward h1+b11→3α is ch-6;
+                                                  the flagged handle is its 3→2 inverse
+```
+
+> **The falsification you should perform yourself.** Count `dN` over the 20 rows
+> of that config (11 for mesa_151, 9 for mesa_80): **13 of them have |dN| = 1** —
+> all eleven chapter-6 rows and both chapter-9 rows. The only rows with |dN| ≠ 1
+> are the two chapter-7 (dN = −2) and five chapter-8 (dN = +2) entries. If
+> "|ΔN| ≠ 1" were the bug, the other thirteen rows could not
+> be there. Conversely chapter 8's forward *does* have a single product, so a
+> rule phrased on product count alone would wrongly exonerate `3α → ¹²C` — whose
+> inverse is in the config with `dlog10` in the tens. The config's own
+> `class: multi_body_inverse` names the real criterion. The `dlog10` column is
+> how far wrong the rate was.
+
+Chapter 5 (2→2) is safe for a different reason again — ΔN = 0, so no factor is
+needed at all. Chapters 10 and 11 do not appear because REACLIB tabulates no
+forward of that arity in these two networks, not because they would be safe.
 
 ### In the code
 
@@ -662,11 +733,12 @@ particles are captured by the rest, walking composition up an α-chain:
 | `photo` | **151** | photodisintegration — the largest single category |
 | `si_alpha`, `s_alpha`, `ar_alpha`, `ca_alpha`, `ti_alpha`, `cr_alpha` | 27, 22, 19, 17, 14, 14 | the rungs of the ladder |
 | `fe_co_ni` | 17 | the top of the ladder |
-| `o_alpha`, `ne_alpha`, `na_alpha`, `mg_alpha` | 23, 32, 25, 27 | below Si — inherited from earlier stages |
-| `tri_alpha` | 1 | 3α → ¹²C (chapter 8 — the bugged reverse) |
+| `c_alpha`, `n_alpha`, `o_alpha`, `ne_alpha`, `na_alpha`, `mg_alpha` | 7, 10, 23, 32, 25, 27 | below Si — inherited from earlier stages |
+| `tri_alpha` | 1 | 3α → ¹²C (its 1→3 inverse is the gh-575 casualty, §0.5) |
 | `c12_c12`, `o16_o16` | 3, 3 | heavy-ion fusion, earlier stages |
 | `pp`, `cno` | 15, 33 | hydrogen burning, essentially inert here |
 | `other` | 147 | (p,n), (n,p), weak, everything else |
+| **total** | **607** | ← the table sums; check it |
 
 That `photo` is the largest category is the whole story of §I.1 in one number.
 
@@ -747,7 +819,7 @@ than trusting the table:
 | **inter-group (bridge) flow** | 10⁻¹ – 10² s | bottleneck reactions |
 | **weak reactions (EC, β)** | 10² – 10⁵ s | ft values, E_F |
 | label dt grid | 10⁻⁶ – 10² s | ← the emulator's window |
-| convective turnover | 10² – 10³ s | v_conv ~ 10⁶–10⁷ cm/s over ~10⁸ cm |
+| convective turnover | 10¹ – 10³ s | v_conv ~ 10⁶–10⁷ cm/s over L ~ 10⁸–10⁹ cm |
 | core Si burning duration | ~10⁵ s (≈1 day) | neutrino cooling |
 | free-fall collapse | ~0.07 s | √(3π/32Gρ) at ρ = 10⁹ |
 
@@ -763,8 +835,19 @@ than trusting the table:
   charged-particle captures to above the bridge timescale.
 - **Operator splitting is safe at the short end, questionable at the long end**
   (§IV.1): Δt = 10² s is comparable to the bridge and convective timescales.
-- **One-zone is an approximation** because convective turnover (10²–10³ s) is
+- **One-zone is an approximation** because convective turnover (10¹–10³ s) is
   *not* long compared to the bridge timescale (§IV.2).
+
+> ⚠ **Do the convective row's arithmetic yourself, and notice it is a range you
+> cannot pin.** τ_conv = L/v_conv, and both factors are uncertain by a decade:
+> L ~ 10⁸–10⁹ cm for the convective Si-burning core, v_conv ~ 10⁶–10⁷ cm/s. The
+> corners give 10 s and 10³ s. Quoting a tight "10²–10³ s" requires committing to
+> L ~ 10⁹ cm, which is defensible but is a choice, not a derivation. This matters
+> because two conclusions lean on the comparison: whether Δt = 10² s violates the
+> splitting assumption (§IV.1) and whether one-zone is safe (§IV.2). At the fast
+> corner mixing is *faster* than the bridge flow and one-zone is worse than the
+> table suggests; at the slow corner they are comparable. Carry the range, not a
+> point value.
 
 ### ⚠ The separation you are tempted to assume does not exist
 
@@ -792,9 +875,12 @@ pairs and are mostly low-flux.
 ### 0.7.1 Self-check for §0.5–0.7
 
 1. Write ⁴⁰Ca(α,γ)⁴⁴Ti and its reverse in chapter notation. What is ΔN for each?
-   Which is at risk from gh-575, and why is this pair actually safe?
+   Why is this pair safe — and state the reason in terms of arity, not |ΔN|.
 2. Take three entries from `configs/appendixb_excluded_channels.yaml` and verify
-   their `chapter` and `dN` fields against the table in §0.5.
+   both fields against the table in §0.5 — remembering that `chapter` describes
+   the tabulated *forward* while `dN` describes the flagged *inverse*. Then
+   tabulate |dN| over all 20 rows and confirm that most of them are 1, i.e. that
+   |ΔN| ≠ 1 is *not* the criterion.
 3. Why is `photo` the largest reaction category in the network? Connect to §I.1.
 4. Estimate τ for a (γ,n) with Q = 8 MeV at T₉ = 4 and at T₉ = 5. How many
    decades does one GK buy you?
@@ -912,10 +998,18 @@ the picture is two-parameter.
 
 Collapse begins when pressure support fails, via two coupled runaways:
 
-1. **Photodisintegration of the iron peak.** Above ~5 GK, ⁵⁶Fe(γ,α)-type
-   reactions dismantle the Fe peak back to α-particles and free nucleons. This
-   is strongly **endothermic** (~2 MeV/nucleon), consuming thermal energy and
-   reducing pressure.
+1. **Photodisintegration of the iron peak.** Once the core reaches
+   **T ≳ 7–10 GK** — above the regime box, and strongly density-dependent —
+   ⁵⁶Fe(γ,α)-type reactions dismantle the Fe peak back to α-particles and free
+   nucleons. This is strongly **endothermic**: ⁵⁶Fe → 13α + 4n costs 124.4 MeV,
+   i.e. 2.22 MeV/nucleon, consuming thermal energy and reducing pressure.
+
+   > **Do not put this turn-on at ~5 GK.** Si burning *produces* the Fe peak at
+   > 3–4 GK (§I.1), and the box's own upper edge of 7.9 GK is characterized as
+   > full NSE that is still Fe-peak dominated (§III.2). A dismantling threshold
+   > at 5 GK would contradict both. The Fe peak survives NSE across the whole
+   > box; it is collapse — not silicon burning — that reaches the temperatures
+   > where it does not.
 2. **Electron capture.** Free protons liberated by (1), and Fe-peak nuclei
    directly, capture electrons. Each capture removes a pressure-supporting
    electron *and* emits a neutrino that leaves. Yₑ drops, so M_ch drops, so the
@@ -1108,9 +1202,11 @@ behave differently, and expect the gate to belong on Yₑ.
 
 ### Mode 2 — physical inconsistency
 
-Σ Aᵢ Xᵢ ≠ 1 means the equation of state, the opacity, and the energy generation
-are evaluated on a composition that does not exist. The host code does not
-error — it silently produces a wrong star.
+Σᵢ Xᵢ ≠ 1 — equivalently Σᵢ Aᵢ Yᵢ ≠ 1, the doc's equation (2) — means the
+equation of state, the opacity, and the energy generation are evaluated on a
+composition that does not exist. The host code does not error; it silently
+produces a wrong star. (Note it is Σ Xᵢ that is normalized, not Σ AᵢXᵢ: the
+latter is ≈ Ā ~ 30 and is not conserved by anything.)
 
 ### Why soft penalties are the wrong fix
 
@@ -1145,7 +1241,9 @@ The reaction network *is* a graph — not an analogy:
 Three properties follow — formalism in §VI.2:
 
 1. **Locality.** A reaction couples 2–4 species; information propagates in hops.
-   Measured bipartite radius 3, diameter 6 ⟹ K = 5 covers the graph.
+   Measured bipartite radius 3, diameter 6 — and since one *round* is
+   species → reaction → species, i.e. **2 bipartite hops**, K = 3 rounds already
+   spans the graph. K = 5 is the project's choice and carries margin (§VI.2).
 2. **Permutation equivariance.** The physics does not depend on species
    ordering; a GNN has this built in, an MLP must learn it, spending capacity on
    a symmetry that could have been free.
@@ -1335,13 +1433,28 @@ Equation (2) is the baryon conservation law the entire conservation layer is
 built on. It is **linear in Y** — not an accident; it is the reason Y is the
 right variable.
 
-**A precision note.** Strictly A_i m_u is not the nuclear mass — binding energy
-makes the real mass smaller by up to ~0.9%. Using the integer A means
-Σ A_i Y_i = 1 holds *exactly by definition* rather than approximately, and the
-mass defect is accounted separately in the energy equation
+**A precision note.** Strictly A_i m_u is not the nuclear mass. The deviation is
+exactly the mass excess of §0.3.1, (M − A u)/(A u) = Δ/(A · 931.494 MeV), and it
+is worth tabulating because its *sign and size are both counter-intuitive*:
+
+| | `neut` | `h1` | `he4` | `si28` | `fe56` |
+|---|---|---|---|---|---|
+| (M − A u)/(A u) | **+0.87%** | **+0.78%** | +0.065% | −0.082% | −0.116% |
+
+Two traps here. First, the largest deviations belong to the **free nucleons**,
+and they are **positive** — n and p are *heavier* than A·u, because the atomic
+mass unit is defined by ¹²C, which is itself bound. Second, for the heavy nuclei
+that carry the mass the deviation is only ~10⁻³, an order of magnitude smaller.
+The ~0.9% figure that is easy to reach for is B/(A m_u c²) — the defect relative
+to *free constituent nucleons* — which is a different quantity and answers a
+different question.
+
+Using the integer A means Σ A_i Y_i = 1 holds *exactly by definition* rather than
+approximately, and the mass defect is accounted separately in the energy equation
 (e_nuc = −N_A Σ m_i ΔY_i). This is a deliberate bookkeeping split: **exact
-integer arithmetic for the constraint, mass excesses for the energy.** It is
-what makes A·ν = 0 hold to machine zero rather than to 10⁻³.
+integer arithmetic for the constraint, mass excesses for the energy.** It is what
+makes A·ν = 0 hold to machine zero rather than to the ~10⁻³ set by the heavy-
+nucleus column of the table above.
 
 **In the code:** `data/subsample.py::compute_ye_initial` is `X @ (Z/A)`, i.e.
 exactly Σ Zᵢ Xᵢ/Aᵢ — a one-line implementation of (1) and (4).
@@ -1425,9 +1538,21 @@ $$
 
 So η and Yₑ carry the same information. The literature uses both, and confusing
 them is a real source of misread thresholds — this repo carries an explicit open
-item on exactly that ambiguity in a cited paper. Note the sensitivity
-difference: at Yₑ = 0.47, η = 0.06, so a 1% error in Yₑ is an 8% error in η.
-Percentages quoted "in η" and "in Yₑ" are not interchangeable.
+item on exactly that ambiguity in a cited paper.
+
+**Percentages quoted "in η" and "in Yₑ" are not interchangeable**, and the
+amplification is larger than it first looks. Differentiating (5) gives
+δη = **−2** δYₑ, so the relative-error amplification is
+
+$$
+\frac{|\delta\eta|/\eta}{|\delta Y_e|/Y_e} \;=\; \frac{2Y_e}{\eta} \;=\; \frac{2Y_e}{1-2Y_e}
+$$
+
+At Yₑ = 0.47, η = 0.06 and the factor is 2(0.47)/0.06 = **15.7**: a 1% error in
+Yₑ is a **~16%** error in η, not 8%. (Dropping the factor of 2 from (5) is the
+easy way to get 7.8 and it is wrong.) The amplification diverges as Yₑ → 0.5 —
+precisely the upper edge of the regime box — which is why η is the worse variable
+to write a tolerance in here, and why every gate in this project is stated in Yₑ.
 
 ### What changes Yₑ
 
@@ -1437,14 +1562,40 @@ change Yₑ at all. Only **weak reactions** can:
 | Process | Effect on (Z, N) | Effect on Yₑ | Emits |
 |---|---|---|---|
 | electron capture, e⁻ + p → n + ν | Z−1, N+1 | **decreases** | ν |
+| β⁺ decay, p → n + e⁺ + ν | Z−1, N+1 | **decreases** | ν |
 | β⁻ decay, n → p + e⁻ + ν̄ | Z+1, N−1 | **increases** | ν̄ |
-| β⁺ decay / positron capture | Z−1, N+1 | decreases | ν |
+| positron capture, e⁺ + n → p + ν̄ | Z+1, N−1 | **increases** | ν̄ |
 
-All at **fixed A**. Hence a structural statement you should verify against the
-exported matrix:
+All at **fixed A**. Note the pairing carefully, because it is easy to get
+backwards: the processes group by **which way Z moves**, not by which lepton is
+named. EC and β⁺ decay both *lower* Z and Yₑ and emit a ν; β⁻ decay and positron
+*capture* both *raise* Z and Yₑ and emit a ν̄. Grouping "β⁺ decay / positron
+capture" together — the intuitive but wrong reading — puts a Yₑ-raising process
+in the Yₑ-lowering row, which is exactly the sign error the project's invariant
+#3 exists to catch.
+
+**What the code carries.** `graph/stoich.py::WEAK_LEDGERS` has three keys —
+`electron_capture`, `beta_neg`, `beta_pos` — with EC and β⁺ sharing the ledger
+signature (−1, +1, 0) under the annihilated-positron convention (the emitted
+positron annihilates on a plasma electron, so the net electron-ledger effect is
+−1). Positron capture has no separate entry: at these temperatures it is folded
+into the tabulated β⁻-direction weak rate. So the fourth row above is physics you
+must know in order to read a weak-rate table correctly, not a column you will
+find in `weak_mask`.
+
+Hence a structural statement you should verify against the exported matrix:
 
 > A column of ν is a weak column **if and only if** it moves Yₑ, i.e.
-> Σᵢ Zᵢ ν_ij ≠ 0 while Σᵢ Aᵢ ν_ij = 0.
+> Σᵢ Zᵢ ν_ij ≠ 0 while Σᵢ Aᵢ ν_ij = 0 — with **both sums taken over the nuclei
+> block only.** On the extended ν̃ (which appends the e⁻/ν/ν̄ ledger rows) the
+> charge sum is zero for *every* column, weak included, because charge is
+> conserved by the reaction.
+
+Verify it, but do not adopt it as a *definition*: `graph/stoich.py` assigns the
+lepton ledger from the rate's `weak_type` and warns explicitly against
+back-deriving it from Z·ν, "that would make the charge-to-lepton closure a
+tautology". The eligible-mask machinery is built structurally from `weak_mask`
+at construction time for the same reason.
 
 ### Why silicon burning drives Yₑ down — now quantitatively
 
@@ -1458,10 +1609,12 @@ thermally suppressed; above it they are degeneracy-driven and vigorous. At
 ρ = 10⁸ the Fermi energy is 1.97 MeV — comfortably above threshold — and at 10⁹
 it is 4.1 MeV.
 
-The emitted neutrinos escape (§0.4.2), carrying away both energy and lepton
-number. **Yₑ ratchets downward monotonically**, and by §I.2 the Chandrasekhar
-mass follows it. That one-way ratchet over ~10⁵ s is the physical signal this
-entire project exists to reproduce accurately.
+The emitted neutrinos escape (§0.4.2), so nothing accumulates to push the weak
+sector back toward equilibrium: **Yₑ ratchets downward in net**, and by §I.2 the
+Chandrasekhar mass follows it. The individual channels still run both ways —
+β⁻ decay raises Yₑ every step — so "monotonic" is a statement about the sum over
+weak columns, not about any one of them (§0.4.2). That net one-way ratchet over
+~10⁵ s is the physical signal this entire project exists to reproduce accurately.
 
 ### The lepton ledger
 
@@ -1507,8 +1660,11 @@ loses the information that the three must act *jointly*: from the projected
 graph you cannot tell whether {a,b,c} came from one ternary reaction or three
 binary ones, and the rate expressions differ (ρ² Y_aY_bY_c versus sums of
 ρ Y·Y). The bipartite form represents the hyperedge exactly. The cost is a
-doubled hop count — which is why radius measures 3 bipartite (K = 5) but the
-derived I→I view gives K = 4.
+doubled hop count: every I→I distance becomes two bipartite hops, which is why
+the bipartite diameter measures 6 against 3 in the derived I→I view. Since one
+message-passing round traverses both halves, the two views agree on the required
+depth — see §VI.2 for the arithmetic and for why the shipped K = 5 is margin
+rather than a minimum.
 
 **Forward and reverse are separate columns**, not one signed column. MESA
 softwires them separately and pynucastro treats them as distinct rates, so the
@@ -1553,7 +1709,10 @@ membership)
 5. Explain why `neut` must be a network species rather than a bath, in terms of
    equation (2).
 6. Explain the §II.3 precision note: why use integer A in the constraint when
-   the true nuclear mass differs by up to 0.9%? What would break otherwise?
+   M ≠ A·u? Compute (M − A u)/(A u) yourself for `neut`, `he4`, and `fe56` from
+   the mass excesses in §0.3.1 — get the signs right — and say which of those
+   numbers sets the 10⁻³ that A·ν = 0 would otherwise be limited to. What breaks
+   if you use real masses in the constraint row instead?
 7. Construct a three-species example showing that Σ A u = 0 and Σ A dY = 0 are
    different constraints under u = sinh⁻¹(dY/s). (Sketched in §I.8.)
 8. Explain what is lost by projecting the bipartite graph onto species-only
@@ -1604,16 +1763,26 @@ Each bound is physical, and now quantitative:
 | Edge | Value | Derivation |
 |---|---|---|
 | T lower | 1.6 GK | Below this, Si photodisintegration is negligible — you are in oxygen burning, a different network |
-| T upper | 7.9 GK | Above this, matter is in full NSE: composition is *algebraic* in (T,ρ,Yₑ). **The emulator's domain ends where equilibrium begins** |
+| T upper | 7.9 GK | Above this, matter is unambiguously in full NSE: composition is *algebraic* in (T,ρ,Yₑ), so no ODE — and no emulator — is needed. **The emulator's domain ends where equilibrium begins**; see the caveat below on where it actually begins |
 | ρ lower | 10⁷ | Just below the free-proton EC threshold ρ ≈ 2.4×10⁷ (§0.1.5) — the box brackets the turn-on of the Yₑ-controlling process |
 | ρ upper | 10⁹ | Strongly degenerate (E_F/kT ≈ 10); above this you are into collapse |
 | Yₑ upper | 0.5 | Oxygen-burning ash is near-symmetric |
 | Yₑ lower | 0.45 | By here the core is collapsing — the box covers the *entire* physical excursion |
 
-Also note what the box implies about screening: Γ ranges ≈ 0.8–10 across it, the
+Also note what the box implies about screening: Γ ranges ≈ 0.4–25 across it
+(varying with ρ^{1/3}/T, so the temperature edges dominate), the
 intermediate-coupling regime where neither weak- nor strong-screening
 asymptotics apply (§0.1.4). That is the derivation behind pinning
 `screening_mode = 'chugunov'`.
+
+> ⚠ **Do not read the T-upper row backwards.** "Above 7.9 GK it is NSE" is true;
+> "below 7.9 GK it is not NSE" is false. At these densities NSE is effectively
+> established from ≈5 GK upward, so the top ~3 GK of the box is *already*
+> algebraic and the emulator is being trained on states it does not strictly need
+> to learn. 7.9 GK is therefore a **conservative** edge — chosen so the box
+> certainly contains the whole non-equilibrium region — not the location of the
+> NSE transition. The honest statement of the T-upper rationale is "safely past
+> the transition", and §III.11 item 5 is exactly the exercise of noticing this.
 
 **QSE onset ≈ 3–3.3 GK**, kill-test priority window **3.3–5 GK** — where
 clustering has appeared but full NSE has not taken over. Physically richest and
@@ -1756,10 +1925,21 @@ record.
 ### Do this estimate yourself
 
 Rounding logT ∈ [9.2, 9.9] and logρ ∈ [7, 9] to 3 decimals gives ~700 × ~2000 ≈
-1.4×10⁶ cells for ~1.04×10⁶ rows. Under a Poisson model with occupancy λ ≈ 0.74,
-the expected fraction of rows in multiply-occupied cells is
-1 − (1−e^(−λ))/λ ≈ 0.29, i.e. ~3×10⁵ rows. The measured value is about **half**
-that.
+1.4×10⁶ cells for ~1.04×10⁶ rows, so Poisson occupancy λ ≈ 0.74.
+
+**Be precise about which fraction you are estimating** — there are two, they
+differ by nearly 2×, and picking the wrong one changes the conclusion:
+
+| Quantity | Formula | Value at λ = 0.74 |
+|---|---|---|
+| Rows **living in** a cell with ≥2 rows | 1 − e^(−λ) | 0.52 |
+| **Excess** rows (total − distinct occupied cells) | 1 − (1−e^(−λ))/λ | 0.29 |
+
+The measured 154,405 / 1,041,400 = **0.148** is a `duplicated()`-style count —
+rows minus distinct initial states — so the second row is the right comparison,
+and the measurement comes in at about **half** the Poisson expectation. Against
+the first row it would look 3.5× low, which would be comparing two different
+things.
 
 The direction is itself evidence: a low-discrepancy point set is *more uniform*
 than random, so it collides less. The pigeonhole argument survives regardless —
@@ -2019,9 +2199,11 @@ This matches the split of §IV.1 exactly — mixing is the host's job.
 
 ### The subtlety nobody states
 
-Silicon-burning cores are **convective**. Convective turnover times are minutes
-to hours; core Si burning lasts ~1 day. So mixing is *not* a small correction —
-it continuously resupplies fuel and homogenizes composition.
+Silicon-burning cores are **convective**. Convective turnover times are
+~10¹–10³ s (§0.7 — seconds to tens of minutes, and the range is genuinely that
+wide); core Si burning lasts ~1 day, i.e. ~10⁵ s. So mixing is *not* a small
+correction — it runs 10²–10⁴ turnovers over the burning phase, continuously
+resupplying fuel and homogenizing composition.
 
 The one-zone burner does not model this, and correctly so under splitting. But
 it means:
@@ -2254,6 +2436,17 @@ ill-conditioning, it is the conservation law showing up as a zero singular value
 The meaningful quantity is the **rank-revealing** condition number: the ratio of
 extreme *nonzero* singular values, i.e. restricted to the row space. That gives
 the measured 41.7 / 57.6 — perfectly well-conditioned.
+
+> **Say which matrix, because the nullity differs.** On the nuclei-only ν (n × r)
+> the only exact left-null vector is A, so there is **one** zero singular value
+> to drop — Z is *not* one, because Z·ν_j = d_electron_j ≠ 0 on weak columns
+> (§II.5). On the extended ν̃ = vstack(ν, lepton ledgers) ((n+3) × r), which is
+> what `graph/stoich.py` builds and validates, **every row of C annihilates it**:
+> C ν̃ = 0 exactly for all three independent rows, so ν̃ has a **three**-dimensional
+> exact left-null space and a rank-revealing cond must discard three singular
+> values, not one. Dropping the wrong number silently reports either a spurious
+> 10¹⁶ or a spurious well-conditioning. The 41.7 / 57.6 figures are the
+> nuclei-only reading.
 
 > A prior session in this repo rendered $\mathrm{cond}(\nu) = 1.5\times10^{16}$ in a figure whose
 > caption claimed ≈42. It was caught in review. The lesson generalizes: **an
@@ -2495,8 +2688,14 @@ throughput from one and solver-independence evidence from the other.
 
 **It is not neural operator learning in the DeepONet/FNO sense.** Those target
 maps between *function spaces* (infinite-dimensional). Here input and output are
-fixed finite vectors (82 or 153 numbers in, 82 or 153 out). The "operator"
-framing refers to the *family* {Φ_Δt} indexed by timestep.
+fixed finite vectors: **83 or 154 numbers in** — (log T, log ρ, X, dt) per §III.1
+— and **82 or 153 out** — (X′, e_nuc, ε_ν). The "operator" framing refers to the
+*family* {Φ_Δt} indexed by timestep.
+
+(Do not confuse this 83 with the d ≈ 82 of §III.4. That is the *Sobol sampling*
+dimension, 2 thermodynamic + 80 composition, where dt is not a sampled coordinate
+but a nine-point grid applied to every drawn state. Same-looking number, different
+object.)
 
 **So what is hard about it?** Not expressivity — a sufficiently large MLP can
 represent the map. The difficulties are:
@@ -2539,9 +2738,24 @@ physically correct choice on the R→I half-step**, because the true update is
 literally a signed sum: dY_i = Σ_r ν_ir φ_r. Mean or max would destroy
 extensivity.
 
-**Depth.** K rounds propagate information K hops. Measured bipartite radius 3,
-diameter 6 ⟹ K = 5 covers the graph (K = 4 with derived I→I edges). Deeper is not
-obviously better:
+**Depth — and state the hop convention, or the arithmetic does not close.**
+One full round is species → reaction → species = **2 bipartite hops**, so K
+rounds propagate information 2K bipartite hops, not K. With measured bipartite
+radius 3 and diameter 6:
+
+$$
+2K \geq \text{diameter} = 6 \quad\Longrightarrow\quad K \geq 3
+$$
+
+So **K = 3 rounds suffice to span the graph**, and the project's K = 5 carries
+~4 hops of margin. (The derived I→I view halves every distance — diameter 3 —
+giving K ≥ 2 there; quoting "K = 4" for that view is likewise margin, not a
+requirement.) Beware the version of this claim that reads "radius 3, diameter 6
+⟹ K = 5": under a one-hop-per-round convention K = 5 would *fail* to cover a
+diameter-6 graph, and under the two-hop convention it overshoots. Neither
+reading yields 5 — the number is a design margin, and should be defended as one.
+
+Deeper is not obviously better:
 
 - **Oversmoothing:** as K grows, node representations converge toward a common
   value and become indistinguishable. At K = 5 not yet serious, but it bounds how
@@ -2824,12 +3038,12 @@ mixing conventions fails loudly rather than silently.
 | Statement, before | Now derived |
 |---|---|
 | "the regime box is ρ = 10⁷–10⁹" | 10⁷ sits just below the free-proton EC threshold (2.4×10⁷); 10⁹ is strongly degenerate. The box brackets the turn-on of the Yₑ-controlling process (§0.1.5) |
-| "screening uses chugunov_2007" | Γ ≈ 0.8–10 across the box — intermediate coupling, where neither weak- nor strong-screening asymptotics are valid (§0.1.4) |
+| "screening uses chugunov_2007" | Γ ≈ 0.4–25 across the box (ρ^{1/3}/T, so the T edges dominate) — intermediate coupling, where neither weak- nor strong-screening asymptotics are valid (§0.1.4) |
 | "partition functions matter above T₉ ≈ 3" | kT ≈ 0.26 MeV at T₉ = 3 vs first excited states at 0.5–2 MeV — thermal population becomes order-unity exactly there (§0.2.2) |
 
 ## Threads that carry forward
 
-- **From Part 0:** Γ ≈ 0.8–10 fixes the screening prescription (**S4**);
+- **From Part 0:** Γ ≈ 0.4–25 fixes the screening prescription (**S4**);
   partition functions at kT ≈ 0.3 MeV fix the pf gate (**S3**); chemical
   equilibrium Σν_iμ_i = 0 generates NSE and QSE (**S9**); ΔN per REACLIB chapter
   is the index of the gh-575 bug (**S3**); the α-ladder and two-cluster topology
