@@ -56,7 +56,7 @@ assumption; their tests encode the contradiction, not a textbook identity.
 |---|---|
 | [**I** — Rate theory](#part-i--the-theory-of-a-thermonuclear-reaction-rate) | ⟨σv⟩ from cross-sections, Coulomb barrier & Gamow peak, resonances & Hauser–Feshbach, photodisintegration, what the rates *do* in Si burning |
 | [**II** (S2) — REACLIB](#part-ii-s2--reaclib-the-library-and-its-evaluation) | The seven-coefficient form derived, sets/chapters/labels, λ → gross flux R_j, the compiled evaluator |
-| [**III** (S3) — Detailed balance](#part-iii-s3--detailed-balance-⚠-the-load-bearing-node) | The reverse/forward ratio derived in full, the phase-space factor per \|ΔN\|, partition functions, the v-flag dissection, κ as the DB test, gh-575 |
+| [**III** (S3) — Detailed balance](#part-iii-s3--detailed-balance--the-load-bearing-node) | The reverse/forward ratio derived in full, the phase-space factor per \|ΔN\|, partition functions, the v-flag dissection, κ as the DB test, gh-575 |
 | [**IV** (S4) — Screening](#part-iv-s4--screening) | Debye–Hückel derived, Γ regimes, chugunov_2007 term-by-term, the per-reaction pairing and its κ consequence |
 | [**V** (S5) — The weak sector](#part-v-s5--the-weak-sector) | Fermi golden rule → ft → allowed rates, Gamow–Teller, EC in a degenerate plasma, the (T, ρYₑ) tables, table families, the network asymmetry |
 | [**VI** (S6) — Reconciliation](#part-vi-s6--rate-reconciliation) | Canonical keys, membership vs values, dispositions, the measured comparison, the Fortran probe, what it licenses |
