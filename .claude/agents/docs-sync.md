@@ -8,6 +8,7 @@ description: >
   ADRs, and the phase-0 checklist. Do NOT use for pure refactors with no behavioural
   change, or for LaTeX in tex/.
 tools: Read, Grep, Glob, Edit, Write
+model: sonnet
 ---
 
 You are the documentation synchroniser for a conservation-by-construction GNN emulator

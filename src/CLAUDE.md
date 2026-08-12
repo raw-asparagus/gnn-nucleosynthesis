@@ -8,6 +8,13 @@
   PostToolUse hook that runs tests/test_conservation.py. Keep this module free
   of ML dependencies (numpy/pyyaml/pynucastro/networkx only — no torch) so the
   gate stays fast.
+- The same hook also fires on the **Bash** route, so regenerating the export with
+  `scripts/export_stoich_matrix.py` re-runs the gate rather than slipping past it.
+  If you add another producer of `data/stoich/*.npz`, add it to the Route-2 case
+  list in `.claude/hooks/conservation_gate.sh` — otherwise that producer bypasses
+  the gate silently.
+- Changes here get planned before they get written (`/plan-change`), and verified
+  before they get committed (`/pre-merge`). See the root CLAUDE.md delegation policy.
 - Component boundaries follow docs/: backbone (Component A), output heads /
   conservation map / mask (Component B), temporal head + rollout (C/D).
 - The equilibrium mask's eligible set must exclude weak columns structurally

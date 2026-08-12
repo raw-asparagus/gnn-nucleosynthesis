@@ -115,4 +115,13 @@ The papers live at `docs/{project-scope,gnn-architecture,qse,training-data}/main
 - `docs-sync` agent: edits `architecture/`, `phase0-checklist.md`, `decisions/`.
 - `novelty-checker` agent: writes `novelty/` only.
 - `referee` agent: read-only enforcement of Rules 1–7.
+- `lit-fetch` agent: fetches TeX source into `data/literature/` and verifies a quoted
+  claim against it. Writes nothing under `docs/`. It exists because `referee` is
+  read-only and can only flag an uncached source as UNVERIFIED-SOURCE — resolving
+  those findings is `lit-fetch`'s job, and Rule 1's sourced label is not earned until
+  one of them has confirmed the quote.
 - Nothing under `docs/` is edited by the `physics-auditor` or `test-runner` agents.
+
+Run `/verify-claims` to chain referee → lit-fetch over a file or component;
+`/phase-boundary` for the full mandatory sweep. The delegation triggers themselves
+live in the root `CLAUDE.md` under "Delegation and planning policy".

@@ -183,6 +183,46 @@ These are testable facts, not preferences. Code that violates them is wrong by d
                      `data/literature/` is a gitignored TeX-source cache of papers
 - `RESULTS.md`       append-only measured-numbers log with provenance
 
+## Delegation and planning policy
+
+The specialists below are not optional colour. This project's characteristic failure is
+a change that is locally reasonable, passes tests, and silently violates an invariant or
+drifts from the spec — which is exactly what an isolated adversarial reader catches and
+a busy main thread does not. Delegation here is a correctness mechanism, not a
+context-saving one.
+
+**Plan before implementing.** Anything touching a physics invariant, a hard numeric
+gate, the conservation map, the equilibrium mask, the loss, or the temporal head gets a
+plan first: which invariants are in scope, which have measuring instruments, and which
+test would fail if the change were wrong. Tests before implementation for anything with
+a physics oracle. `/plan-change <what>` runs this. Trivial edits, renames, and pure
+refactors do not need it — say so and proceed.
+
+**Delegate on these triggers** (the subagent descriptions repeat them, but the trigger
+lives here):
+
+| When | Delegate to |
+| --- | --- |
+| Any edit under `src/gnn_nucleo/graph/`, or `data/stoich/` regenerated | `physics-auditor` |
+| Before any training run | `physics-auditor` |
+| After implementation changes; before any commit | `test-runner` |
+| Behaviour described in `docs/` changed (map, mask, features, heads, loss, any gate) | `docs-sync`, same commit |
+| Before merging substantive changes; before touching a `docs/<paper>/main.tex` draft | `referee` |
+| Every phase boundary; before submitting any paper | `novelty-checker` (MANDATORY) |
+| A cited claim needs checking, or `referee` returns UNVERIFIED-SOURCE | `lit-fetch` |
+| "Where does X live / which files do Y" across many files | `Explore` |
+
+**Do NOT delegate** the reconciliation of what comes back. Sub-agents return findings
+and numbers; deciding what they mean, and whether a finding blocks, stays in the main
+thread. Never fabricate or predict a pending agent's result.
+
+**Composed workflows** — prefer these over re-deriving the sequence each time:
+`/pre-merge` (test-runner ∥ physics-auditor → docs-sync → referee),
+`/phase-boundary` (novelty-checker ∥ referee ∥ physics-auditor → reconcile → docs-sync),
+`/verify-claims` (referee → lit-fetch on every UNVERIFIED-SOURCE), `/gate`.
+
+Run independent checks concurrently; sequence only where one result changes the next.
+
 ## Subagents (in .claude/agents/)
 
 - `docs-sync`        updates docs after implementation changes (no Bash access)
@@ -190,6 +230,20 @@ These are testable facts, not preferences. Code that violates them is wrong by d
 - `test-runner`      runs pytest, reports only failures
 - `referee`          hostile review of claims vs code vs labels (read-only)
 - `novelty-checker`  arXiv sweep at phase boundaries
+- `lit-fetch`        fetches TeX source and verifies a quoted claim against it
+                     (closes the loop `referee` cannot — it is read-only and
+                     must flag uncached papers as UNVERIFIED-SOURCE)
+
+## Hooks (in .claude/hooks/)
+
+- `conservation_gate.sh`  PostToolUse on **Edit/Write/MultiEdit and Bash**. Runs
+                          tests/test_conservation.py when a conservation-critical file
+                          is edited OR when `scripts/export_stoich_matrix.py` regenerates
+                          the export via the shell. Exit 2 blocks. Any NEW producer of
+                          `data/stoich/*.npz` must be added to its Route-2 case list, or
+                          it bypasses the gate silently.
+- `session_context.sh`    SessionStart. Surfaces last RESULTS.md row, open phase-0 item
+                          count, latest ADR.
 
 ## Style
 

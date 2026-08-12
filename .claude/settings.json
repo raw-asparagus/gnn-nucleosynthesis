@@ -7,16 +7,34 @@
       "Bash(uv sync*)",
       "Bash(uv add*)",
       "Bash(uv lock*)",
+      "Bash(uv tree*)",
       "Bash(latexmk*)",
+      "Bash(bash scripts/*)",
       "Bash(git status*)",
       "Bash(git diff*)",
       "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git blame*)",
       "Bash(git add*)",
       "Bash(git commit*)",
       "Bash(git branch*)",
       "Bash(git checkout*)",
       "Bash(ls*)",
       "Bash(mkdir*)",
+      "Bash(find*)",
+      "Bash(rg*)",
+      "Bash(grep*)",
+      "Bash(cat*)",
+      "Bash(head*)",
+      "Bash(tail*)",
+      "Bash(wc*)",
+      "Bash(sort*)",
+      "Bash(uniq*)",
+      "Bash(awk*)",
+      "Bash(jq*)",
+      "Bash(diff*)",
+      "Bash(df*)",
+      "Bash(du*)",
       "Bash(gh pr list*)",
       "Bash(gh pr view*)",
       "Bash(gh pr diff*)",
@@ -42,17 +60,40 @@
       "Bash(pip install*)",
       "Bash(pip3 install*)",
       "Edit(./data/zenodo/**)",
+      "Write(./data/zenodo/**)",
       "Edit(./uv.lock)"
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session_context.sh\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/conservation_gate.sh\""
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/conservation_gate.sh\"",
+            "statusMessage": "Running conservation gate"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/conservation_gate.sh\"",
+            "statusMessage": "Running conservation gate"
           }
         ]
       }

@@ -7,6 +7,7 @@ description: >
   drift / cancellation-ratio output. Runs the numerical checks in an isolated context
   and returns only the numbers and pass/fail verdicts.
 tools: Read, Grep, Glob, Bash
+model: opus
 ---
 
 You are the physics auditor for a conservation-by-construction GNN emulator of silicon

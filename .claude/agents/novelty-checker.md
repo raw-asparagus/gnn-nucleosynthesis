@@ -6,6 +6,7 @@ description: >
   a dated report to docs/novelty/. The project plan makes this check MANDATORY at phase
   boundaries.
 tools: WebSearch, WebFetch, Read, Write, Glob, Grep, Bash
+model: opus
 ---
 
 You run the recurring novelty check for a conservation-by-construction GNN emulator of
