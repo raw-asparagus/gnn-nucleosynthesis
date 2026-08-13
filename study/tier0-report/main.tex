@@ -2,21 +2,22 @@
 %  Tier 0 -- Substrate.  Standalone report.
 %
 %  Source:  study/tier0.md  (audited 2026-08-12; audit log study/tier0-audit.md)
-%  Build:   latexmk -lualatex -cd study/tier0-report/main.tex
+%  Build:   latexmk -pdf -cd study/tier0-report/main.tex
 %
 %  This file re-architects the Markdown source into a narrative order.
 %  No content is omitted; Appendix B is the concordance that proves it.
 % =====================================================================
 \documentclass[11pt,a4paper]{article}
 
-% ---------- fonts and encoding (LuaLaTeX) ----------
-\usepackage{fontspec}
-\usepackage{unicode-math}
-\setmainfont{TeX Gyre Pagella}
-\setmathfont{TeX Gyre Pagella Math}
-\setmonofont{DejaVu Sans Mono}[Scale=MatchLowercase]
-% DejaVu Sans Mono carries the box-drawing and geometric-shape blocks, so any
-% Unicode surviving into verbatim still renders instead of vanishing.
+% ---------- fonts and encoding (pdfLaTeX) ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+% The only non-ASCII in the sources is six accented surnames in the
+% bibliography plus "Hueckel" -- all covered by utf8 + T1.
+\usepackage{mathpazo}                % Palatino text + math; same design as
+                                     % TeX Gyre Pagella, and what docs/qse uses
+\usepackage[scaled=0.85]{beramono}   % Bitstream Vera Mono, DejaVu Sans Mono's
+                                     % ancestor, so \code{} keeps its texture
 
 % ---------- layout ----------
 \usepackage[a4paper,margin=2.4cm,bottom=2.8cm]{geometry}
@@ -29,6 +30,8 @@
 
 % ---------- maths ----------
 \usepackage{amsmath}
+\usepackage{amssymb}   % \checkmark, \gtrsim, \lesssim (unicode-math gave these)
+\usepackage{bm}
 \allowdisplaybreaks
 
 % ---------- tables ----------
@@ -63,7 +66,7 @@
 \setlength{\bibsep}{2pt plus 0.4ex}
 
 % ---------- hyperref must load last ----------
-\usepackage[hidelinks]{hyperref}
+\usepackage[hidelinks,unicode]{hyperref}
 \hypersetup{
   pdftitle={Tier 0 -- Substrate: physical foundations, the dataset, and the
             modelling frame for a conservation-by-construction GNN emulator
