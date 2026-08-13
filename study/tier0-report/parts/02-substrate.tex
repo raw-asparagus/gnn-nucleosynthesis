@@ -1,0 +1,697 @@
+% =====================================================================
+%  Part II -- The physical substrate.
+%  Source: tier0.md Part 0 preamble (123-137), 0.1 (138-306),
+%          0.2 (308-439), 0.3 (441-548), 0.4 (550-641).
+% =====================================================================
+\part{The physical substrate}
+\label{part:substrate}
+
+The physics that must be in place before ``a nuclide has $(Z,N)$'' and ``the
+network is $\dd\mathbf{Y}/\dd t = \nu\mathbf{R}$'' mean anything.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l R{0.680} R{1.320}@{}}
+\toprule
+\textbf{\S} & \textbf{Area} &
+\textbf{Why it is prerequisite, not optional} \\
+\midrule
+\ref{sec:thermostate} & Plasma thermodynamics \& EOS &
+  Fixes the regime box, determines \emph{which} screening prescription is
+  valid, sets whether electron capture is even energetically allowed \\
+\ref{sec:statmech} & Statistical mechanics &
+  NSE, partition functions, and detailed balance are one framework; without it
+  S3 and S9 are memorized formulae \\
+\ref{sec:nuclearstructure} & Nuclear structure \& data &
+  Mass excess vs binding energy is a real sign trap; and most rates here are
+  \emph{theoretical}, not measured \\
+\ref{sec:neutrinos} & Neutrino physics &
+  Explains the acceleration of late burning, the net one-way \Ye{} ratchet, and
+  an open project item ($\langle E_\nu\rangle$) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Numbers below are computed at box-centre conditions and are worth re-deriving
+yourself --- several justify configuration choices that otherwise look
+arbitrary.
+
+% ---------------------------------------------------------------------
+\chapter{The thermodynamic state of silicon-burning matter}
+\label{sec:thermostate}
+
+\section{The four pressure components}
+\label{sec:pressurecomponents}
+
+\begin{equation*}
+P = P_{\mathrm{ion}} + P_{e} + P_{\mathrm{rad}} + P_{\mathrm{Coulomb}}
+\end{equation*}
+
+\begin{itemize}
+\item \textbf{Ions} --- ideal gas, $P_{\mathrm{ion}} = n_i kT$,
+      $n_i = \rho N_A/\bar{A}$
+\item \textbf{Electrons} --- degenerate, relativistic; the dominant term here
+\item \textbf{Radiation} --- $P_{\mathrm{rad}} = aT^4/3$,
+      $a = 7.566\times10^{-15}$~erg\,cm$^{-3}$\,K$^{-4}$
+      \citep{codata2022}
+\item \textbf{Coulomb} --- negative correction from ion--ion and ion--electron
+      correlation; small for pressure, but \emph{this is the term that becomes
+      screening} (\S\ref{sec:gamma})
+\end{itemize}
+
+\section{Worked example --- box centre
+  (\texorpdfstring{$\rho = 10^{8}$\,\gcc, $T_9 = 4$, $Y_e = 0.5$,
+   $\bar{A} \approx 28$}{rho = 1e8, T9 = 4, Ye = 0.5, Abar = 28})}
+\label{sec:boxcentre}
+
+\begin{align*}
+n_e &= \rho N_A Y_e = 10^{8}\times 6.022\times10^{23}\times 0.5
+       = 3.01\times10^{31}\ \mathrm{cm^{-3}}\\
+n_i &= \rho N_A/\bar{A} = 10^{8}\times 6.022\times10^{23}/28
+       = 2.15\times10^{30}\ \mathrm{cm^{-3}}\\
+kT  &= 8.617\times10^{-2}\ \mathrm{MeV\,GK^{-1}}\times 4\ \mathrm{GK}
+       = 0.345\ \mathrm{MeV}
+\end{align*}
+
+Fermi momentum from $n_e$ (degenerate, $T \to 0$ limit):
+
+\begin{align*}
+p_F c &= \hbar c\,(3\pi^2 n_e)^{1/3}, \qquad
+         \hbar c = 1.9733\times10^{-11}\ \mathrm{MeV\,cm}\\
+&= 1.9733\times10^{-11}\times(29.608\times 3.01\times10^{31})^{1/3}\\
+&= 1.9733\times10^{-11}\times 9.62\times10^{10}\\
+&= 1.90\ \mathrm{MeV}
+\end{align*}
+
+Relativity parameter $x = p_F c / m_e c^2 = 1.90 / 0.511 = \mathbf{3.7}$ ---
+relativistic. Total Fermi energy including rest mass:
+
+\begin{equation*}
+E_F = \sqrt{p_F^2c^2 + m_e^2c^4} = \sqrt{3.60+0.26} = 1.97\ \mathrm{MeV}
+\end{equation*}
+
+Pressures (ultra-relativistic degenerate approximation
+$P_e \approx \tfrac{1}{4} n_e p_F c$):
+
+\begin{center}
+\begin{tabular}{@{}l r r@{}}
+\toprule
+\textbf{Component} & \textbf{Value (erg/cm$^3$)} & \textbf{Share} \\
+\midrule
+$P_e$              & $2.3\times10^{25}$ & \textbf{${\sim}93\%$} \\
+$P_{\mathrm{ion}}$ & $1.2\times10^{24}$ & ${\sim}5\%$ \\
+$P_{\mathrm{rad}}$ & $6.5\times10^{23}$ & ${\sim}3\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Electrons carry the pressure.} This is the quantitative content of
+\S\ref{sec:explodability} --- the core is an electron-degeneracy-supported
+object, so a composition variable that changes $n_e$ changes the structure
+directly.
+
+\section{Degeneracy across the box}
+\label{sec:degeneracy}
+
+Degeneracy is measured by $E_{F,\mathrm{kin}}/kT$, with
+$E_{F,\mathrm{kin}} = E_F - m_ec^2$:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l l l Y@{}}
+\toprule
+\textbf{$\rho$ (\gcc)} & \textbf{$p_F c$ (MeV)} &
+\textbf{$E_{F,\mathrm{kin}}$ (MeV)} &
+\textbf{$E_{F,\mathrm{kin}}/kT$ at $\Tn = 4$} & \textbf{Regime} \\
+\midrule
+$10^{7}$ & 0.88 & 0.51 & 1.5  & mildly degenerate \\
+$10^{8}$ & 1.90 & 1.46 & 4.2  & degenerate \\
+$10^{9}$ & 4.09 & 3.61 & 10.5 & strongly degenerate \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The box spans exactly the transition from ``electrons barely notice each
+other'' to ``electrons dominate everything'' --- not a coincidence, but the
+physically interesting range.
+
+\section{The Coulomb coupling parameter
+  \texorpdfstring{$\Gamma$}{Gamma} --- and why \code{chugunov\_2007}}
+\label{sec:gamma}
+
+Ion-sphere radius and coupling parameter:
+
+\begin{equation*}
+a_i = \left(\frac{3}{4\pi n_i}\right)^{1/3}, \qquad
+\Gamma = \frac{Z^2 e^2}{a_i kT}, \qquad
+e^2 = 1.44\times10^{-13}\ \mathrm{MeV\,cm}
+\end{equation*}
+
+At $\rho = 10^{8}$, $\Tn = 4$:
+
+\begin{equation*}
+a_i = \left(\frac{3}{4\pi\times 2.15\times10^{30}}\right)^{1/3}
+    = 4.81\times10^{-11}\ \mathrm{cm}
+\end{equation*}
+
+\begin{align*}
+\text{Silicon }(Z=14):\quad \Gamma &=
+  \frac{196\times 1.44\times10^{-13}}{4.81\times10^{-11}\times 0.345} = 1.7\\
+\text{Iron }(Z=26):\quad \Gamma &=
+  \frac{676\times 1.44\times10^{-13}}{6.05\times10^{-11}\times 0.345} = 4.7
+\end{align*}
+
+Now scale it across the box. $\Gamma \propto n_i^{1/3}/T \propto \rho^{1/3}/T$,
+so \textbf{both} axes of the box move it, and the temperature axis moves it by
+more:
+
+\begin{center}
+\begin{tabular}{@{}l c c@{}}
+\toprule
+ & \textbf{Si ($Z=14$, $\bar{A}=28$)} & \textbf{Fe ($Z=26$, $\bar{A}=56$)} \\
+\midrule
+$\rho = 10^{7}$, $\Tn = 7.9$ & \textbf{0.40} & 1.10 \\
+$\rho = 10^{7}$, $\Tn = 4$   & 0.79 & 2.16 \\
+$\rho = 10^{8}$, $\Tn = 4$   & 1.70 & 4.66 \\
+$\rho = 10^{9}$, $\Tn = 4$   & 3.67 & 10.05 \\
+$\rho = 10^{9}$, $\Tn = 1.6$ & 9.18 & \textbf{25.1} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+So across the \textbf{full} box ($\rho = 10^{7}$--$10^{9}$ \emph{and}
+$T = 1.6$--7.9~GK, Si $\to$ Fe) \textbf{$\Gamma$ ranges roughly 0.4 to 25}. The
+often-quoted ``0.8 to 10'' is the $\rho$-only span at fixed $\Tn = 4$ ---
+correct as far as it goes, but it silently freezes the axis that matters most.
+Quote the wider range.
+
+\begin{aside}
+\textbf{This is the derivation that justifies the screening config.} Salpeter
+weak screening \citep{salpeter1954} assumes $\Gamma \ll 1$. Strong-screening
+asymptotics assume $\Gamma \gg 1$. Silicon burning sits in \textbf{neither} ---
+and the full-box range makes the point more forcefully than the fixed-$T$ one
+does, because $\Gamma \sim 0.4$ to ${\sim}25$ is two orders of magnitude
+straddling unity, with no sub-region where either asymptotic is safe. You need
+a prescription that \emph{interpolates across both limits}. That is exactly
+what \code{chugunov\_2007} is --- the fit of \citet{chugunov2007} reproduces the
+Debye--Hückel $\Gamma \ll 1$ asymptote and is calibrated through
+$\Gamma \sim$ hundreds, spanning this box --- and it is why the label
+configuration pins \code{screening\_mode = 'chugunov'} in
+\code{scripts/bbq\_campaign/inlist.template}.
+\end{aside}
+
+Carry this into \textbf{S4}: when you read \code{fluxes/screening.py}, you are
+reading an intermediate-coupling interpolation, and you now know why nothing
+simpler would do.
+
+\section{The electron-capture threshold --- a box edge derived from scratch}
+\label{sec:ecthreshold}
+
+Electron capture on free protons, $p + e^- \to n + \nu$, requires the total
+electron energy to exceed the neutron--proton mass difference
+\citep{codata2022}:
+
+\begin{equation*}
+E_e \geq (m_n-m_p)c^2 = 1.2933\ \mathrm{MeV}
+\qquad (\text{kinetic threshold } 0.782\ \mathrm{MeV})
+\end{equation*}
+
+In a degenerate gas the \emph{available} electron energy is $E_F$. Setting
+$E_F = 1.2933$~MeV:
+
+\begin{align*}
+p_F c &= \sqrt{1.2933^2 - 0.511^2} = 1.188\ \mathrm{MeV}\\
+n_e &= \frac{(p_F c)^3}{3\pi^2(\hbar c)^3}
+     = \frac{1.6765}{29.608\times 7.684\times10^{-33}}
+     = 7.37\times10^{30}\ \mathrm{cm^{-3}}\\
+\rho &= \frac{n_e}{N_A Y_e}
+      = \frac{7.37\times10^{30}}{6.022\times10^{23}\times 0.5}
+      = 2.4\times10^{7}\ \gcc
+\end{align*}
+
+Sanity check: at $\Ye = 1$ this gives $1.2\times10^{7}$~\gcc{} --- the classic
+neutronization threshold for hydrogen \citep{shapiro1983}; captures on H switch
+on once $\rho \gtrsim 10^{7}$~\gcc{} \citep{bildsten1998}. \yes{}
+
+\begin{result}
+\textbf{Result:} free-proton electron capture switches on at
+$\rho \approx 2.4\times10^{7}$~\gcc{} for $\Ye = 0.5$ --- \emph{inside} the
+regime box, near its lower edge.
+\end{result}
+
+Below that density captures are thermally suppressed (only the distribution's
+tail has enough energy); above it they are degeneracy-driven and vigorous.
+\textbf{The box's lower density edge of $10^{7}$~\gcc{} sits just below the
+threshold on purpose} --- it brackets the turn-on of the process that controls
+\Ye{}.
+
+Captures on nuclei have their own thresholds set by their $Q$-values and in
+practice carry most of the capture flux --- heavy nuclei outnumber free protons
+by orders of magnitude at these conditions \citep{langanke2003}; the
+free-proton number is the clean reference point.
+
+\begin{selfcheck}
+\item Recompute $p_F c$, $E_F$, and $\Gamma$ at $\rho = 10^{9}$, $\Tn = 3$, and
+      confirm degeneracy and coupling both increase. Which pressure component
+      is largest?
+\item Show $P_e \propto (\rho \Ye)^{4/3}$ in the ultra-relativistic limit, and
+      connect it to the $M_{\mathrm{ch}} \propto Y_e^2$ derivation in
+      \S\ref{sec:mchderivation}.
+\item At what temperature would radiation pressure overtake ion pressure at
+      $\rho = 10^{8}$? Is that inside the box?
+\item Why does $\Gamma$ \emph{increase} as burning proceeds at fixed
+      $(\rho, T)$? (Hint: what happens to $\bar{Z}$?) What does that imply
+      about screening corrections drifting along a trajectory?
+\end{selfcheck}
+
+% ---------------------------------------------------------------------
+\chapter{Statistical mechanics you actually need}
+\label{sec:statmech}
+
+Three results, one framework. Everything in S3 (detailed balance) and S9 (NSE
+and QSE) is a corollary of this chapter.
+
+\section{Chemical potential and the equilibrium condition}
+\label{sec:chempotential}
+
+For a system at fixed $(T, V)$, the Helmholtz free energy $F$ is minimized. The
+chemical potential of species $i$ is
+
+\begin{equation*}
+\mu_i = \left(\frac{\partial F}{\partial N_i}\right)_{T,V,N_{j\neq i}}
+\end{equation*}
+
+For a reaction with stoichiometric coefficients $\nu_i$ (products $+$,
+reactants $-$), advancing by $\dd\xi$ changes $N_i$ by $\nu_i \dd\xi$, so
+$\dd F = \sum_i \mu_i \nu_i \dd\xi$. Equilibrium ($\dd F = 0$ for arbitrary
+$\dd\xi$) gives the \textbf{chemical equilibrium condition}:
+
+\begin{equation}
+\sum_i \nu_i \mu_i = 0
+\label{eq:chem-equilibrium}
+\end{equation}
+
+This single equation generates everything:
+
+\begin{itemize}
+\item \textbf{NSE.} Every strong/EM reaction is equilibrated. Apply
+      \eqref{eq:chem-equilibrium} to the build-up of nuclide $(Z,N)$ from free
+      nucleons, $A(Z,N) \rightleftharpoons Z\,p + N\,n$:
+      %
+      \begin{equation}
+      \mu(Z,N) = Z\mu_p + N\mu_n
+      \label{eq:nse}
+      \end{equation}
+      %
+      Every nuclide's chemical potential is determined by just \textbf{two}
+      numbers --- the standard NSE condition
+      \citep{hix1996,hix1999b,pitrou2018}. That is why the NSE solver in
+      \code{qse/solver.py} has exactly two unknowns ($u_p$, $u_n$).
+
+\item \textbf{QSE.} Only a \emph{subset} of reactions is equilibrated --- those
+      internal to a cluster. Cluster members satisfy \eqref{eq:nse} up to a
+      shared offset:
+      %
+      \begin{equation}
+      \mu_i = Z_i\mu_p + N_i\mu_n + u_G \quad \text{for } i\in G
+      \label{eq:qse-offset}
+      \end{equation}
+      %
+      One extra unknown per cluster --- the focal-nucleus form of
+      \citet{hix1996}, whose $r_{\mathrm{QSE}}$ is constant within a group and
+      offset between groups, and whose QSE distribution ``blends simply into
+      the NSE distribution'' as the offset vanishes. That is the third unknown
+      in \code{solve\_qse}, and $u_G = 0$ recovers NSE exactly --- which is why
+      the QSE$\to$NSE degeneracy is a test case in
+      \code{tests/test\_qse\_solver.py}.
+
+\item \textbf{Detailed balance.} Apply \eqref{eq:chem-equilibrium} to a single
+      forward/reverse pair; the ratio of rate coefficients is fixed by the
+      $Q$-value and partition functions. This is S3.
+\end{itemize}
+
+\section{Nuclear partition functions}
+\label{sec:partitionfunctions}
+
+A nucleus has excited states. The internal partition function is
+
+\begin{equation}
+G(T) = \frac{\sum_{\text{states}} (2J_s+1)\,e^{-E_s/kT}}{2J_0+1}
+\label{eq:partition-fn}
+\end{equation}
+
+normalized so $G \to 1$ as $T \to 0$ (only the ground state populated).
+
+\textbf{Why it matters here, quantitatively.} First excited states in
+Si--Fe-peak nuclei span a wide range (\citeauthor{ensdf}): tens of keV for odd-$A$ and
+odd--odd species (\nuc{Fe}{57} at 14.4~keV, \nuc{Mn}{54} at 54.9~keV),
+${\sim}0.8$--1.2~MeV for even--even Fe-group nuclei (\nuc{Fe}{56} at
+0.847~MeV), up to 1.8--2.7~MeV for the Si-shell even--even and near-magic cases
+(\nuc{Si}{28} at 1.78~MeV, \nuc{Ni}{56} at 2.70~MeV). At $\Tn = 4$,
+$kT = 0.345$~MeV, so a ${\sim}0.85$~MeV state carries
+$e^{-2.5} \approx 0.08$ per magnetic substate while states below ${\sim}kT$ are
+populated at order unity. $G$ reaches ${\sim}1.5$--3 for typical odd-$A$
+Fe-group nuclei --- and up to ${\sim}4$--7 for the extreme low-lying cases
+(\nuc{Fe}{57} $\approx 6.6$ at $\Tn = 4$) --- while the doubly-magic and
+near-magic Fe-peak nuclei (\nuc{Ni}{56} above all, $G = 1.002$ at $\Tn = 4$)
+stay at $G \approx 1$ \citep{rauscher2000,rauscher2003}. So the pf correction
+is strongly species-dependent, and largest exactly where the level density is,
+not where the abundance is. (``Deformation'' is the wrong word for this regime;
+near $N = Z$ and $Z = 28$ these nuclei are close to spherical. What raises $G$
+here is level density at $E^* \sim kT$.)
+
+\begin{aside}
+A factor of 2 in $G$ is a factor of 2 in a detailed-balance reverse rate. That
+is the entire reason \code{DerivedRate(use\_pf=True)} is mandatory above
+$\Tn \approx 3$, and why raw pf-free fits manufacture spurious $\kappa$ floors.
+\end{aside}
+
+\begin{repopointer}
+\textbf{In the code:} partition functions come from Rauscher tables
+\citep[][--- the reverse-rate ratio is linear in $G$, so a factor of 2 in $G$
+is exactly a factor of 2 in the reverse rate]{rauscher2000,rauscher2003},
+rebuilt as splines with constant extrapolation, in both
+\code{fluxes/compile.py} and \code{qse/coeffs.py} --- and the two paths are
+cross-checked against each other, because a pf mismatch between the rate side
+and the equilibrium side would silently corrupt every $\kappa$ comparison.
+\end{repopointer}
+
+\section{Detailed balance from time reversal}
+\label{sec:detailedbalance}
+
+The microscopic statement: for a transition $a \to b$, the squared matrix
+element is invariant under time reversal --- $T$-invariance implies $S$-matrix
+symmetry $S_{ab} = S_{ba}$ and hence detailed balance
+$|S_{ab}|^2 = |S_{ba}|^2$ \citep{mitchell2010} ---
+
+\begin{equation*}
+\bigl|\langle b|T|a\rangle\bigr|^2 = \bigl|\langle a|T|b\rangle\bigr|^2
+\end{equation*}
+
+The \emph{rates} differ only through phase-space density of final states and
+statistical weights. In equilibrium, forward and reverse rates per unit volume
+must be equal --- that is what ``detailed'' balance means: not just net zero
+overall, but \textbf{pairwise} zero, reaction by reaction.
+
+This pairwise statement is exactly what $\kappa$ measures:
+
+\begin{equation}
+\kappa_r = \frac{|f^+ - f^-|}{f^+ + f^-} \;\longrightarrow\; 0
+\quad \text{at true equilibrium}
+\label{eq:kappa-detailed-balance}
+\end{equation}
+
+So $\kappa$ is not an arbitrary diagnostic --- it is the numerical test of
+detailed balance, reaction by reaction. A nonzero $\kappa$ floor at NSE means
+the code's forward and reverse rates are \emph{mutually inconsistent}, which is
+a bug, not physics. That is the logic of the whole $\kappa$-floor screen.
+(\S\ref{sec:cancellation} gives $\kappa$ its second, independent meaning as a
+condition number --- reaching the identical formula
+\eqref{eq:kappa-condition} from numerical analysis rather than thermodynamics.
+The two readings coincide, which is why $\kappa$ is load-bearing everywhere in
+this project.)
+
+\begin{selfcheck}
+\item Derive \eqref{eq:nse} from \eqref{eq:chem-equilibrium} for the specific
+      case $\nuc{Si}{28} \rightleftharpoons 14p + 14n$.
+\item Explain why NSE needs exactly two constraints ($\sum X = 1$, \Ye{}) given
+      \eqref{eq:nse} has two free parameters. What breaks if you impose a
+      third?
+\item Estimate $G(T)$ at $\Tn = 5$ for a nucleus with first excited state at
+      0.85~MeV and $J = 2$ (ground $J = 0$). By what factor would omitting it
+      change a detailed-balance reverse rate?
+\item Argue why detailed balance is \emph{pairwise} and not merely a statement
+      about net flow. Then explain how a code could satisfy overall equilibrium
+      while having every individual $\kappa_r \neq 0$.
+\end{selfcheck}
+
+% ---------------------------------------------------------------------
+\chapter{Nuclear structure minimum}
+\label{sec:nuclearstructure}
+
+\section{The mass-excess convention --- a real sign trap}
+\label{sec:massexcess}
+
+Nuclear data tables give the \textbf{mass excess}, not the binding energy:
+
+\begin{equation}
+\Delta(A,Z) \equiv \bigl[M_{\text{atomic}}(A,Z) - A\,u\bigr]\,c^2
+\label{eq:mass-excess}
+\end{equation}
+
+Tabulated masses are \textbf{atomic} (electrons included). Binding energy is
+recovered by (mass excesses throughout from AME2020 ---
+\citealt{ame2020}):
+
+\begin{equation}
+\begin{aligned}
+B(A,Z) &= Z\,\Delta(\nuc{H}{1}) + N\,\Delta(n) - \Delta(A,Z),\\
+\Delta(\nuc{H}{1}) &= 7.2890\ \mathrm{MeV}, \qquad
+\Delta(n) = 8.0713\ \mathrm{MeV}
+\end{aligned}
+\label{eq:binding}
+\end{equation}
+
+\textbf{Worked example --- \nuc{Fe}{56}} ($\Delta = -60.607$~MeV):
+
+\begin{align*}
+B &= 26\times 7.2890 + 30\times 8.0713 + 60.607\\
+&= 189.51 + 242.14 + 60.61 = 492.26\ \mathrm{MeV}\\
+B/A &= 8.790\ \mathrm{MeV} \qquad \yes\ \text{textbook value}
+\end{align*}
+
+\begin{center}
+\begin{tabular}{@{}l r l@{}}
+\toprule
+\textbf{Nuclide} & \textbf{$\Delta$ (MeV)} & \textbf{$B/A$ (MeV)} \\
+\midrule
+\nuc{Ni}{56} ($Z=N=28$) & $-53.908$ & 8.643 \\
+\nuc{Fe}{56}            & $-60.607$ & \textbf{8.790} \\
+\nuc{Fe}{58}            & $-62.155$ & 8.792 \\
+\nuc{Ni}{62}            & $-66.746$ & \textbf{8.795} $\leftarrow$ most bound
+                                                                nuclide \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+(\nuc{Ni}{62} as the most bound nuclide --- not \nuc{Fe}{56}, a common
+misconception --- is \citealt{fewell1995}: $B/A = 8794.60 \pm 0.03$~keV.)
+
+\textbf{$Q$-values follow directly:}
+
+\begin{equation}
+Q = \sum \Delta_{\text{reactants}} - \sum \Delta_{\text{products}}
+\label{eq:qvalue}
+\end{equation}
+
+\textbf{Worked example --- $\nuc{Si}{28}(\alpha,\gamma)\nuc{S}{32}$:}
+
+\begin{align*}
+Q &= \bigl[\Delta(\nuc{Si}{28}) + \Delta(\nuc{He}{4})\bigr]
+     - \Delta(\nuc{S}{32})\\
+&= [-21.493 + 2.425] - (-26.016)\\
+&= -19.068 + 26.016 = 6.948\ \mathrm{MeV} \qquad \yes
+\end{align*}
+
+This matters concretely: \code{configs/reactions\_mesa\{80,151\}\_mesa.yaml}
+carries a \code{q\_mev} field per reaction, and the energy identity
+$\enuc = \sum_j Q_j \Phi_j$ in S10 consumes it. You should be able to reproduce
+any entry by hand.
+
+\section{Magic numbers and why \texorpdfstring{\nuc{Ni}{56}}{56Ni} is the
+  Si-burning endpoint}
+\label{sec:magicnumbers}
+
+Shell closures at $N$ or $Z = 2, 8, 20, 28, 50, 82, 126$ produce extra binding
+\citep{otsuka2020}. \textbf{$Z = N = 28$ makes \nuc{Ni}{56} doubly magic},
+which is why:
+
+\begin{itemize}
+\item it is the most bound nuclide accessible at $\Ye = 0.5$,
+\item it is the dominant Si-burning product \citep{hix1996},
+\item and its decay chain \nuc{Ni}{56} ($T_{1/2} = 6.08$~d) $\to$ \nuc{Co}{56}
+      ($T_{1/2} = 77.2$~d) $\to$ \nuc{Fe}{56} powers supernova light curves
+      (\citealt{diehl2015}; half-lives from \citeauthor{ensdf}), which is how we
+      \emph{measure} how much of it was made (\S\ref{sec:obsgrounding}).
+\end{itemize}
+
+Note the mechanism connecting to \S\ref{sec:explodability}: the binding-energy
+maximum (\nuc{Ni}{62}) and the actual product (\nuc{Ni}{56}) differ because the
+\textbf{\Ye{} constraint} binds. Weak reactions are the only way to relax it,
+and they are slow. The composition is set by a \emph{constrained} optimum, and
+the constraint is the project's central variable.
+
+\section{Where the rates actually come from --- and how well they are known}
+\label{sec:ratesources}
+
+The part most easily assumed away. In a network reaching to Ni and beyond:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.75} R{1.05} R{1.20}@{}}
+\toprule
+\textbf{Source} & \textbf{Coverage} & \textbf{Typical uncertainty} \\
+\midrule
+Direct experiment &
+  light nuclei, a minority of channels &
+  a few \% (best-measured channels) to a few tens of \%
+  \citep{iliadis2010} \\
+Hauser--Feshbach statistical model &
+  \textbf{the large majority} of $(n,\gamma)$, $(p,\gamma)$, $(\alpha,\gamma)$
+  on mid/heavy nuclei &
+  factor ${\sim}1.5$--2, worse off stability \citep{rauscher2000} \\
+Shell-model weak rates (LMP) &
+  Fe-peak electron capture / $\beta$-decay &
+  no blanket figure; GT-strength dependent --- the LMP revision moved key FFN
+  EC rates by factors ${\sim}10$--350 \citep{langanke2000} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+REACLIB is a \emph{fit library} \citep{cyburt2010}: seven coefficients per set,
+several sets summed per rate, fitted to whichever of the above is best
+available. Two consequences:
+
+\begin{enumerate}
+\item \textbf{The seven-coefficient form is a fitting basis with physical
+      asymptotics, not an exact theory} (S2 derives why those particular
+      terms).
+\item \textbf{There is an irreducible physics-uncertainty floor.} An emulator
+      reproducing MESA to $10^{-6}$ is reproducing \emph{MESA}, not nature.
+      This is why the project frames its gates as fidelity-to-labels --- and
+      why the label-pathology finding (S13) matters so much: it is the case
+      where MESA and nature part company by 7--13 dex.
+\end{enumerate}
+
+\begin{selfcheck}
+\item Reproduce $B/A$ for \nuc{Ni}{56} from \eqref{eq:binding} and confirm
+      8.643~MeV.
+\item Compute $Q$ for $\nuc{S}{32}(\alpha,\gamma)\nuc{Ar}{36}$ and for the
+      reverse. What is the sign relation?
+\item Pick five reactions from \code{configs/reactions\_mesa80\_mesa.yaml} and
+      verify \code{q\_mev} by hand from a mass table.
+\item Given that most $(n,\gamma)$ rates carry factor-${\sim}2$ theoretical
+      uncertainty, what is the strongest \emph{defensible} claim an emulator
+      can make about physical accuracy? Write it as one sentence.
+\end{selfcheck}
+
+% ---------------------------------------------------------------------
+\chapter{Neutrinos}
+\label{sec:neutrinos}
+
+\section{Two distinct neutrino channels}
+\label{sec:nuchannels}
+
+Do not conflate these; the dataset carries them differently.
+
+\textbf{(a) Thermal neutrino losses} --- pair annihilation
+($e^+e^- \to \nu\bar\nu$), photoneutrino, plasmon decay, bremsstrahlung
+\citep{itoh1996,kato2020}. Depend on the thermodynamic state ($T$, $\rho \Ye$)
+for the $e^\pm$ processes, plus mean $\bar{Z}/\bar{A}$ for bremsstrahlung ---
+not on the detailed isotopic abundances. Pair production dominates at
+silicon-burning temperatures \citep{kato2020} and approaches its
+relativistic-limit $\propto T^9$ scaling there (steeper, ${\sim}T^{11}$ or
+more, at lower $T$).
+
+\textbf{(b) Weak-reaction neutrinos} --- emitted by every electron capture and
+$\beta$ decay. Depend on composition, carry away lepton number as well as
+energy, and are inseparable from the \Ye{} evolution.
+
+In the data: \code{eps\_nu} / \code{eps\_neu} columns. Note the units trap from
+\S\ref{sec:labelnoise} --- a \textbf{rate} [erg/g/s] in the training CSVs while
+\code{eps\_nuc} beside it is \textbf{integrated} [erg/g].
+
+\section{Why neutrinos free-stream --- and why that accelerates everything}
+\label{sec:freestreaming}
+
+Neutrino--nucleon cross sections scale as \citep[][where
+$\sigma_0 = (4/\pi)G_F^2(m_ec^2)^2/(\hbar c)^4 = 1.761\times10^{-44}$~cm$^2$]
+{janka2017}
+
+\begin{equation*}
+\sigma \approx \sigma_0\left(\frac{E_\nu}{m_e c^2}\right)^{\!2}, \qquad
+\sigma_0 \approx 1.7\times10^{-44}\ \mathrm{cm^2}
+\end{equation*}
+
+At $E_\nu \approx 3$~MeV: $\sigma \approx 5.9\times10^{-43}$~cm$^2$. At
+$\rho = 10^{8}$~\gcc, $n_{\mathrm{baryon}} = 6.0\times10^{31}$~cm$^{-3}$:
+
+\begin{equation*}
+\lambda = \frac{1}{n\sigma}
+        = \frac{1}{6.0\times10^{31}\times 5.9\times10^{-43}}
+        \approx 2.8\times10^{10}\ \mathrm{cm}
+        \approx 2.8\times10^{5}\ \mathrm{km}
+\end{equation*}
+
+The iron core radius is ${\sim}10^{3}$~km, so
+$\boldsymbol{\lambda/R \approx 300}$: neutrinos escape without scattering.
+(Coherent scattering on nuclei enhances $\sigma$ by roughly
+$N^2/16 \approx A^2/60$ --- the vector amplitudes on the $N$ neutrons add in
+phase \citep{janka2017} --- cutting $\lambda$, but trapping only sets in around
+$\rho \approx 10^{11}$--$10^{12}$~\gcc{} \citep{janka2017}, well above this
+box.)
+
+\textbf{Two consequences, both structural:}
+
+\begin{enumerate}
+\item \textbf{Energy leaves instantly.} No diffusion time. This is the
+      mechanism behind the burning-stage acceleration table in
+      \S\ref{sec:lastday} --- the core must burn ever faster to replace energy
+      leaking at $c$.
+\item \textbf{Lepton number leaves with it.} Each capture emits a $\nu$ that
+      never comes back. This is why the constraint matrix needs a
+      \emph{separate neutrino ledger}: lepton number is conserved by the
+      reaction but then physically removed from the zone.
+
+      \begin{warn}
+      \textbf{Be careful with the next step, which is easy to overstate.}
+      Free-streaming does not itself \emph{drive} \Ye{} down --- what drives it
+      down is electron capture outpacing $\beta^-$ decay, a statement about net
+      rates and about how degenerate the electrons are
+      (\S\ref{sec:ecthreshold}). What free-streaming does is \emph{prevent the
+      drop from stopping}: if neutrinos were trapped they would build up a
+      chemical potential until forward and reverse weak rates balanced, and
+      \Ye{} would freeze at $\beta$ equilibrium. Escape removes that
+      back-reaction, so the ratchet has nothing to push against. Hence \Ye{}
+      declines essentially monotonically \textbf{through the burning phase in
+      aggregate}, not term-by-term --- $\beta^-$ decays run the other way
+      throughout, which is precisely why \S\ref{sec:softwired} treats
+      \msn{80}'s \emph{absence} of $\beta$-decay partners as a structural
+      defect rather than a harmless omission.
+      \end{warn}
+\end{enumerate}
+
+That second point is worth pausing on. The three-row structure of $C$ ---
+baryon, charge (with the electron column), lepton number ($e^-$ $+1$, $\nu$
+$+1$, $\bar\nu$ $-1$) --- is not bookkeeping fussiness. It is what lets you
+state ``lepton number is conserved by the reaction'' while the neutrino column
+subsequently leaves the system.
+
+\section{\texorpdfstring{$\langle E_\nu\rangle$}{<E nu>} --- an open item to
+  understand before you meet it}
+\label{sec:enu}
+
+Energy loss per capture is not simply the $Q$-value: the emitted neutrino
+carries a \emph{spectrum}, and what the zone loses is $\langle E_\nu\rangle$
+per reaction. Weak-rate tables therefore provide both a rate and a neutrino
+energy-loss rate --- \citeauthor{ffn}{} onward; \citet{langanke2001} tabulate effective rates
+\emph{and} average neutrino energies, and \citet{patton2017} show exactly how
+$\langle E_\nu\rangle$ is reconstructed from those tables --- and codes handle
+the latter with varying care.
+
+This is a \textbf{standing open item in the project} (``MESA
+average-neutrino-energy handling ($\langle E_\nu\rangle$) for the neutrino
+head''). When you design a neutrino output head, you will need to know exactly
+what MESA reports and on what grid.
+
+\begin{selfcheck}
+\item Recompute $\lambda$ at $\rho = 10^{9}$ and $E_\nu = 5$~MeV. Is
+      free-streaming still safe?
+\item Explain, in terms of \S\ref{sec:freestreaming}, why carbon burning onward
+      is neutrino-cooled while hydrogen burning is not.
+\item The lepton-number row of $C$ assigns $\nu$ $+1$ and $\bar\nu$ $-1$. Write
+      the row entries for an electron capture and for a $\beta^-$ decay, and
+      verify each column closes.
+\item Why can thermal neutrino losses be computed from $(T,\rho)$ alone, while
+      weak neutrino losses cannot? Which one does the emulator have to learn?
+\end{selfcheck}

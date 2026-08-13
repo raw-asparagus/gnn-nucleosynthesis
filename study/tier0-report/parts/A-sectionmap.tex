@@ -1,0 +1,111 @@
+% =====================================================================
+%  Appendix A -- The source document's own section map.
+%  Source: tier0.md:51-119 (the Contents table and the <details>
+%          "Full section list" block), reproduced verbatim.
+%  Nothing here is dropped: the reading map in the front matter presents
+%  the SAME material against the new architecture, and this appendix
+%  preserves the original.
+% =====================================================================
+\chapter{The source document's own section map}
+\label{app:sectionmap}
+
+This report re-architects \code{study/tier0.md}. The source document carried its
+own contents table and a collapsed ``full section list''; both are reproduced
+here unchanged, so the original architecture survives alongside the new one.
+Appendix~\ref{app:concordance} maps one onto the other.
+
+\section{Contents table, as written in the source}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.55} R{1.45}@{}}
+\toprule
+\textbf{Part} & \textbf{Covers} \\
+\midrule
+\textbf{0} --- Physical foundations &
+  Plasma thermodynamics \& EOS, statistical mechanics, nuclear structure \&
+  data, neutrinos, reaction nomenclature, Si-burning topology, the timescale
+  hierarchy \\
+\textbf{I} --- Why this project exists &
+  Stellar context, \Ye{} and explodability, the cost problem, conservation, why
+  a GNN \\
+\textbf{II} (S0) --- Species \& abundances &
+  $Y = X/A$, \Ye{}, the two networks, the bipartite graph \\
+\textbf{III} (S1) --- The dataset &
+  Regime box, $\dd t$ grid, Sobol design, identity, label noise, splits \\
+\textbf{IV} --- The modelling frame &
+  Operator splitting, one-zone \& the reachable manifold, semigroup \& rollout \\
+\textbf{V} --- Numerical analysis &
+  Catastrophic cancellation ($=\kappa$), conditioning, stiffness, floating
+  point, Newton \& globalization, ODE error control \\
+\textbf{VI} --- ML framing \& context &
+  Operator learning, message passing, feature \& loss design, MESA/bbq, prior
+  art, observations \\
+\textbf{VII} --- Working practice &
+  Provenance labels, thresholds \& instruments, ADR switch conditions, guards
+  that refuse, non-regenerable artifacts \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section{Full section list, as written in the source}
+
+\begin{srclisting}
+0.1  Thermodynamic state          0.1.1 pressure components . 0.1.2 box centre
+                                  0.1.3 degeneracy . 0.1.4 Gamma and screening
+                                  0.1.5 the EC threshold . 0.1.6 self-check
+0.2  Statistical mechanics        0.2.1 chemical potential . 0.2.2 partition fns
+                                  0.2.3 detailed balance . 0.2.4 self-check
+0.3  Nuclear structure & data     0.3.1 the mass-excess trap . 0.3.2 magic numbers
+                                  0.3.3 where rates come from . 0.3.4 self-check
+0.4  Neutrinos                    0.4.1 two channels . 0.4.2 free streaming
+                                  0.4.3 <E_nu> . 0.4.4 self-check
+0.5  Reaction nomenclature        channel notation . REACLIB chapters . why dN
+0.6  Si-burning topology          the alpha ladder . two clusters & bridges
+                                  energy routes
+0.7  The timescale hierarchy      tau_i . the table . the separation that isn't
+                                  0.7.1 self-check
+
+I.1  The last day of a massive star        I.5  Why ML emulation
+I.2  What determines explodability         I.6  What breaks without conservation
+I.3  Why networks are the bottleneck       I.7  Why a graph neural network
+I.4  Softwired networks                    I.8  Where conservation may live
+                                           I.9  self-check
+
+II.1 Nuclide bookkeeping                   II.5 The electron fraction Ye
+II.2 Binding energy & the iron peak        II.6 The bipartite graph
+II.3 Deriving Y = X/A                      II.7 Code walkthrough
+II.4 Why Y and not X                       II.8 self-check
+
+III.1 What one record is                   III.7  Leakage-safe splits
+III.2 The regime box                       III.8  The missing rows
+III.3 The dt grid                          III.9  Stratification
+III.4 Sobol sampling                       III.10 Code reading order
+III.5 Identity and state_id                III.11 self-check
+III.6 Label noise, floors, censoring
+
+IV.1 Operator splitting                    V.1 Catastrophic cancellation
+IV.2 One-zone & the reachable manifold     V.2 Conditioning
+IV.3 Semigroup & rollout error             V.3 Stiffness
+IV.4 self-check                            V.4 Floating point
+                                           V.5 Newton, damping, globalization
+                                           V.6 ODE error control (rtol/atol)
+                                           V.7 self-check
+
+VI.1 What kind of learning problem         VI.5 Prior art in acceleration
+VI.2 Message passing                       VI.6 Observational grounding
+VI.3 Feature & loss design                 VI.7 self-check
+VI.4 MESA and bbq
+
+VII.1 Provenance labels                    VII.5 Non-regenerable artifacts
+VII.2 Thresholds need instruments          VII.6 Notebooks explore, scripts produce
+VII.3 ADR switch conditions                VII.7 self-check
+VII.4 Guards that refuse
+\end{srclisting}
+
+\begin{aside}
+Two glyph substitutions were needed to set this block in a verbatim environment:
+the source's middle-dot separator is rendered here as ``\code{.}'', and
+$\langle E_\nu\rangle$ / $\Gamma$ / $\tau_i$ / \Ye{} / $\Delta N$ appear in
+their ASCII spellings. No entry has been added, removed, or reordered.
+\end{aside}

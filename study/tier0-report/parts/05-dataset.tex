@@ -1,0 +1,567 @@
+% =====================================================================
+%  Part V -- The dataset as a physical object.
+%  Source: tier0.md Part III (1832-2222), order unchanged.
+% =====================================================================
+\part{The dataset as a physical object}
+\label{part:dataset}
+
+The dataset is a \emph{discretization of an operator}, and every design choice
+in it encodes a physical assumption. Study it as physics.
+
+% ---------------------------------------------------------------------
+\chapter{What one record is}
+\label{sec:onerecord}
+
+\begin{result}
+\textbf{One record $=$ one (state, $\dd t$) pair.}
+\end{result}
+
+\begin{itemize}
+\item \textbf{Inputs}: ($\log T$, $\log\rho$, $\mathbf{X}$, $\dd t$)
+\item \textbf{Labels}: ($\mathbf{X}'$, $e_{\text{nuc}}$, $\varepsilon_\nu$)
+\end{itemize}
+
+Each underlying state is stepped at \textbf{nine} timesteps, giving nine records
+per state. So the dataset does not sample a single map --- it samples the
+operator \emph{family} $\{\Phi_{\Delta t}\}$ at nine $\Delta t$ values over the
+same initial conditions. What is being taught is the flow map \emph{as a
+function of $\Delta t$}, which is a strictly harder object than a fixed-step map
+and a strictly more useful one: a host code chooses its own timestep.
+
+\textbf{A consequence nobody exploits yet.} For an autonomous flow,
+$\Phi_{s+t} = \Phi_s \circ \Phi_t$. Having nine $\Delta t$ values on the
+\emph{same} states makes this a free, label-independent consistency test of any
+learned $\hat\Phi$ --- arguably the cheapest available diagnostic of rollout
+health (\S\ref{sec:rollouterror}).
+
+\begin{repopointer}
+\textbf{In code:} \code{data/schema.py::StepInputs} and \code{StepLabels}.
+\code{StepInputs.\_\_post\_init\_\_} validates \code{dt\_seconds} against the
+\textbf{measured} grid to \code{rel\_tol=1e-9} --- passing a nominal $10^k$
+value is rejected (\S\ref{sec:dtgrid}).
+\end{repopointer}
+
+% ---------------------------------------------------------------------
+\chapter{The regime box, derived rather than assumed}
+\label{sec:regimebox}
+
+\begin{align*}
+T &= 1.6\text{--}7.9\ \mathrm{GK} \qquad (10^{9.2}\text{--}10^{9.9}\ \mathrm{K})\\
+\rho &= 10^{7}\text{--}10^{9}\ \gcc\\
+0.45 &< Y_e < 0.5
+\end{align*}
+
+Each bound is physical, and now quantitative:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l Y@{}}
+\toprule
+\textbf{Edge} & \textbf{Value} & \textbf{Derivation} \\
+\midrule
+$T$ lower & 1.6~GK &
+  Below this, Si photodisintegration is negligible --- you are in oxygen
+  burning, a different network \\
+$T$ upper & 7.9~GK &
+  Above this, matter is unambiguously in full NSE: composition is
+  \emph{algebraic} in $(T,\rho,\Ye)$, so no ODE --- and no emulator --- is
+  needed. \textbf{The emulator's domain ends where equilibrium begins}; see the
+  caveat below on where it actually begins \\
+$\rho$ lower & $10^{7}$ &
+  Just below the free-proton EC threshold $\rho \approx 2.4\times10^{7}$
+  (\S\ref{sec:ecthreshold}) --- the box brackets the turn-on of the
+  \Ye{}-controlling process \\
+$\rho$ upper & $10^{9}$ &
+  Strongly degenerate ($E_F/kT \approx 10$); above this you are into collapse \\
+\Ye{} upper & 0.5 & Oxygen-burning ash is near-symmetric \\
+\Ye{} lower & 0.45 &
+  By here the core is collapsing --- the box covers the \emph{entire} physical
+  excursion \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Also note what the box implies about screening: $\Gamma$ ranges
+$\approx 0.4$--25 across it (varying with $\rho^{1/3}/T$, so the temperature
+edges dominate), the intermediate-coupling regime where neither weak- nor
+strong-screening asymptotics apply (\S\ref{sec:gamma}). That is the derivation
+behind pinning \code{screening\_mode = 'chugunov'}.
+
+\begin{warn}
+\textbf{Do not read the $T$-upper row backwards.} ``Above 7.9~GK it is NSE'' is
+true; ``below 7.9~GK it is not NSE'' is false. At these densities NSE is
+effectively established from $\approx5$~GK upward (the NSE relaxation time
+$\tau \approx \exp(196.02/\Tn - 41.645)$~s falls from ${\sim}10^{3}$~s at 4~GK
+to ${\sim}0.1$~s at 5~GK --- \citealt{calder2007}), so the top ${\sim}3$~GK of
+the box is \emph{already} algebraic and the emulator is being trained on states
+it does not strictly need to learn. 7.9~GK is therefore a \textbf{conservative}
+edge --- chosen so the box certainly contains the whole non-equilibrium region
+--- not the location of the NSE transition. The honest statement of the
+$T$-upper rationale is ``safely past the transition'', and
+\S\ref{sec:selfcheck-dataset} item~5 is exactly the exercise of noticing this.
+\end{warn}
+
+\textbf{QSE onset $\approx 3$--3.3~GK}, kill-test priority window
+\textbf{3.3--5~GK} --- where clustering has appeared but full NSE has not taken
+over. Physically richest and hardest.
+
+\begin{repopointer}
+\textbf{In code:} \code{crosscheck/grids.py::state\_grid} is the single source;
+\code{data/subsample.py} lifts the same edges into strata.
+\end{repopointer}
+
+% ---------------------------------------------------------------------
+\chapter{The \texorpdfstring{$\dd t$}{dt} grid --- and why nominal values are a
+  lie}
+\label{sec:dtgrid}
+
+Nine nominal steps: $10^{-6} \ldots 10^{2}$~s, one per decade
+(\code{DT\_GRID\_SECONDS}, \code{DT\_LABELS}).
+
+\textbf{Why this range?} It covers \emph{most} of the timesteps a stellar
+evolution code takes during silicon burning --- burning-limited steps once
+$T \gtrsim 3$~GK, up to ${\sim}10^{2}$~s early on when other physics limits ---
+which is exactly the claim the source paper makes (\citealt{grichener2025}:
+``encompassing most timesteps taken by the MESA simulations''). It is not the
+whole envelope: fully-coupled MESA steps near collapse drop below
+$10^{-10}$~s \citep{jermyn2023}. Nine decades is the operator's main usage
+envelope.
+
+\textbf{The trap.} Nominal values are \textbf{labels only}. Real steps deviate
+by up to ${\sim}5\%$ and \textbf{differ between networks} --- the
+\code{"1e2"} file is 105.08~s for \msn{80} but 102.93~s for \msn{151}. Using
+100~s where the data means 105.08~s is a 5\% error in the independent variable
+of every fit.
+
+\begin{center}
+\begin{tabular}{@{}l l@{}}
+\toprule
+Measured values & \code{configs/dt\_grid\_measured.yaml} \\
+Loader          & \code{schema.load\_measured\_dt()} \\
+Producer        & \code{scripts/check\_training\_csvs.py} (from the real
+                  \code{Age} column) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Two deeper traps at opposite ends of the grid}
+\label{sec:dttraps}
+
+\textbf{Short end --- the linearity premise is void.} The premise that
+$\dd t = 10^{-6}$~s is a ``small, linear step'' is false \emph{everywhere in
+this box}: 99.99\% of (state, isotope) cells have destruction timescale
+$\tau_i = Y_i/|\dot{Y}_i|$ shorter than $\dd t_1$, because Sobol initial
+compositions carry free nucleons. Every label --- even the shortest --- encodes
+a full stiff \textbf{relaxation}, not a linear increment. This is why the flux
+target $\Phi$ is \emph{time-integrated}, $\Phi = \int\varphi\,\dd t$, rather
+than an instantaneous rate.
+
+\textbf{Long end --- the splitting premise gets shaky.} The labels are
+constant-$(T,\rho)$ burns. The photodisintegration rates that control Si burning
+have temperature sensitivity
+$\nu_T = \partial\ln\lambda/\partial\ln T \approx 20$--40
+($\nu_T \approx Q/kT$ with $Q \approx 8$--12~MeV at $\Tn = 3$--5;
+charged-particle captures are milder, ${\sim}4$--17), so a 3\% temperature rise
+can double a dominant rate. At $\Delta t = 10^{2}$~s in vigorous burning, the
+energy released may well raise $T$ appreciably --- meaning a constant-$T$ burn
+and a self-heating burn are different operators. Whether the host code calls the
+network the same way at large $\Delta t$ is a genuine open question, developed
+in \S\ref{sec:splitting}.
+
+% ---------------------------------------------------------------------
+\chapter{Sobol sampling: the theory, and its limits here}
+\label{sec:sobol}
+
+\section{Discrepancy}
+\label{sec:discrepancy}
+
+For $P = \{x_1\ldots x_N\} \subset [0,1]^d$, the star discrepancy is
+
+\begin{equation*}
+D^*_N(P) = \sup_{B \text{ anchored at origin}}
+  \left|\frac{\#(P \cap B)}{N} - \mathrm{vol}(B)\right|
+\end{equation*}
+
+The \textbf{Koksma--Hlawka inequality} bounds integration error by it
+\citep{niederreiter1992,owen2021}:
+
+\begin{equation*}
+\left|\frac{1}{N}\sum_k f(x_k) - \int f\right| \;\leq\; V(f)\cdot D^*_N(P)
+\end{equation*}
+
+with $V(f)$ the Hardy--Krause variation. Lower discrepancy $\implies$ better
+coverage, for every function of bounded variation simultaneously.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.6} R{1.4}@{}}
+\toprule
+\textbf{Design} & \textbf{$D^*_N$} \\
+\midrule
+i.i.d.\ uniform &
+  $O(N^{-1/2}\sqrt{\log\log N})$ --- probabilistic \citep{chung1949} \\
+Sobol (digital $(t,m,s)$-net) &
+  $O((\log N)^d / N)$ --- deterministic
+  \citep{sobol1967,niederreiter1992} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+(The $(\log N)^d/N$ rate is the arbitrary-prefix sequence bound; the fixed
+$N = 2^m$ net bound is one log factor sharper, $O((\log N)^{d-1}/N)$ ---
+\citealt{owen2022}.)
+
+\section{How Sobol is actually built}
+\label{sec:sobolbuild}
+
+Each dimension $j$ has a set of \textbf{direction numbers} $v_{j,1}$, $v_{j,2}$,
+\ldots generated from a primitive polynomial over GF(2) via a recurrence
+(\citealt{sobol1967}; implementations differ in their direction numbers ---
+\citealt{bratley1988}; \citealt{joe2008}). The $n$-th point's $j$-th coordinate
+is
+
+\begin{equation*}
+x_{n,j} = \bigoplus_k b_k\,v_{j,k} \qquad
+(\oplus = \text{bitwise XOR},\; b_k = \text{bits of } n)
+\end{equation*}
+
+The construction guarantees exact equidistribution in \textbf{dyadic boxes}: an
+elementary box of the form $[k/2^a, (k+1)/2^a) \times \ldots$ contains exactly
+the right number of points once $N$ is a power of 2 --- though only down to the
+resolution set by the net's $t$ parameter (boxes of volume $\geq 2^{t-m}$ for
+$N = 2^m$; $t$ grows with dimension, so at $d \approx 82$ the guaranteed
+resolution is coarse --- \citealt{niederreiter1992}; \citealt{owen2022}). This
+is why \textbf{$N = 2^{20}$} --- powers of two are where the guarantee is tight,
+and taking a non-power-of-2 prefix degrades it \citep{owen2022}.
+
+\section{The gap you must fill honestly}
+\label{sec:sobolgap}
+
+\begin{warn}
+Sampled dimension is not small: 2 thermodynamic $+$ 80 or 151 composition
+coordinates $\implies d \approx 82$ or 153. At $d = 82$, $(\log N)^d/N$ with
+$N = 2^{20}$ is astronomically larger than 1 --- \textbf{the asymptotic bound is
+vacuous}.
+\end{warn}
+
+The real justification in high dimension is \emph{low effective dimension}
+\citep{caflisch1997}: the integrand depends strongly on a few coordinates and
+their low-order interactions, and Sobol's low-order projections are
+well-distributed. This is an assumption, not a theorem.
+
+Write down for yourself: which coordinates dominate, and does composition really
+have low effective dimension when normalized to $\sum X = 1$ (which removes one
+degree of freedom and correlates all the rest)? And note the sharper version of
+the concern from \S\ref{sec:onezone}: uniform coverage of composition space is
+coverage of a set that is \emph{mostly physically unreachable}.
+
+\section{Scrambling}
+\label{sec:scrambling}
+
+Owen scrambling applies random permutations to the digits of each coordinate,
+preserving equidistribution while making the estimator \textbf{unbiased} and
+improving RMSE from $O(N^{-1})$ toward $O(N^{-3/2})$ for smooth integrands ---
+the exact rate is $O(N^{-3/2}(\log N)^{(d-1)/2})$
+(\citealt{owen1997a,owen1997b}; corrected in \citealt{owen2008}). It also breaks
+the regular lattice artifacts plain Sobol shows in some 2-D projections (the
+motivation for the \citealt{joe2008} direction numbers).
+
+\section{The consequence that shapes this entire repository}
+\label{sec:nonregenerable}
+
+The grid used an \textbf{unseeded} scrambled sampler: permutations drawn from
+system entropy and never recorded. Therefore:
+
+\begin{result}
+\textbf{The Sobol grid is NON-REGENERABLE. The shipped file is the only ground
+truth.}
+\end{result}
+
+Everything follows: anything keyed to states persists \textbf{explicit
+\code{state\_id} lists} (\code{configs/step5\_subsample\_*\_ids.json}), never a
+re-samplable recipe; joins happen on \code{state\_id} only; and generating more
+same-distribution data is impossible --- future data needs a fresh sampling
+design.
+
+Study \code{data/subsample.py} with this in mind: it looks like
+over-engineering until you realize a re-drawn sample would be a \emph{different}
+sample, and every measured number keyed to it would become unreproducible.
+
+% ---------------------------------------------------------------------
+\chapter{The identity problem --- why \code{state\_id}}
+\label{sec:stateid}
+
+The raw CSVs carry \textbf{no sample id}. Three measured facts resolve identity:
+
+\begin{enumerate}
+\item The nine $\dd t$ files are \textbf{exactly row-aligned} --- row $i$ holds
+      the same (\code{logT}, \code{logRho}, \code{initial\_*}) in every file.
+\item \textbf{(\code{logT}, \code{logRho}) is NOT unique}: 154,405 of 1,041,400
+      rows collide, because those columns are rounded to 3 decimals.
+\item The \textbf{full initial state has zero duplicates}.
+\end{enumerate}
+
+Therefore \code{state\_id} $=$ row index (0-based);
+(\code{state\_id}, \code{dt\_index}) identifies a record.
+
+\section{Do this estimate yourself}
+\label{sec:collisionestimate}
+
+Rounding $\log T \in [9.2, 9.9]$ and $\log\rho \in [7, 9]$ to 3 decimals gives
+${\sim}700 \times {\sim}2000 \approx 1.4\times10^{6}$ cells for
+${\sim}1.04\times10^{6}$ rows, so Poisson occupancy $\lambda \approx 0.74$.
+
+\textbf{Be precise about which fraction you are estimating} --- there are two,
+they differ by nearly $2\times$, and picking the wrong one changes the
+conclusion:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{1.000} l l@{}}
+\toprule
+\textbf{Quantity} & \textbf{Formula} &
+\textbf{Value at $\lambda = 0.74$} \\
+\midrule
+Rows \textbf{living in} a cell with $\geq2$ rows & $1 - e^{-\lambda}$ & 0.52 \\
+\textbf{Excess} rows (total $-$ distinct occupied cells) &
+  $1 - (1-e^{-\lambda})/\lambda$ & 0.29 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The measured $154{,}405 / 1{,}041{,}400 = \mathbf{0.148}$ is a
+\code{duplicated()}-style count --- rows minus distinct initial states --- so the
+second row is the right comparison, and the measurement comes in at about
+\textbf{half} the Poisson expectation. Against the first row it would look
+$3.5\times$ low, which would be comparing two different things.
+
+The direction is itself evidence: a low-discrepancy point set is \emph{more
+uniform} than random, so it collides less. The pigeonhole argument survives
+regardless --- collisions are structural, and coordinate joins are forbidden.
+
+\begin{repopointer}
+\textbf{In code:} \code{data/labels.py::join\_on\_state\_id} \textbf{refuses}
+frames that are not \code{state\_id}-indexed. The invariant is not documented and
+hoped for; a coordinate join is \emph{inexpressible}. Note the pattern --- the
+repo uses it repeatedly (\code{guards.py}, \code{eligible\_mask}, the
+screened-$\kappa$ refusal in \code{distributions.py}).
+\end{repopointer}
+
+% ---------------------------------------------------------------------
+\chapter{Label noise, floors, and censoring}
+\label{sec:labelnoise}
+
+\section{float32 labels}
+\label{sec:float32labels}
+
+Upstream models and label tensors are float32:
+$\varepsilon \approx 1.19\times10^{-7}$. Any agreement band must be at least
+${\sim}3\varepsilon(X_i + X_f)$ wide, or you are measuring rounding --- which is
+exactly the band used in the handshake and integrator tests. This project parses
+raw CSVs as \textbf{float64} and does conservation arithmetic in float64;
+float32 is permitted in model internals only (\S\ref{sec:floatingpoint} derives
+why).
+
+\section{The \texorpdfstring{$1\times10^{-15}$}{1e-15} floor}
+\label{sec:floor}
+
+\code{final\_*} mass fractions are clamped at \code{FINAL\_X\_FLOOR = 1e-15}
+upstream before logs were taken, and the floor is \emph{exactly attained} in
+both networks. So:
+
+\begin{result}
+Values at the floor are \textbf{censored, not physical.}
+\end{result}
+
+A value at $10^{-15}$ means ``$\leq 10^{-15}$'', not ``$= 10^{-15}$''. The
+statistically correct treatment is a one-sided (censored) likelihood, not a
+squared error against the clamp. Note also the dynamic range: $X$ spans 15
+decades, so plain MSE in linear $X$ is dominated entirely by the handful of
+species near unity (\S\ref{sec:featureloss}).
+
+\section{Energy normalization}
+\label{sec:energynorm}
+
+\code{eps\_nuc} and \code{eps\_nu} in the training CSVs are stored
+\textbf{divided by $10^{16}$} (\code{EPS\_NORMALIZATION}); loaders must multiply
+back. And \code{eps\_nuc} is \textbf{integrated} [erg/g] over the step while
+\code{eps\_nu} is a \textbf{rate} [erg/g/s] --- different units in adjacent
+columns.
+
+\textbf{The convention trap.} The \emph{trajectory} (test-set) files use a
+\textbf{different} convention: integrated per output row, \textbf{net of
+neutrino losses}, and with \textbf{no} $10^{16}$ normalization. Mixing these up
+produces a comparison that fails by orders of magnitude with a characteristic
+$+1.00$ slope against $\dd t$-decade --- which is exactly how the mismatch was
+eventually diagnosed. (Note the diagnostic logic: a \emph{slope} against a
+control variable identifies a units error, where a raw magnitude discrepancy
+would not.)
+
+\code{EPS\_NU\_QUARANTINED} is machinery kept live (currently empty) so any
+future re-extraction re-checks before training touches $\varepsilon_\nu$.
+
+% ---------------------------------------------------------------------
+\chapter{Leakage-safe splits}
+\label{sec:splits}
+
+All nine records of one state share its \code{state\_id} and therefore
+\textbf{must} land in the same split. Otherwise the same $(T, \rho, X)$ appears
+in train at $\dd t = 10^{-3}$ and in test at $\dd t = 10^{-2}$, and your test
+score measures interpolation in $\dd t$, not generalization.
+
+\code{SplitSpec.validate()} raises on any overlap; \code{split\_of()} is keyed on
+\code{state\_id} only.
+
+\textbf{Gap worth thinking about:} even state-level splitting may not suffice.
+Sobol points are \textbf{not independent} --- consecutive points are constructed
+to fill gaps left by their predecessors, so nearby indices are spatially
+correlated \emph{by design}. A random \code{state\_id} split therefore puts
+near-neighbours on both sides. Whether that is leakage depends on the smoothness
+of $\Phi_{\Delta t}$ relative to point spacing. Form your own view; the
+repository does not settle this.
+
+% ---------------------------------------------------------------------
+\chapter{The missing rows}
+\label{sec:missingrows}
+
+1,041,400 rows against $2^{20} = 1{,}048{,}576$ grid points ---
+\textbf{0.68\% missing}. Two mechanisms: the upstream builder silently dropped
+runs whose output was truncated, plus a \code{logT}/\code{logRho} range guard.
+
+With no sample id, rows are matched back by nearest-neighbour search in
+box-normalized ($\log T$, $\log\rho$, $\Ye^{\text{initial}}$) space,
+$\Ye^{\text{initial}}$ reconstructed via \eqref{eq:ye} ---
+\code{crosscheck/sobol.py::ye\_from\_initial}. Validity is enforced by requiring
+a \textbf{unique} grid index per row.
+
+\textbf{Why care about 0.68\%?} Because \emph{silent} dropping is non-random:
+runs were dropped because they were hard, so the missing set is biased toward
+difficult states. \code{scripts/sobol\_missing\_rows.py} measures whether it is
+uniform over the box or clustered. A clustered gap would mean the training set
+has a hole exactly where the physics is hardest --- a very different problem
+from losing 0.68\% at random.
+
+% ---------------------------------------------------------------------
+\chapter{Stratification: encoding physics into sampling}
+\label{sec:stratification}
+
+The Sobol grid is uniform over the box; the \emph{physics} is not uniformly
+interesting. \code{data/subsample.py} draws ${\sim}30{,}000$ states stratified
+over 54 strata:
+
+\begin{center}
+\begin{tabular}{@{}l l@{}}
+\toprule
+$\Tn$      & $[1.6,\ 2.5,\ 3.3,\ 4.0,\ 5.0,\ 6.3,\ 7.95]$ \\
+$\log\rho$ & $[7.0,\ 7.667,\ 8.333,\ 9.001]$ \\
+\Ye{}      & $[0.45,\ 0.4667,\ 0.4833,\ 0.5001]$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+with the \textbf{QSE window $\Tn \in [3.3, 5.0)$ overweighted $\times2$}
+(\code{OVERWEIGHT\_T9\_BINS = (2, 3)}, \code{OVERWEIGHT\_FACTOR = 2.0}).
+
+That factor of 2 is a physics statement in code: the QSE window is where
+clustering is emerging but equilibrium has not taken over, so it carries the
+most structure per sample. Strata edges are the same as
+\code{crosscheck/grids.py} --- one source, reused.
+
+Note the design discipline: \code{stratified\_sample} takes an explicit
+\code{seed = 20260710}, but the \emph{output} is persisted as an id list anyway,
+because reproducibility-by-seed depends on library versions while an id list
+does not.
+
+% ---------------------------------------------------------------------
+\chapter{Code reading order for S1}
+\label{sec:readingorder-s1}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  mod/.style={draw, rounded corners=2pt, line width=0.7pt, inner sep=4pt,
+              fill=pointrule!8, font=\footnotesize\ttfamily,
+              text width=60mm, align=left},
+  cfg/.style={draw, dashed, rounded corners=2pt, line width=0.6pt, inner sep=4pt,
+              fill=white, font=\footnotesize\ttfamily,
+              text width=60mm, align=left},
+  ann/.style={font=\scriptsize\itshape, anchor=west, text width=48mm,
+              align=left},
+  arr/.style={-{Latex[length=2mm]}, line width=0.7pt},
+  node distance=4.2mm]
+
+\node[mod] (schema) {data/schema.py};
+\node[ann, anchor=west] at ([xshift=3mm]schema.east)
+  {start here; the docstring is the specification};
+
+\node[cfg, below=of schema] (dtgrid)
+  {configs/dt\_grid\_measured.yaml};
+\node[ann, anchor=west] at ([xshift=3mm]dtgrid.east)
+  {measured grid; note per-network difference};
+
+\node[mod, below=of dtgrid] (labels) {data/labels.py};
+\node[ann, anchor=west] at ([xshift=3mm]labels.east)
+  {join discipline; why coordinate joins are inexpressible};
+
+\node[mod, below=of labels] (sobol) {crosscheck/sobol.py};
+\node[ann, anchor=west] at ([xshift=3mm]sobol.east)
+  {ye\_from\_initial, box-normalized NN matching};
+
+\node[mod, below=of sobol] (sub) {data/subsample.py};
+\node[ann, anchor=west] at ([xshift=3mm]sub.east)
+  {strata, overweighting, persistence};
+
+\node[cfg, below=of sub, font=\scriptsize\ttfamily] (ids)
+  {configs/step5\_subsample\_mesa\_\{80,151\}.yaml\\
+   \hspace*{1em}+ \_ids.json};
+
+\draw[arr] (schema) -- (dtgrid);
+\draw[arr] (dtgrid) -- (labels);
+\draw[arr] (labels) -- (sobol);
+\draw[arr] (sobol)  -- (sub);
+\draw[arr] (sub)    -- (ids);
+\end{tikzpicture}
+\caption{Reading order for the S1 (dataset) code path. Solid boxes are modules,
+dashed boxes are configs.}
+\label{fig:s1reading}
+\end{figure}
+
+\begin{repopointer}
+\textbf{Scripts:} \code{check\_training\_csvs.py},
+\code{sobol\_missing\_rows.py}, \code{download\_zenodo.py},
+\code{fetch\_arxiv\_source.py}\\
+\textbf{Oracles:} \code{tests/test\_schema.py}, \code{tests/test\_subsample.py},
+\code{tests/test\_crosscheck\_data.py::test\_ye\_reconstruction\_in\_box}\\
+\textbf{Notebook:} \code{01-data-inventory} Figure~1
+\end{repopointer}
+
+% ---------------------------------------------------------------------
+\chapter*{Self-check --- the dataset}
+\addcontentsline{toc}{chapter}{Self-check --- the dataset}
+\label{sec:selfcheck-dataset}
+
+\begin{selfcheck}
+\item State Koksma--Hlawka and explain why the Sobol bound is vacuous at
+      $d \approx 82$. Give the actual argument for using Sobol here, and name
+      its assumption.
+\item Explain in one sentence why unseeded scrambling makes the grid
+      non-regenerable, and list three design decisions that follow.
+\item Do the collision estimate of \S\ref{sec:stateid}. Explain why the measured
+      value comes in \emph{below} Poisson, and what that says about the point
+      set.
+\item Given $\varepsilon_{\mathrm{float32}} \approx 1.19\times10^{-7}$ and the
+      $10^{-15}$ floor, derive the narrowest defensible agreement band for
+      $\Delta X$. Compare with
+      $\max(0.1|\Delta X_{\mathrm{lab}}|, 3\varepsilon(X_i+X_f),
+      2\times10^{-15})$.
+\item The box's upper edge is 7.9~GK. Argue why an emulator is unnecessary above
+      it --- then ask why the dataset includes states up to that edge anyway.
+      \label{sc:tupper}
+\item Sketch a \emph{trajectory-aware} sampling design and predict how it would
+      change the measured error distribution.
+\item Design the semigroup consistency test (\S\ref{sec:onerecord}): which
+      $\dd t$ pairs, what metric, what constitutes failure.
+\item Why is $N = 2^{20}$ specifically, and what is lost by taking a prefix of
+      700,000 points?
+\end{selfcheck}

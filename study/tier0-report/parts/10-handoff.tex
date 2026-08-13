@@ -1,0 +1,96 @@
+% =====================================================================
+%  Closing -- Where Tier 0 hands off.
+%  Source: tier0.md 3222-3263.
+%
+%  The only edits are to the labels that named the source document's
+%  dead architecture: "What Part 0 upgraded" and the four bullet leads
+%  "From Part 0 / S0 / S1 / the frame".  The S-numbers themselves are
+%  external pointers into the curriculum and are preserved verbatim.
+% =====================================================================
+\chapter*{Where Tier 0 hands off}
+\addcontentsline{toc}{chapter}{Where Tier 0 hands off}
+\label{sec:handoff}
+
+\section*{What the substrate part upgraded}
+\addcontentsline{toc}{section}{What the substrate part upgraded}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.6} R{1.4}@{}}
+\toprule
+\textbf{Statement, before} & \textbf{Now derived} \\
+\midrule
+``the regime box is $\rho = 10^{7}$--$10^{9}$'' &
+  $10^{7}$ sits just below the free-proton EC threshold
+  ($2.4\times10^{7}$); $10^{9}$ is strongly degenerate. The box brackets the
+  turn-on of the \Ye{}-controlling process (\S\ref{sec:ecthreshold}) \\
+``screening uses \code{chugunov\_2007}'' &
+  $\Gamma \approx 0.4$--25 across the box ($\rho^{1/3}/T$, so the $T$ edges
+  dominate) --- intermediate coupling, where neither weak- nor strong-screening
+  asymptotics are valid (\S\ref{sec:gamma}) \\
+``partition functions matter above $\Tn \approx 3$'' &
+  $kT \approx 0.26$~MeV at $\Tn = 3$ vs first excited states at 0.5--2~MeV ---
+  thermal population becomes order-unity exactly there
+  (\S\ref{sec:partitionfunctions}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\section*{Threads that carry forward}
+\addcontentsline{toc}{section}{Threads that carry forward}
+
+\begin{itemize}
+\item \textbf{From the substrate and the network object
+      (Parts \ref{part:substrate}--\ref{part:network}):}
+      $\Gamma \approx 0.4$--25 fixes the screening prescription (\textbf{S4});
+      partition functions at $kT \approx 0.3$~MeV fix the pf gate
+      (\textbf{S3}); chemical equilibrium $\sum\nu_i\mu_i = 0$ generates NSE and
+      QSE (\textbf{S9}); $\Delta N$ per REACLIB chapter is the index of the
+      gh-575 bug (\textbf{S3}); the $\alpha$-ladder and two-cluster topology is
+      what the group/bridge machinery measures (\textbf{S9}, \textbf{S13}); and
+      the timescale hierarchy --- \emph{with} its measured absence of a clean
+      spectral gap --- is the premise every reduction scheme must argue against
+      (\textbf{S9}, \textbf{S14}).
+
+\item \textbf{From the species algebra (\textbf{S0},
+      Part~\ref{part:network}):} the linearity of $\sum A_i Y_i = 1$ in $Y$
+      makes the conservation layer a fixed matrix --- \textbf{S7} turns that
+      into $\nu$, $C$, and $P$.
+
+\item \textbf{From the dataset (\textbf{S1}, Part~\ref{part:dataset}):}
+      ``$\dd t = 10^{-6}$~s'' is already a full stiff relaxation, which forces
+      the time-integrated flux target $\Phi = \int\varphi\,\dd t$ ---
+      \textbf{S8} and \textbf{S10}.
+
+\item \textbf{From the frame (Part~\ref{part:frame}):} $\kappa$ is a condition
+      number (\textbf{S8}, \textbf{S14}); stiffness, QSE, and the reachable
+      manifold are one structure (\textbf{S9}, \textbf{S10}, \textbf{S14}).
+\end{itemize}
+
+\section*{The three ideas to carry, if you carry nothing else}
+\addcontentsline{toc}{section}{The three ideas to carry}
+
+\begin{enumerate}
+\item \textbf{$\kappa$ is a condition number} (\S\ref{sec:cancellation}), and
+      independently the numerical test of detailed balance
+      (\S\ref{sec:detailedbalance}). Every $\kappa$ threshold is a statement
+      about tolerable error amplification; the kill-test is a conditioning
+      study.
+\item \textbf{Stiffness $\iff$ slow manifold $\iff$ QSE $\iff$ the reachable
+      set} (\S\ref{sec:stiffness}, \S\ref{sec:onezone}). Four vocabularies, one
+      object.
+\item \textbf{The training distribution is not the deployment distribution}
+      (\S\ref{sec:onezone}). The Sobol box covers composition space; physics
+      lives on a low-dimensional manifold inside it. Several project findings
+      are corollaries.
+\end{enumerate}
+
+\vspace{1em}
+\hrule
+\vspace{1em}
+
+\noindent
+\textbf{Next:} Tier 1 --- \textbf{S2} (REACLIB rates:
+$\langle\sigma v\rangle$, the Gamow peak, the seven-coefficient fit) and
+\textbf{S3} (detailed balance, partition functions, the gh-575 phase-space
+factor).

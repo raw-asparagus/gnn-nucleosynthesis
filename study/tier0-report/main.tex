@@ -1,0 +1,191 @@
+% =====================================================================
+%  Tier 0 -- Substrate.  Standalone report.
+%
+%  Source:  study/tier0.md  (audited 2026-08-12; audit log study/tier0-audit.md)
+%  Build:   latexmk -lualatex -cd study/tier0-report/main.tex
+%
+%  This file re-architects the Markdown source into a narrative order.
+%  No content is omitted; Appendix B is the concordance that proves it.
+% =====================================================================
+\documentclass[11pt,a4paper]{report}
+
+% ---------- fonts and encoding (LuaLaTeX) ----------
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\setmainfont{TeX Gyre Pagella}
+\setmathfont{TeX Gyre Pagella Math}
+\setmonofont{DejaVu Sans Mono}[Scale=MatchLowercase]
+% DejaVu Sans Mono carries the box-drawing and geometric-shape blocks, so any
+% Unicode surviving into verbatim still renders instead of vanishing.
+
+% ---------- layout ----------
+\usepackage[a4paper,margin=2.4cm,bottom=2.8cm]{geometry}
+\usepackage{microtype}
+\usepackage{parskip}
+\linespread{1.04}
+\emergencystretch=3em
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{3}
+
+% ---------- maths ----------
+\usepackage{amsmath}
+\allowdisplaybreaks
+
+% ---------- tables ----------
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\renewcommand{\arraystretch}{1.18}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}[1]{>{\hsize=#1\hsize\raggedright\arraybackslash}X}
+
+% ---------- lists ----------
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt,parsep=0pt}
+
+% ---------- graphics ----------
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,
+                backgrounds,calc,decorations.pathmorphing}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf,skip=6pt}
+
+% ---------- callouts ----------
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+% ---------- citations (inline author-year, backed by \cite) ----------
+\usepackage[authoryear,round]{natbib}
+\bibpunct{(}{)}{;}{a}{}{,}
+\setlength{\bibsep}{2pt plus 0.4ex}
+
+% ---------- hyperref must load last ----------
+\usepackage[hidelinks]{hyperref}
+\hypersetup{
+  pdftitle={Tier 0 -- Substrate: physical foundations, the dataset, and the
+            modelling frame for a conservation-by-construction GNN emulator
+            of silicon burning},
+  pdfsubject={Personal study material; not project spec},
+  pdfkeywords={silicon burning, nucleosynthesis, quasi-equilibrium, electron
+               fraction, graph neural network, MESA, bbq}}
+
+% =====================================================================
+%  Notation macros.  Repo convention: superscript isotopes in prose,
+%  lowercase handles (co55) in anything code-adjacent.
+% =====================================================================
+\newcommand{\nuc}[2]{\ensuremath{{}^{#2}\mathrm{#1}}}
+\newcommand{\Ye}{\ensuremath{Y_{e}}}
+\newcommand{\dYe}{\ensuremath{\Delta Y_{e}}}
+\newcommand{\Tn}{\ensuremath{T_{9}}}
+% \code inserts zero-width breakpoints after / _ . : - so that long
+% identifiers (tests/test_crosscheck_data.py::test_ye_reconstruction_in_box)
+% wrap instead of running into the margin.
+\ExplSyntaxOn
+\tl_new:N \l__code_tl
+\NewDocumentCommand{\code}{m}{%
+  \tl_set:Nn \l__code_tl {#1}
+  \regex_replace_all:nnN { \c{_} }  { \c{_}\c{allowbreak} }  \l__code_tl
+  \regex_replace_all:nnN { / }      { /\c{allowbreak} }      \l__code_tl
+  \regex_replace_all:nnN { \. }     { .\c{allowbreak} }      \l__code_tl
+  \regex_replace_all:nnN { : }      { :\c{allowbreak} }      \l__code_tl
+  \texttt{\tl_use:N \l__code_tl}%
+}
+\ExplSyntaxOff
+\newcommand{\msn}[1]{\texttt{mesa\_#1}}
+\newcommand{\Msun}{\ensuremath{M_{\odot}}}
+\newcommand{\gcc}{\ensuremath{\mathrm{g\,cm^{-3}}}}
+\newcommand{\enuc}{\ensuremath{e_{\mathrm{nuc}}}}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\Tr}{^{\mathsf{T}}}
+\newcommand{\arxiv}[1]{\href{https://arxiv.org/abs/#1}{arXiv:#1}}
+\DeclareMathOperator{\asinh}{asinh}
+\DeclareMathOperator{\cond}{cond}
+\newcommand{\degree}{\ensuremath{^{\circ}}}
+% ticks and warning glyphs used inline in the source
+\newcommand{\yes}{\ensuremath{\checkmark}}
+\newcommand{\warnglyph}{\textbf{\textcolor{warnrule}{!\!}}}
+
+% =====================================================================
+%  Callout environments.
+%  Derived from the 30 blockquote callouts in the source, classified into
+%  five kinds; all breakable, all accepting \par.
+% =====================================================================
+\definecolor{resultrule}{HTML}{1F5C8B}
+\definecolor{warnrule}  {HTML}{A33A16}
+\definecolor{rulerule}  {HTML}{4A3B77}
+\definecolor{exrule}    {HTML}{1E6B4F}
+\definecolor{asiderule} {HTML}{5A5A5A}
+\definecolor{pointrule} {HTML}{6B6151}
+
+\tcbset{
+  calloutbase/.style={
+    breakable, enhanced, sharp corners,
+    boxrule=0pt, leftrule=2.2pt, colback=white,
+    left=8pt, right=6pt, top=5pt, bottom=5pt,
+    parbox=false, before skip=8pt, after skip=8pt}}
+
+\newtcolorbox{result}  {calloutbase, colframe=resultrule,
+                        colback=resultrule!4!white}
+\newtcolorbox{warn}    {calloutbase, colframe=warnrule,
+                        colback=warnrule!5!white}
+\newtcolorbox{invariant}{calloutbase, colframe=rulerule,
+                        colback=rulerule!5!white}
+\newtcolorbox{exercise} {calloutbase, colframe=exrule,
+                        colback=exrule!4!white}
+\newtcolorbox{aside}    {calloutbase, colframe=asiderule,
+                        colback=asiderule!4!white}
+
+% Repo pointers: "In the code:", "Code anchors:", "Oracle:", "Notebook:".
+\newtcolorbox{repopointer}[1][]{
+  breakable, enhanced, sharp corners, boxrule=0pt, leftrule=1.4pt,
+  colframe=pointrule, colback=pointrule!5!white,
+  left=7pt, right=6pt, top=4pt, bottom=4pt, fontupper=\small,
+  parbox=false, before skip=7pt, after skip=7pt, #1}
+
+% =====================================================================
+%  Self-check environment.  One per part/section; 73 questions in total
+%  across the document, every one preserved from the source.
+% =====================================================================
+\newlist{selfcheckenum}{enumerate}{1}
+\setlist[selfcheckenum]{label=\arabic*., leftmargin=1.9em,
+                        itemsep=4pt, topsep=4pt}
+\newenvironment{selfcheck}
+  {\par\addvspace{6pt}\noindent
+   {\bfseries\sffamily\small SELF-CHECK}\par\addvspace{2pt}
+   \begin{selfcheckenum}}
+  {\end{selfcheckenum}\par\addvspace{6pt}}
+
+% =====================================================================
+%  Verbatim listings that must keep their exact spacing (file paths,
+%  Fortran inlists, bin edges).  Kept in DejaVu Sans Mono.
+% =====================================================================
+\usepackage{fancyvrb}
+\DefineVerbatimEnvironment{srclisting}{Verbatim}
+  {fontsize=\small, xleftmargin=1.2em, samepage=false}
+
+% =====================================================================
+\begin{document}
+
+\include{parts/00-front}
+
+\include{parts/01-context}
+\include{parts/02-substrate}
+\include{parts/03-network}
+\include{parts/04-computational}
+\include{parts/05-dataset}
+\include{parts/06-frame}
+\include{parts/07-numerics}
+\include{parts/08-ml}
+\include{parts/09-practice}
+\include{parts/10-handoff}
+
+\appendix
+\include{parts/A-sectionmap}
+\include{parts/B-concordance}
+
+\include{parts/bibliography}
+
+\end{document}

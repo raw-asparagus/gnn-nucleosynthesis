@@ -1,0 +1,179 @@
+% =====================================================================
+%  Front matter.
+%  Source: tier0.md:1-121 (title blurb, status, how-to-study, contents).
+%  The <details> "full section list" (tier0.md:64-119) is not dropped --
+%  it is reproduced verbatim as Appendix A.
+% =====================================================================
+
+\begin{titlepage}
+\centering
+\vspace*{3.5cm}
+
+{\Huge\bfseries Tier 0 --- Substrate\par}
+
+\vspace{1.2em}
+{\Large Physical foundations, the reaction network as a formal object,\\[0.3em]
+the dataset, and the modelling frame\par}
+
+\vspace{0.8em}
+{\large\itshape A study report for the conservation-by-construction GNN\\
+emulator of silicon burning\par}
+
+\vspace{3em}
+\begin{minipage}{0.82\textwidth}
+\small
+Complete deep dive: physical foundations, project motivation, S0 (species and
+abundance algebra), S1 (the dataset), the modelling frame, and the numerical
+and ML prerequisites. Everything needed before Tier 1 (reaction rates and
+detailed balance), in one document.
+\end{minipage}
+
+\vfill
+{\small Literature audit 2026-08-12\par}
+\vspace{0.5em}
+{\small Source document: \code{study/tier0.md} \quad$\cdot$\quad
+Audit log: \code{study/tier0-audit.md}\par}
+\end{titlepage}
+
+% ---------------------------------------------------------------------
+\chapter*{Status of this document}
+\addcontentsline{toc}{chapter}{Status of this document}
+\label{sec:status}
+
+\begin{warn}
+\textbf{Personal study material, not project spec.} Deliberately written
+without reference to \code{docs/} --- everything is derived from first
+principles or read off the business code, configs, notebooks, and tests.
+\end{warn}
+
+\begin{itemize}
+\item Textbook physics and derivations here are \textbf{mine to check}, not
+      citable project output.
+
+\item Measured project numbers quoted here originate in \code{RESULTS.md} with
+      script $+$ commit $+$ data provenance. This document is \textbf{not}
+      their source of truth; if a number here disagrees with \code{RESULTS.md},
+      \code{RESULTS.md} wins.
+
+\item \textbf{Literature audit 2026-08-12.} Every scholarly claim, constant,
+      and derivation chain was verified against primary sources (arXiv \TeX{}
+      cached in \code{data/literature/}, AME2020/ENSDF/CODATA data pages) with
+      all worked arithmetic recomputed in float64; errors found were corrected
+      in place. Inline author--year citations point to the References section
+      at the end; the claim-by-claim audit log, including every correction with
+      its before/after and supporting source passage, is
+      \code{study/tier0-audit.md}.
+\end{itemize}
+
+Notation follows the repo: unicode math, \nuc{Co}{55} in prose, \code{co55} in
+code-adjacent contexts, \Ye{} / $\nu$ / $\varphi$ / $\kappa$ as in the
+codebase.
+
+\paragraph{A note on this edition.} This report re-architects the source
+document's Part~0--VII ordering into a narrative sequence: astrophysical
+context, then the physical substrate, then the network as a formal object,
+then the computational problem, the dataset, the modelling frame, numerical
+analysis, ML framing, and working practice. \emph{No content has been
+omitted.} Appendix~\ref{app:sectionmap} reproduces the source document's own
+section map verbatim, and Appendix~\ref{app:concordance} is a
+heading-by-heading concordance from the original numbering to this one,
+including the three self-check items that were relocated so that no question
+tests material the reader has not yet reached.
+
+% ---------------------------------------------------------------------
+\chapter*{How to study each node}
+\addcontentsline{toc}{chapter}{How to study each node}
+\label{sec:howtostudy}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  stepbox/.style={draw, rounded corners=2pt, line width=0.7pt,
+               minimum height=8mm, inner xsep=6pt, fill=resultrule!6},
+  num/.style={circle, draw, line width=0.7pt, inner sep=1.2pt,
+              minimum size=5.2mm, font=\footnotesize\bfseries,
+              fill=white}]
+
+\node[stepbox] (a) {\textbf{DERIVE}};
+\node[stepbox, below=5mm of a] (b) {\textbf{READ}};
+\node[stepbox, below=5mm of b] (c) {\textbf{ORACLE}};
+\node[stepbox, below=5mm of c] (d) {\textbf{SEE}};
+
+% align the boxes to a common left edge and equal width
+\begin{scope}[on background layer]
+\node[fit=(a)(b)(c)(d), inner sep=0pt] (grp) {};
+\end{scope}
+
+\node[num] at ([xshift=-9mm]a.west) {1};
+\node[num] at ([xshift=-9mm]b.west) {2};
+\node[num] at ([xshift=-9mm]c.west) {3};
+\node[num] at ([xshift=-9mm]d.west) {4};
+
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]a.east)
+  {pen-and-paper: get the equation from physics before reading code};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]b.east)
+  {the module, top-to-bottom; its docstring states the contract};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]c.east)
+  {the test file --- it encodes what ``correct'' means, numerically};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]d.east)
+  {the notebook figure --- the measured behaviour on real data};
+
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (a) -- (b);
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (b) -- (c);
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (c) -- (d);
+\end{tikzpicture}
+\caption{The four-step study loop for each node of the curriculum.}
+\label{fig:studyloop}
+\end{figure}
+
+Tests are the physics oracle here (project rule: \emph{tests before
+implementation for anything with a physics oracle}), and module docstrings
+state \emph{contracts} rather than describing code. So step~3 is where
+correctness is pinned.
+
+% ---------------------------------------------------------------------
+\chapter*{Reading map}
+\addcontentsline{toc}{chapter}{Reading map}
+\label{sec:readingmap}
+
+\begin{tabularx}{\textwidth}{@{}L{2.4cm} L{3.6cm} Y@{}}
+\toprule
+\textbf{Part} & \textbf{Theme} & \textbf{Covers} \\
+\midrule
+\ref{part:context} & Astrophysical context &
+  Stellar context, the burning sequence, \Ye{} and explodability, the
+  observational grounding \\
+\ref{part:substrate} & The physical substrate &
+  Plasma thermodynamics \& EOS, statistical mechanics, nuclear structure \&
+  data, neutrinos \\
+\ref{part:network} & The network as a formal object &
+  $Y = X/A$, \Ye{}, the two networks, the bipartite graph, reaction
+  nomenclature, Si-burning topology, the timescale hierarchy \\
+\ref{part:computational} & The computational problem &
+  The cost problem, softwired networks, why ML emulation, conservation, why a
+  GNN \\
+\ref{part:dataset} & The dataset &
+  Regime box, $\dd t$ grid, Sobol design, identity, label noise, splits \\
+\ref{part:frame} & The modelling frame &
+  Operator splitting, one-zone \& the reachable manifold, semigroup \& rollout \\
+\ref{part:numerics} & Numerical analysis &
+  Catastrophic cancellation ($=\kappa$), conditioning, stiffness, floating
+  point, Newton \& globalization, ODE error control \\
+\ref{part:ml} & ML framing &
+  Operator learning, message passing, feature \& loss design, MESA/bbq, prior
+  art \\
+\ref{part:practice} & Working practice &
+  Provenance labels, thresholds \& instruments, ADR switch conditions, guards
+  that refuse, non-regenerable artifacts \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1em}
+{\small The source document's own section list --- its original Part~0--VII
+architecture in full --- is reproduced verbatim in
+Appendix~\ref{app:sectionmap}.}
+
+\cleardoublepage
+\tableofcontents
+\cleardoublepage

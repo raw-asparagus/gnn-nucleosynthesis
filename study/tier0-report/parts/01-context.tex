@@ -1,0 +1,278 @@
+% =====================================================================
+%  Part I -- Astrophysical context.
+%  Source: tier0.md I.1 (954-1007), I.2 (1009-1101), VI.6 (3070-3092),
+%          I.9 items 1-3 (1427-1432), VI.7 item 6 (3106-3107, relocated).
+% =====================================================================
+\part{Astrophysical context}
+\label{part:context}
+
+Each link in this chain is a physical claim you should be able to defend.
+
+\begin{aside}
+\textbf{Notation, taken on credit.} This part is written throughout in \Ye{},
+the \emph{electron fraction}: electrons per baryon,
+$\Ye = \sum_i Z_i X_i / A_i$, equal to $0.5$ for matter with equal numbers of
+protons and neutrons and falling as electrons are captured. It is derived
+properly, with its lepton bookkeeping, in \S\ref{sec:ye}. Take it on credit
+until then; everything below turns on it.
+\end{aside}
+
+% ---------------------------------------------------------------------
+\chapter{The last day of a massive star}
+\label{sec:lastday}
+
+\section{The burning sequence}
+\label{sec:burningsequence}
+
+A star above ${\sim}10$--11\,\Msun{} burns through the full sequence of fuels
+to an iron core, each stage ignited when the ash of the previous one contracts
+and heats until the next Coulomb barrier becomes penetrable. (Stars of
+${\sim}8$--11\,\Msun{} ignite carbon but generally stop there, ending as ONeMg
+cores rather than completing the chain to silicon.) Temperatures, reactions,
+and durations below follow \citet{whw2002} --- durations shorten steeply with
+mass:
+
+\begin{center}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l l R{1.071} l R{0.929}@{}}
+\toprule
+\textbf{Stage} & \textbf{Core $T$ (GK)} & \textbf{Principal reactions} &
+\textbf{Ash} & \textbf{Duration (15--25\,\Msun{} models)} \\
+\midrule
+H  & 0.03 & pp chains, CNO cycle & \nuc{He}{4} & ${\sim}10^{7}$\,yr \\
+He & 0.2  & $3\alpha \to \nuc{C}{12}$; $\nuc{C}{12}(\alpha,\gamma)\nuc{O}{16}$
+          & \nuc{C}{12}, \nuc{O}{16} & ${\sim}10^{6}$\,yr \\
+C  & 0.8  & $\nuc{C}{12}(\nuc{C}{12},\alpha)\nuc{Ne}{20}$,
+            $(\nuc{C}{12},p)\nuc{Na}{23}$
+          & \nuc{Ne}{20}, \nuc{Na}{23}, \nuc{Mg}{24} & ${\sim}10^{3}$\,yr \\
+Ne & 1.5  & $\nuc{Ne}{20}(\gamma,\alpha)\nuc{O}{16}$ then
+            $\nuc{Ne}{20}(\alpha,\gamma)\nuc{Mg}{24}$
+          & \nuc{O}{16}, \nuc{Mg}{24} & ${\sim}1$\,yr \\
+O  & 2.0  & $\nuc{O}{16}(\nuc{O}{16},\alpha)\nuc{Si}{28}$,
+            $(\nuc{O}{16},p)\nuc{P}{31}$
+          & \nuc{Si}{28}, \nuc{S}{32}
+          & ${\sim}$months (up to ${\sim}$yr with convection) \\
+\textbf{Si} & \textbf{3--4} & \textbf{photodisintegration rearrangement}
+          & \textbf{Fe peak} & \textbf{${\sim}1$\,day--2 weeks} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Note the qualitative change at neon: at neon, and again at silicon,
+\textbf{photodisintegration initiates the burning} --- oxygen burning, in
+between, is still true heavy-ion fusion. The Coulomb barrier for
+$\nuc{Si}{28} + \nuc{Si}{28}$ is prohibitive ($Z_1 Z_2 = 196$), so silicon does
+not fuse with itself. Instead $\gamma$-rays in the thermal tail knock
+$\alpha$-particles, protons, and neutrons off the least-bound nuclei, and those
+light particles are captured by others. \textbf{Silicon burning is a
+rearrangement, not a fusion reaction.}
+
+This single fact explains most of the project's structure: rearrangement
+proceeds through many competing forward/reverse channels near balance, which is
+where cancellation ($\kappa$, \S\ref{sec:cancellation}), quasi-equilibrium
+clustering (\S\ref{sec:topology}), and stiffness (\S\ref{sec:stiffness}) all
+come from.
+
+\section{Why the acceleration}
+\label{sec:acceleration}
+
+From carbon burning onward, energy leaves the core as \textbf{neutrinos}, not
+photons \citep{limongi2017,jose2011}. Photons diffuse --- the radiative
+diffusion time through a stellar interior is enormous, which is what makes
+hydrogen burning last $10^{7}$ years. Neutrinos free-stream at essentially the
+speed of light (\S\ref{sec:freestreaming}, below).
+
+The dominant thermal loss is pair annihilation, whose volumetric emissivity
+rises roughly as $\boldsymbol{T^{9}}$ here (the relativistic regime,
+$\Tn \gtrsim 2$--3; \S\ref{sec:nuchannels}). A core that contracts and heats
+loses energy catastrophically faster, so it must burn faster to compensate.
+Each successive stage is shorter by a large factor, and the sequence terminates
+at the iron peak where no exothermic fusion remains.
+
+\section{Why this is the regime to emulate}
+\label{sec:whyregime}
+
+Silicon burning concentrates the computational pain: highest temperatures
+(fastest rates, stiffest equations), largest networks (the iron peak needs many
+species), shortest timesteps --- all in the phase that determines what the star
+leaves behind, and where a stellar-evolution code spends a disproportionate
+fraction of total runtime inside the network.
+
+% ---------------------------------------------------------------------
+\chapter{What actually determines whether the star explodes}
+\label{sec:explodability}
+
+At the end of Si burning the core is an iron sphere supported by
+\textbf{degenerate electron pressure}, which carries ${\sim}93\%$ of the total
+at box-centre conditions (\S\ref{sec:boxcentre}).
+
+Take as given, and verify in Part~\ref{part:substrate}, that at these
+densities the electrons are relativistic and degenerate and carry that
+${\sim}93\%$ share; the derivation cannot be brought forward because it is
+evaluated at box-centre conditions that are only fixed in
+\S\ref{sec:regimebox}.
+
+\section{Derivation --- \texorpdfstring{$M_{\mathrm{ch}} \propto Y_e^2$}{Mch propto Ye2}}
+\label{sec:mchderivation}
+
+For an ultra-relativistic degenerate electron gas, pressure depends only on
+electron number density:
+%
+\begin{equation}
+P = \frac{(3\pi^2)^{1/3}\,\hbar c\, n_e^{4/3}}{4}
+\label{eq:urel-eos}
+\end{equation}
+%
+Charge neutrality ties $n_e$ to matter density through \Ye{} (derived in
+\S\ref{sec:ye}):
+%
+\begin{equation*}
+n_e = \rho N_A Y_e \qquad \implies \qquad P = K\,(\rho Y_e)^{4/3}
+\end{equation*}
+%
+A polytrope with $\gamma = 4/3$, index $n = 3$. The Lane--Emden solution for
+$n = 3$ has the property that total mass is \textbf{independent of central
+density}:
+%
+\begin{equation*}
+M = 4\pi M_3\left(\frac{K}{\pi G}\right)^{3/2}, \qquad M_3 \approx 2.018
+\end{equation*}
+%
+Since $K \propto Y_e^{4/3}$ and $M \propto K^{3/2}$:
+%
+\begin{equation}
+M_{\mathrm{ch}} \propto Y_e^2 \qquad \text{numerically} \qquad
+M_{\mathrm{ch}} \approx 5.83\,Y_e^2\,\Msun
+\label{eq:mch}
+\end{equation}
+%
+(Lane--Emden constant $\xi_1^2|\theta'| = 2.01824$; the same derivation appears
+in \citealt{suwa2018}, whose $M_{\mathrm{Ch}0} = 1.46\,\Msun\,(\Ye/0.5)^2$ is
+this formula.)
+
+\textbf{Check:} $\Ye = 0.5$ gives $1.457\,\Msun$ --- the textbook value.
+$\Ye = 0.45$ gives $1.18\,\Msun$, a \textbf{19\% reduction} in supportable mass
+from a 10\% change in one composition scalar.
+
+\section{The thermal correction}
+\label{sec:thermalcorrection}
+
+\begin{equation*}
+M_{\mathrm{ch,eff}} \approx
+5.83\,Y_e^2\left[1 + \left(\frac{s_e}{\pi Y_e}\right)^{\!2}\right]\Msun
+\end{equation*}
+
+where $s_e$ is the electron entropy per baryon in units of $k$. This is the
+first-order form of \citet{baron1990}, whose exact bracket is
+$[1 + (2/3)(s_e/\pi Y_e)^2]^{3/2}$ (see also \citealt{timmes1996};
+\citealt{suwa2018}). So \textbf{entropy also raises the effective
+Chandrasekhar mass} --- a hotter core supports more. \Ye{} remains the dominant
+lever and the one nuclear burning directly controls, but the picture is
+two-parameter.
+
+\section{The collapse trigger}
+\label{sec:collapsetrigger}
+
+Collapse begins when pressure support fails, via two coupled runaways:
+
+\begin{enumerate}
+\item \textbf{Photodisintegration of the iron peak.} Once the core reaches
+      $\boldsymbol{T \gtrsim 7\text{--}10}$~\textbf{GK} (\citealt{janka2012},
+      after B$^2$FH; \citealt{b2fh1957}) --- above the regime box, and strongly
+      density-dependent --- $\nuc{Fe}{56}(\gamma,\alpha)$-type reactions
+      dismantle the Fe peak back to $\alpha$-particles and free nucleons. This
+      is strongly \textbf{endothermic}: $\nuc{Fe}{56} \to 13\alpha + 4n$ costs
+      124.4~MeV (AME2020 mass excesses; the convention is
+      \S\ref{sec:massexcess}), i.e.\ 2.22~MeV/nucleon, consuming thermal energy
+      and reducing pressure.
+
+      \begin{warn}
+      \textbf{Do not put this turn-on at ${\sim}5$~GK.} Si burning
+      \emph{produces} the Fe peak at 3--4~GK (\S\ref{sec:lastday}), and the
+      box's own upper edge of 7.9~GK is characterized as full NSE that is
+      still Fe-peak dominated (\S\ref{sec:regimebox}). A dismantling threshold
+      at 5~GK would contradict both. The Fe peak survives NSE across the whole
+      box; it is collapse --- not silicon burning --- that reaches the
+      temperatures where it does not.
+      \end{warn}
+
+\item \textbf{Electron capture.} Free protons liberated by (1), and Fe-peak
+      nuclei directly, capture electrons. Each capture removes a
+      pressure-supporting electron \emph{and} emits a neutrino that leaves.
+      \Ye{} drops, so $M_{\mathrm{ch}}$ drops, so the marginally stable core no
+      longer is.
+\end{enumerate}
+
+These reinforce each other, and collapse becomes dynamical on a free-fall
+timescale of ${\sim}0.1$~s ($t_{\mathrm{coll}} \approx 0.21/\sqrt{\bar\rho_8}$~s
+--- \citealt{janka2012}).
+
+\section{The observable end of the chain}
+\label{sec:observableend}
+
+\Ye{} at collapse onset sets: the iron core mass, the bounce shock location,
+how much material the shock must traverse, and therefore whether the explosion
+succeeds. Downstream it sets ejecta neutron-richness and hence observed
+abundance patterns. The \textbf{compactness parameter}
+$\xi_M = (M/\Msun)/(R(M)/1000~\mathrm{km})$ at $M = 2.5\,\Msun$, evaluated at
+core bounce \citep{oconnor2011} --- the standard explodability predictor ---
+is set by exactly this core structure (\S\ref{sec:obsgrounding}, item~3, for
+how it is measured; the definition is deliberately restated there, where the
+measurement chain rather than the physics is the subject).
+
+\textbf{This is why every accuracy gate in this repository is written in
+\Ye{}}, and why the invariants say the weak sector may never be masked, frozen,
+or projected away. An emulator that conserves mass and charge perfectly but
+gets \Ye{} wrong has failed at the only thing that mattered.
+
+% ---------------------------------------------------------------------
+\chapter{The observational grounding --- how we know \texorpdfstring{\Ye{}}{Ye} matters}
+\label{sec:obsgrounding}
+
+Chains of inference worth being able to state:
+
+\begin{enumerate}
+\item \textbf{\nuc{Ni}{56} masses from light curves.} The decay chain
+      $\nuc{Ni}{56} \to \nuc{Co}{56} \to \nuc{Fe}{56}$ (half-lives 6.08~d,
+      77.2~d --- ENSDF) powers the tail of a supernova light curve
+      \citep{arnett1982,diehl2015}. Fitting the tail gives the ejected
+      \nuc{Ni}{56} mass directly. That mass depends on how much material burned
+      to NSE (\S\ref{sec:chempotential}) and at what \Ye{}.
+
+\item \textbf{Abundance patterns in metal-poor stars.} Fe-peak element ratios
+      (Ni/Fe, Cr/Fe, Mn/Fe) are sensitive to \Ye{} in the explosive burning
+      region. Observed ratios constrain the \Ye{} of the ejected burning region
+      (e.g.\ \citealt{jerkstrand2015} for Ni/Fe).
+
+\item \textbf{Explodability studies.} The compactness parameter
+      $\xi_M = (M/\Msun)/(R(M)/1000~\mathrm{km})$ at $M = 2.5\,\Msun$,
+      evaluated at bounce, correlates with whether simulations explode
+      \citep{oconnor2011}. It is set by the core structure at collapse --- set
+      in turn by the Si-burning history.
+
+\item \textbf{SN 1987A.} Direct neutrino detection confirmed the core-collapse
+      energetics picture and the neutrino emission scale
+      \citep{hirata1987,bionta1987}.
+\end{enumerate}
+
+This is what makes the accuracy targets \emph{meaningful} rather than
+self-referential: there is a measurement at the end of the chain.
+
+% ---------------------------------------------------------------------
+\chapter*{Self-check --- astrophysical context}
+\addcontentsline{toc}{chapter}{Self-check --- astrophysical context}
+\label{sec:selfcheck-context}
+
+\begin{selfcheck}
+\item Explain why the burning-stage durations shorten by orders of magnitude,
+      naming the mechanism and the temperature scaling.
+\item Derive $M_{\mathrm{ch}} \propto Y_e^2$ from the ultra-relativistic
+      degenerate EOS and the $n = 3$ polytrope. Where does the
+      density-independence of $M$ come from?
+\item State the two coupled runaways that trigger collapse and explain how each
+      reduces pressure support.
+\item Trace the inference chain from ``an emulator gets \Ye{} wrong by 1\%'' to
+      ``an observable changes'', naming each physical link.
+      \emph{(Relocated here from the source document's \S VI.7 item~6, which
+      tested \S VI.6 --- the material now in \S\ref{sec:obsgrounding}.)}
+\end{selfcheck}

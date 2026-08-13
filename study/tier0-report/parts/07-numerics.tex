@@ -1,0 +1,486 @@
+% =====================================================================
+%  Part VII -- Numerical analysis prerequisites.
+%  Source: tier0.md Part V (2483-2848), order unchanged.
+%
+%  NOTE: tier0.md:2569-2570 is a FALSE markdown blockquote -- a
+%  line-wrapped ">" sign in "cond(S_active) < 1e6 pass / > 1e8 fail".
+%  It is set inline here, not as a callout.
+% =====================================================================
+\part{Numerical analysis prerequisites}
+\label{part:numerics}
+
+% ---------------------------------------------------------------------
+\chapter{Catastrophic cancellation --- \texorpdfstring{$\kappa$}{kappa} is a
+  condition number}
+\label{sec:cancellation}
+
+The single most important piece of numerical analysis in the project, and it
+deserves a derivation rather than an assertion.
+
+\section{The derivation}
+\label{sec:cancellationderivation}
+
+Compute $d = a - b$ where $a \approx b > 0$, with each input carrying relative
+error $\varepsilon$ (the standard rounding model ---
+\citealt{goldberg1991}; \citealt{higham2002}):
+
+\begin{equation*}
+\mathrm{fl}(a) = a(1+\varepsilon_1), \qquad
+\mathrm{fl}(b) = b(1+\varepsilon_2), \qquad
+|\varepsilon_i| \leq \varepsilon
+\end{equation*}
+
+\begin{equation*}
+\text{computed } d = (a-b) + (a\varepsilon_1 - b\varepsilon_2)
+\end{equation*}
+
+Relative error of the result:
+
+\begin{equation}
+\frac{|\Delta d|}{|d|} \;\leq\; \varepsilon\,\frac{a+b}{|a-b|}
+\label{eq:cancellation-bound}
+\end{equation}
+
+Now recognize the denominator. With $f^+ = a$ and $f^- = b$:
+
+\begin{equation}
+\kappa \equiv \frac{|f^+ - f^-|}{f^+ + f^-} \qquad \implies \qquad
+\frac{|\Delta d|}{|d|} \leq \frac{\varepsilon}{\kappa}
+\label{eq:kappa-condition}
+\end{equation}
+
+\begin{result}
+\textbf{$\kappa$ is exactly the reciprocal condition number of the
+subtraction.} (The condition number of $a - b$ is $(|a|+|b|)/|a-b|$ ---
+\citealt{higham2002}; for positive $f^\pm$ that is exactly $1/\kappa$.) It is
+not a heuristic equilibrium diagnostic that happens to be useful. It is
+\emph{the} error-amplification factor for recovering net flux from gross
+quantities.
+\end{result}
+
+Note that \S\ref{sec:detailedbalance} arrived at $\kappa$ from a completely
+different direction --- as the numerical test of detailed balance,
+eq.~\eqref{eq:kappa-detailed-balance}. The two meanings coincide, which is why
+$\kappa$ is load-bearing in both the physics and the numerics of this project.
+
+\section{The numbers that follow}
+\label{sec:kappanumbers}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l R{1.125} R{0.875}@{}}
+\toprule
+\textbf{$\kappa$} & \textbf{Amplification $1/\kappa$} &
+\textbf{Net error from float32 gross ($\varepsilon = 1.2\times10^{-7}$)} &
+\textbf{float64 ($\varepsilon = 2.2\times10^{-16}$)} \\
+\midrule
+1          & 1          & $1.2\times10^{-7}$ & $2.2\times10^{-16}$ \\
+$10^{-1}$  & 10         & $1.2\times10^{-6}$ & $2.2\times10^{-15}$ \\
+$10^{-3}$  & $10^{3}$   & $1.2\times10^{-4}$ & $2.2\times10^{-13}$ \\
+$10^{-6}$  & $10^{6}$   & 0.12 --- \textbf{destroyed} & $2.2\times10^{-10}$ \\
+$10^{-9}$  & $10^{9}$   & --- & $2.2\times10^{-7}$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Now the project's thresholds are derivable rather than arbitrary:}
+
+\begin{itemize}
+\item The \textbf{$\kappa > 0.1$ active-set gate} is the statement
+      ``amplification $\leq 10\times$'' --- one decade of precision loss,
+      tolerable.
+\item \textbf{float64 everywhere in conservation arithmetic} buys the headroom:
+      the same $\kappa = 10^{-6}$ that would be fatal in float32 is harmless in
+      float64.
+\item The \textbf{$1/\kappa$ error amplification if $\varphi$ were inferred from
+      gross-scale features} --- the phrasing used in the verdict document --- is
+      precisely \eqref{eq:kappa-condition}.
+\item And the reason the worst-species coverage failure in
+      $\Tn \in [4.0, 6.3)$ matters: those species' net evolution rides on
+      columns with $\kappa \in 10^{-3}$--$10^{-1}$, i.e.\ 10--1000$\times$
+      amplification.
+\end{itemize}
+
+\section{Why this reframes the whole kill-test}
+\label{sec:killtestreframe}
+
+The kill-test asks: \emph{can a model that predicts gross-scale quantities
+recover the net?} Equation \eqref{eq:kappa-condition} says the answer is
+governed entirely by the $\kappa$ distribution. The kill-test is therefore a
+\textbf{numerical conditioning study wearing a physics costume} --- and that is
+why its thresholds are stated in $\kappa$ and in $\cond(S_{\mathrm{active}})$,
+both condition numbers.
+
+% ---------------------------------------------------------------------
+\chapter{Conditioning and the rank-revealing subtlety}
+\label{sec:conditioning}
+
+For a linear system $A x = b$, relative error amplification is the condition
+number
+
+\begin{equation*}
+\cond(A) = \frac{\sigma_{\max}}{\sigma_{\min}} \qquad
+(\text{ratio of extreme singular values})
+\end{equation*}
+
+\textbf{The project's use.} Given $\dd Y$, recover $\varphi$ from
+$\dd Y = \nu\varphi$. With $n_{\text{species}} \approx 80$--151 equations and
+$n_{\text{reactions}} \approx 607$--1518 unknowns this is massively
+\textbf{underdetermined} --- infinitely many $\varphi$ produce the same $\dd Y$,
+and the minimum-norm solution is $\varphi = \nu^{+}\,\dd Y$ via the
+Moore--Penrose pseudo-inverse. The sensitivity of that recovery to perturbations
+in $\dd Y$ is set by the condition number of the relevant submatrix. Hence the
+$\cond(S_{\mathrm{active}}) < 10^{6}$ pass / $> 10^{8}$ fail gate, where
+$S_{\mathrm{active}}$ is $\nu$ restricted to the net columns that are actually
+carrying flux.
+
+Underdetermination is not itself a problem --- it is \emph{why} Target A works,
+since any $\varphi$ in the null space decodes to the same conserving $\dd Y$.
+The problem would be ill-conditioning within the active set, which is what the
+gate measures.
+
+\textbf{The subtlety you must not get wrong.} $\nu$ has an \emph{exact
+structural left-null vector}: $A\cdot\nu = 0$, by baryon conservation, to
+machine precision. So $\sigma_{\min} = 0$ identically, and a naive
+\code{np.linalg.cond} returns ${\sim}10^{16}$ --- which is not
+ill-conditioning, it is the conservation law showing up as a zero singular
+value.
+
+The meaningful quantity is the \textbf{rank-revealing} condition number --- the
+ratio of extreme \emph{nonzero} singular values, i.e.\ restricted to the row
+space (the name borrows from rank-revealing factorizations,
+\citealt{chan1987}; ``effective condition number'' is the closest standard
+term). That gives the measured 41.57 / 57.86 --- perfectly well-conditioned.
+
+\begin{warn}
+\textbf{Say which matrix, because the nullity differs.} On the nuclei-only $\nu$
+($n \times r$) the only exact left-null vector is $A$, so there is \textbf{one}
+zero singular value to drop --- $Z$ is \emph{not} one, because
+$Z\cdot\nu_j = d_{\mathrm{electron},j} \neq 0$ on weak columns
+(\S\ref{sec:ye}). On the extended
+$\tilde\nu = \mathrm{vstack}(\nu, \text{lepton ledgers})$
+($(n+3) \times r$), which is what \code{graph/stoich.py} builds and validates,
+\textbf{every row of $C$ annihilates it}: $C\tilde\nu = 0$ exactly for all three
+independent rows, so $\tilde\nu$ has a \textbf{three}-dimensional exact
+left-null space and a rank-revealing $\cond$ must discard three singular values,
+not one. Dropping the wrong number silently reports either a spurious $10^{16}$
+or a spurious well-conditioning. The 41.57 / 57.86 figures are the nuclei-only
+reading (\code{RESULTS.md} 2026-07-09, post-reconciliation, superseding the
+earlier 41.70 / 57.55).
+\end{warn}
+
+\begin{aside}
+A prior session in this repo rendered $\cond(\nu) = 1.5\times10^{16}$ in a
+figure whose caption claimed $\approx 42$. It was caught in review. The lesson
+generalizes: \textbf{an exact structural null space is not ill-conditioning},
+and any condition number computed on a matrix with known exact null vectors must
+be rank-revealing.
+\end{aside}
+
+% ---------------------------------------------------------------------
+\chapter{Stiffness, defined properly}
+\label{sec:stiffness}
+
+``Stiff'' is often used loosely to mean ``fast''. It means something specific.
+
+Let $J = \nu\,\partial R/\partial Y$ be the Jacobian of the network ODE, with
+eigenvalues $\lambda_i$ (mostly with $\mathrm{Re}\,\lambda_i < 0$ --- decaying
+modes). Define the \textbf{stiffness ratio} (\citealt{hix1999b}, after Lambert)
+
+\begin{equation}
+S = \frac{\max_i |\mathrm{Re}\,\lambda_i|}{\min_i |\mathrm{Re}\,\lambda_i|}
+\label{eq:stiffness-ratio}
+\end{equation}
+
+An explicit method is stable only for step $h \lesssim 2/\max|\lambda|$ ---
+forward-Euler stability, observed to the fourth digit in a real network
+(``precisely two over the fastest rate'' --- \citealt{guidry2013}). Integrating
+out to the \emph{slowest} timescale $t \sim 1/\min|\lambda|$ therefore requires
+
+\begin{equation*}
+N_{\text{steps}} \sim S
+\end{equation*}
+
+At silicon-burning conditions: fastest modes are photodisintegration /
+$(n,\gamma)$-$(\gamma,n)$ pairs with rates up to ${\sim}10^{10}$~s$^{-1}$;
+slowest are weak reactions at ${\sim}10^{-5}$--$10^{-2}$~s$^{-1}$ (both
+endpoints are order-of-magnitude estimates --- \emph{assumed}, pending the
+Jacobian measurement of self-check item~6 --- but the bracket they produce sits
+inside the literature envelope: ``$S > 10^{15}$ is not uncommon in
+astrophysics'', \citealt{hix1999b}; fastest-to-slowest spans of 10--20 orders,
+\citealt{guidry2013}). So
+
+\begin{equation*}
+S \sim 10^{12}\text{--}10^{15}
+\end{equation*}
+
+Explicit integration would need ${\sim}10^{15}$ steps to follow the \Ye{}
+evolution. \textbf{Implicit is not an optimization, it is a necessity.}
+
+\section{Stiffness and QSE are the same phenomenon}
+\label{sec:stiffnessqse}
+
+The fast modes decay quickly, after which the trajectory lies on a
+low-dimensional \textbf{slow manifold} in composition space. On that manifold
+the fast reactions are in balance --- which is exactly the definition of
+quasi-statistical equilibrium.
+
+\begin{result}
+\textbf{Stiffness $\iff$ the existence of a slow manifold $\iff$ QSE.} S9
+(equilibrium theory) and S10 (stiff integration) are two views of one structure.
+Reading them as unrelated topics is the main way people fail to understand this
+domain. (Strictly the arrows run one way --- stiffness alone guarantees a fast
+decaying mode, not a physically meaningful equilibrated sector; the
+identification is the standard singular-perturbation picture, cf.\ ILDM ---
+\citealt{maas1992}.)
+\end{result}
+
+Note this also connects back to \S\ref{sec:onezone}: the slow manifold \emph{is}
+the reachable manifold, approached after transients decay. The three concepts
+--- stiffness, QSE, and the reachable set --- are one object seen from numerics,
+thermodynamics, and sampling respectively.
+
+This also explains why the \emph{genuine} unlock for hot-state integration cost
+--- as the project's own negative-results investigation concluded --- is
+\textbf{QSE-reduced integration}: algebraically eliminate the fast equilibrated
+sector and integrate only the slow one. Not a solver trick; exploiting the slow
+manifold directly.
+
+% ---------------------------------------------------------------------
+\chapter{Floating point, concretely}
+\label{sec:floatingpoint}
+
+\begin{center}
+\begin{tabular}{@{}l l l@{}}
+\toprule
+\textbf{Type} & \textbf{$\varepsilon$ (machine epsilon)} &
+\textbf{Decimal digits} \\
+\midrule
+float32 & $1.19\times10^{-7}$  & ${\sim}7$ \\
+float64 & $2.22\times10^{-16}$ & ${\sim}16$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Why the conservation gate is achievable.} Naive summation of $n$ terms
+accumulates error ${\sim}n\varepsilon$ in the worst case (the sharp bound is
+$(n-1)u\cdot\sum|x_i| + O(u^2)$ --- \citealt{higham2002}; $n\varepsilon$ at
+$O(1)$ gross scale is the fair simplification). For the largest network:
+
+\begin{equation*}
+n\,\varepsilon = 151 \times 2.22\times10^{-16} \approx 3.4\times10^{-14}
+\end{equation*}
+
+comfortably below the $10^{-12}$ gate --- about 1.5 decades of margin. In
+float32 the same sum gives $1.8\times10^{-5}$, missing the gate by seven orders
+of magnitude. \textbf{This is the derivation behind ``float64 for anything
+touching conservation.''}
+
+\textbf{Why the drift bound is scaled rather than absolute.} An absolute bound of
+$10^{-12}$ is meaningless when $|\varphi| \sim 10^{-20}$ --- every quantity
+involved is already below it, so the test would pass vacuously. Hence the
+project's bound
+
+\begin{equation*}
+\max\!\bigl(10^{-12}\,s,\; 10^{-13}\,G\bigr), \qquad
+s = \min(1, \max|\varphi|), \qquad
+G = |A|\cdot(|\nu|\cdot|\varphi|)
+\end{equation*}
+
+which reduces to the hard absolute gate at $O(1)$ magnitudes and stays
+machine-precision-tight relative to the \emph{gross} scale at the small end.
+Read \code{tests/test\_conservation.py} with this in mind --- the tolerance
+design is the interesting part of that file.
+
+(In practice the measured column drifts are exactly 0.0, because $\nu$ is
+integer and the products are exactly representable. The bound exists for the
+general random-$\varphi$ case.)
+
+% ---------------------------------------------------------------------
+\chapter{Newton's method, damping, and globalization}
+\label{sec:newton}
+
+Prerequisite for reading \code{qse/solver.py}, whose structure looks defensive
+until you know what it is defending against.
+
+\section{The method}
+\label{sec:newtonmethod}
+
+To solve $\mathbf{F}(\mathbf{u}) = \mathbf{0}$, iterate
+
+\begin{equation}
+\mathbf{u}_{k+1} = \mathbf{u}_k - J^{-1}F(\mathbf{u}_k), \qquad
+J = \frac{\partial F}{\partial \mathbf{u}}
+\label{eq:newton}
+\end{equation}
+
+Near a simple root, convergence is \textbf{quadratic}: the error squares each
+step, so $10^{-2} \to 10^{-4} \to 10^{-8} \to 10^{-16}$. That is why Newton is
+the default whenever an analytic Jacobian is available --- and here it is,
+because the Saha form differentiates in closed form.
+
+\section{Why it fails, specifically here}
+\label{sec:newtonfails}
+
+The NSE residual involves $X_i = \exp(\log C_i + (Z_i u_p + N_i u_n)/kT)$. With
+$Z, N \sim 28$ and $kT \sim 0.3$~MeV, the exponent has a coefficient of order
+100 per MeV of chemical potential. A Newton step that overshoots by even a few
+MeV pushes the exponent by hundreds --- producing \code{inf}, then \code{nan},
+then a dead iteration.
+
+Two guards, both visible in the code:
+
+\begin{enumerate}
+\item \textbf{Step damping.} Cap the step, $\|\delta u\| \leq 2$~MeV per
+      iteration. This sacrifices quadratic convergence far from the root in
+      exchange for never leaving the representable region. Standard
+      globalization; a line search would be the fancier alternative.
+\item \textbf{Exponent clipping} at \code{EXP\_CLIP} (mirroring pynucastro), so
+      an overshoot saturates rather than overflowing.
+\end{enumerate}
+
+\section{Globalization: the fallback that cannot fail}
+\label{sec:globalization}
+
+Damped Newton is still only \emph{locally} convergent. \code{solve\_nse}
+therefore falls back to \textbf{nested bisection}: slow (linear convergence, one
+bit per iteration) but \emph{guaranteed} on a bracketed monotone problem. The
+residual is monotone in each chemical potential, which is what makes bracketing
+valid.
+
+Convergence tolerance is \code{tol = 1e-11} on the residual.
+
+\begin{aside}
+\textbf{The pattern is worth extracting, because the repo uses it repeatedly:} a
+fast method, a provably convergent fallback, and a \textbf{record of which one
+ran} --- \code{NSEResult.method} is \code{"newton"} or \code{"bisection"}.
+Silent fallback would hide a systematic problem; recorded fallback turns it into
+a measurable rate. The batched solvers added later preserve exactly this:
+vectorized Newton with per-row convergence masking, delegating non-converged
+rows to the proven scalar path.
+\end{aside}
+
+% ---------------------------------------------------------------------
+\chapter{ODE error control: what rtol and atol actually promise}
+\label{sec:errorcontrol}
+
+Prerequisite for reading \code{fluxes/integrate.py}.
+
+\section{Local versus global error}
+\label{sec:localglobal}
+
+An adaptive solver controls the \textbf{local} error per step against
+
+\begin{equation}
+\text{tolerance}_i = \mathrm{rtol}\cdot|y_i| + \mathrm{atol}_i
+\label{eq:error-tolerance}
+\end{equation}
+
+(\citealt{hairer1993}; SciPy's \code{solve\_ivp} documents exactly this contract
+--- ``keeps the local error estimates less than
+$\mathrm{atol} + \mathrm{rtol}\cdot\mathrm{abs}(y)$''.) It does \textbf{not}
+control global error. The relationship between them is exactly
+\S\ref{sec:rollouterror}'s accumulation problem applied to the integrator:
+global error is the accumulation of local errors under the flow's own
+contraction. For a contracting (dissipative) problem --- which this is --- local
+control is a good proxy. For a chaotic or neutrally stable one it would not be.
+
+\textbf{So \code{rtol = 1e-8} does not mean ``the answer is right to 1e-8''.} It
+means each step's local error estimate was held there. Verifying the actual
+accuracy needs either a tolerance sweep or an independent method.
+
+Both are done here: the integrator is checked BDF versus Radau (a multistep
+method versus an implicit Runge--Kutta --- different error structures entirely)
+and across \code{rtol} from \code{1e-10} to \code{5e-8}. Agreement across
+\emph{method} and \emph{tolerance} is the real accuracy evidence; the tolerance
+number alone is not.
+
+\section{Why atol matters more than usual}
+\label{sec:atol}
+
+With a state spanning 15 decades, $\mathrm{rtol}\cdot|y|$ is meaningless for
+trace species: a species at $Y \sim 10^{-20}$ would have a tolerance of
+$10^{-28}$, and the solver would take absurdly small steps chasing numerical
+noise. \textbf{atol sets the ``I do not care below this'' floor}, and choosing it
+is a physics decision, not a numerical one.
+
+The integrator uses \code{atol\_y = atol\_phi = 1e-18}, and --- the point worth
+noting --- carries them as \textbf{separate parameters}. The augmented state is
+$[\mathbf{Y}, \boldsymbol{\Phi}]$, and abundances and cumulative fluxes have
+different natural scales; a single atol would impose one species' notion of
+negligible on the other.
+
+\section{Dense output and t\_eval}
+\label{sec:denseoutput}
+
+\code{t\_eval} requests values at specified times. The solver does \textbf{not}
+change its step sequence to land on them --- it interpolates using the
+polynomial it already built for error estimation. This is why one integration to
+$\dd t = 10^{2}$~s with \code{t\_eval} at all nine label $\dd t$s costs
+essentially the same as integrating to $10^{2}$~s alone, and gives all nine
+labels. That is the design that makes the label prototype affordable at all.
+
+\section{BDF versus Radau}
+\label{sec:bdfradau}
+
+\begin{itemize}
+\item \textbf{BDF} --- multistep, variable order 1--5, cheap per step (one
+      Jacobian reused across steps), the standard choice for large stiff
+      systems.
+\item \textbf{Radau} --- implicit Runge--Kutta (Radau IIA, order 5), L-stable,
+      more robust on very stiff or strongly nonlinear problems, more expensive
+      per step.
+\end{itemize}
+
+(\citealt{hairer1996}; properties confirmed against the SciPy implementation.
+BDF above order 2 is only A($\alpha$)-stable --- the Dahlquist barrier --- which
+is precisely why an L-stable Radau cross-check is meaningful.)
+
+Using BDF as production and Radau as cross-check is the right split: you get
+throughput from one and solver-independence evidence from the other.
+
+% ---------------------------------------------------------------------
+\chapter*{Self-check --- numerical analysis}
+\addcontentsline{toc}{chapter}{Self-check --- numerical analysis}
+\label{sec:selfcheck-numerics}
+
+\begin{selfcheck}
+\item Derive \eqref{eq:cancellation-bound} carefully, tracking signs.
+\item At what $\kappa$ does float64 gross-flux arithmetic fail to deliver the
+      $3\times10^{-6}$ per-step \Ye{} gate? Compare with the measured $\kappa$
+      distribution.
+\item Target A predicts $\varphi$ directly rather than differencing $f^+$ and
+      $f^-$. Does that escape \eqref{eq:kappa-condition}? Argue both ways ---
+      then note what the labels themselves are made of.
+\item Explain why $\dd Y = \nu\varphi$ is underdetermined, why that is \emph{not}
+      a problem for Target A, and what would actually constitute a conditioning
+      failure.
+\item Compute \code{np.linalg.cond} on an exported $\nu$ and reproduce the
+      ${\sim}10^{16}$ artifact. Then compute the rank-revealing version and
+      recover $\approx 42$ / $\approx 58$.
+\item Estimate $S$ from a real Jacobian at $\Tn = 4$ and compare with the
+      $10^{12}$--$10^{15}$ claim. Which reactions set each end?
+      \label{sc:jacobian}
+\item Show that the scaled drift bound reduces to the absolute $10^{-12}$ gate at
+      $|\varphi| \sim 1$, and explain why an absolute bound alone would be
+      vacuous at $10^{-20}$.
+\item Estimate how far a single undamped Newton step can move the Saha exponent
+      if $\delta u = 10$~MeV, at $kT = 0.345$~MeV and $Z = N = 28$. Now justify
+      the 2~MeV cap.
+\item Why is bisection a \emph{valid} fallback here --- what property of the
+      residual does bracketing require, and does the QSE residual have it too?
+\item State precisely what \code{rtol = 1e-8} promises and what it does not. Then
+      describe the two independent checks that would establish actual accuracy.
+\item Why does the augmented integrator carry separate \code{atol\_y} and
+      \code{atol\_phi}? Construct a state where a single shared atol would be
+      wrong for one of them.
+\end{selfcheck}
+
+\begin{repopointer}
+\textbf{Code anchors:} \code{tests/test\_conservation.py} (tolerance design),
+\code{graph/metrics.py::condition\_numbers} and \code{drift\_metrics},
+\code{killtest/active\_set.py::cond\_s\_active}, \code{fluxes/engine.py} (where
+$\kappa$ is formed), \code{qse/solver.py} (damped Newton $+$ bisection,
+\code{NSEResult.method}), \code{fluxes/integrate.py} (BDF/Radau, rtol/atol,
+\code{t\_eval}).
+\end{repopointer}

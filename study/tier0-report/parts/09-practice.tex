@@ -1,0 +1,180 @@
+% =====================================================================
+%  Part IX -- Working practice.
+%  Source: tier0.md Part VII (3111-3218), order unchanged.
+% =====================================================================
+\part{Working practice: the discipline the repo runs on}
+\label{part:practice}
+
+\textbf{The one non-physics part.} It is here because you cannot read this
+codebase without it: several modules look like over-engineering until you know
+which epistemic rule they enforce. Every pattern below appears in code you will
+read in Tier 1.
+
+% ---------------------------------------------------------------------
+\chapter{Every number carries a provenance label}
+\label{sec:provenance}
+
+Exactly one of:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l R{0.875} R{1.125}@{}}
+\toprule
+\textbf{Label} & \textbf{Meaning} &
+\textbf{Failure mode it prevents} \\
+\midrule
+\textbf{sourced} & has a citation --- paper plus where in it &
+  laundering an estimate into a citation's vicinity so it reads as
+  authoritative \\
+\textbf{derived} & names the script in \code{scripts/} that produces it &
+  a number nobody can regenerate \\
+\textbf{measured} &
+  measured in this project, with a \code{RESULTS.md} row carrying date, commit,
+  and data provenance &
+  a number that drifts as the code changes \\
+\textbf{assumed} &
+  an internal estimate, stated \textbf{with its retirement plan} &
+  an assumption hardening into a fact by repetition \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The \code{assumed} category is the interesting one, and \S\ref{sec:timescales}
+gave you its canonical example: the ``6--8 orders of magnitude'' timescale
+separation was carried as assumed, with a checklist row naming the measurement
+that would retire it --- and then that measurement retired it, in the opposite
+direction from the assumption. \textbf{That is the system working}, and it only
+worked because the number was never allowed to be quoted as sourced.
+
+% ---------------------------------------------------------------------
+\chapter{Thresholds must have instruments}
+\label{sec:instruments}
+
+Any gate written down --- per-step $|\dYe| \lesssim 3\times10^{-6}$,
+$\cond(S_{\mathrm{active}}) > 10^{6}$, mask churn $> 5\%$/step, the $2\times$
+transfer falsifier --- must name the test, script, or checklist item that
+measures it.
+
+\begin{invariant}
+A threshold with no measuring instrument is not a standard, it is a slogan.
+\end{invariant}
+
+This is why the Phase-0 checklist is a \emph{measurement program} rather than a
+task list: each row is a quantity, the gate it sets, and the script that will
+produce it. When you see a number in \code{CLAUDE.md}, look for its instrument;
+if you cannot find one, that is a finding.
+
+% ---------------------------------------------------------------------
+\chapter{Decisions carry their own reversal condition}
+\label{sec:switchconditions}
+
+Settled decisions become ADRs, and every ADR must state a \textbf{switch
+condition}: the measured threshold at which the decision reverses.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{1.000} l@{}}
+\toprule
+\textbf{Statement} & \textbf{Verdict} \\
+\midrule
+``We chose Target A'' & \emph{incomplete} \\
+``We chose Target A; we abandon it when
+  $\cond(S_{\mathrm{active}}) > 10^{6}$ or $>90\%$ of net-flux-carrying
+  reactions fall below the \Ye{} floor'' & \emph{complete} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Accepted ADRs are immutable; a changed decision \emph{supersedes} rather than
+rewrites, so the history of what was believed when survives. The same reasoning
+governs measurements: a redone measurement never silently overwrites the old
+value.
+
+% ---------------------------------------------------------------------
+\chapter{Invariants live in code that refuses, not in comments}
+\label{sec:guards}
+
+The pattern you will meet repeatedly: rather than documenting a rule and hoping,
+make the violation \textbf{inexpressible}.
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.8} R{1.2}@{}}
+\toprule
+\textbf{Rule} & \textbf{How it is enforced} \\
+\midrule
+No raw pf-free v-flag reverses at $\Tn \geq 3$ &
+  \code{fluxes/guards.py::assert\_pf\_gate} raises \code{PfGateError} at compile
+  time \\
+Never join labels on (\code{logT}, \code{logRho}) &
+  \code{data/labels.py::join\_on\_state\_id} refuses non-\code{state\_id}-indexed
+  frames \\
+Weak columns are never maskable &
+  \code{qse/diagnostics.py::eligible\_mask} excludes them \emph{structurally},
+  from \code{weak\_mask}, so \code{killtest.active\_set.guidry\_masks} cannot
+  produce one \\
+Never mix the two $\kappa$ conventions &
+  \code{killtest/distributions.py} refuses runs recording a screening config
+  unless explicitly overridden \\
+Conservation must hold for any $\varphi$ &
+  \code{tests/test\_conservation.py} is a \textbf{blocking gate} run against a
+  \emph{randomly initialized} flux head \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Note the difference between a \emph{test} and a \emph{gate}. A test reports; a
+gate blocks. The conservation check is a gate: training does not begin until it
+passes, and edits to \code{graph/} trigger it automatically.
+
+% ---------------------------------------------------------------------
+\chapter{Non-regenerable artifacts are persisted, not re-derived}
+\label{sec:persistence}
+
+\S\ref{sec:sobol} established that the Sobol grid cannot be regenerated. The
+general rule that follows:
+
+\begin{invariant}
+When an artifact cannot be reproduced from a recipe, \textbf{persist the
+artifact}, not the recipe.
+\end{invariant}
+
+Hence \code{configs/step5\_subsample\_*\_ids.json} holds explicit
+\code{state\_id} lists even though \code{stratified\_sample} takes a seed ---
+because seeded reproducibility depends on library versions, while a list of
+integers does not. Same reasoning behind content hashes recorded for every
+generated flux store.
+
+% ---------------------------------------------------------------------
+\chapter{Notebooks explore; scripts produce}
+\label{sec:notebooks}
+
+Notebooks are \textbf{exploratory only}. Every citable number comes from
+\code{scripts/} and lands in \code{RESULTS.md}; notebooks load cached artifacts
+and re-plot them.
+
+This is enforced structurally too --- \code{nbsupport.caption()} raises if a
+figure cites no \code{RESULTS.md} row, and the $\kappa$ helper requires a
+declared UNSCREENED/SCREENED convention that must match the store's own
+attributes, so mixing conventions fails loudly rather than silently.
+
+% ---------------------------------------------------------------------
+\chapter*{Self-check --- working practice}
+\addcontentsline{toc}{chapter}{Self-check --- working practice}
+\label{sec:selfcheck-practice}
+
+\begin{selfcheck}
+\item Pick five numbers from \code{CLAUDE.md} and classify each as sourced /
+      derived / measured / assumed. For any \code{assumed}, find its retirement
+      plan.
+\item Take the $\cond(S_{\mathrm{active}}) > 10^{6}$ gate and name its
+      instrument, its ADR, and its switch condition.
+\item Find one guard in \code{fluxes/guards.py} and write the failure it makes
+      impossible. Then write the comment-only version and explain what would
+      eventually go wrong with it.
+\item Why does \code{NSEResult} record \code{method} (\code{"newton"} /
+      \code{"bisection"})? Connect to \S\ref{sec:newton} and to
+      \S\ref{sec:instruments}.
+\item Argue the cost side honestly: what does this discipline make \emph{slower}
+      or harder, and when would it be the wrong trade?
+\end{selfcheck}

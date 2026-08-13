@@ -1,0 +1,339 @@
+% =====================================================================
+%  Part VIII -- ML framing and context.
+%  Source: tier0.md Part VI (2852-3068) minus VI.6, which is relocated
+%          to Part I; VI.7 items 1-5 (3096-3105), item 6 relocated to
+%          Part I's self-check.
+% =====================================================================
+\part{ML framing and context}
+\label{part:ml}
+
+% ---------------------------------------------------------------------
+\chapter{What kind of learning problem this is}
+\label{sec:learningproblem}
+
+\textbf{It is not neural operator learning in the DeepONet/FNO sense.} Those
+target maps between \emph{function spaces} (infinite-dimensional ---
+\citealt{lu2021}; \citealt{li2021}). Here input and output are fixed finite
+vectors: \textbf{83 or 154 numbers in} --- ($\log T$, $\log\rho$, $\mathbf{X}$,
+$\dd t$) per \S\ref{sec:onerecord} --- and \textbf{82 or 153 out} ---
+($\mathbf{X}'$, $e_{\text{nuc}}$, $\varepsilon_\nu$). The ``operator'' framing
+refers to the \emph{family} $\{\Phi_{\Delta t}\}$ indexed by timestep.
+
+(Do not confuse this 83 with the $d \approx 82$ of \S\ref{sec:sobol}. That is
+the \emph{Sobol sampling} dimension, 2 thermodynamic $+$ 80 composition, where
+$\dd t$ is not a sampled coordinate but a nine-point grid applied to every drawn
+state. Same-looking number, different object.)
+
+\textbf{So what is hard about it?} Not expressivity --- a sufficiently large MLP
+can represent the map. The difficulties are:
+
+\begin{enumerate}
+\item \textbf{Dynamic range.} $X$ spans 15 decades; $\varphi$ spans more.
+      Standard initialization and standard losses both implicitly assume $O(1)$
+      targets.
+\item \textbf{Stiffness in the target.} Neighbouring inputs can map to very
+      different outputs when a state is near a fast-mode threshold --- the
+      learned map must have large, spatially varying Lipschitz constants, which
+      is exactly what smooth function approximators resist.
+\item \textbf{Exact constraints.} No amount of capacity produces exact
+      conservation; it must be architectural
+      (\S\ref{sec:conservationfailure}, \S\ref{sec:whereconservation}).
+\item \textbf{Extrapolation under rollout.} The deployment distribution is the
+      reachable manifold (\S\ref{sec:onezone}), and rollout drifts off it.
+\end{enumerate}
+
+Recognizing that expressivity is \emph{not} the bottleneck is what justifies
+spending the effort on the decoder structure rather than on backbone scale.
+
+% ---------------------------------------------------------------------
+\chapter{Message passing, concretely}
+\label{sec:messagepassing}
+
+A GNN layer updates node states by aggregating over neighbours (the
+message-passing scheme of \citealt{gilmer2017}; \citealt{battaglia2018}):
+
+\begin{equation}
+h_i^{(k+1)} = \phi\Bigl(h_i^{(k)},\; \bigoplus_{j \in N(i)}
+  \psi\bigl(h_i^{(k)}, h_j^{(k)}, e_{ij}\bigr)\Bigr)
+\label{eq:message-passing}
+\end{equation}
+
+with $\bigoplus$ a permutation-invariant aggregator (sum, mean, max).
+
+\textbf{Bipartite version}, which is what this network is:
+
+\begin{align*}
+\text{reaction node:}\quad h_r &\leftarrow
+  \psi_{IR}\bigl(\{h_i : i \in \text{reactants}(r)\},\; \text{edge features}\bigr)\\
+\text{species node:}\quad h_i &\leftarrow
+  \psi_{RI}\Bigl(h_i,\; \bigoplus_{r \ni i} (\nu_{ir},\, h_r)\Bigr)
+\end{align*}
+
+One full round $=$ species $\to$ reaction $\to$ species. \textbf{Sum aggregation
+is the physically correct choice on the R$\to$I half-step}, because the true
+update is literally a signed sum: $\dd Y_i = \sum_r \nu_{ir} \varphi_r$. Mean or
+max would destroy extensivity (and sum is independently the most expressive
+aggregator in the multiset sense --- \citealt{xu2019}).
+
+\textbf{Depth --- and state the hop convention, or the arithmetic does not
+close.} One full round is species $\to$ reaction $\to$ species $=$ \textbf{2
+bipartite hops}, so $K$ rounds propagate information $2K$ bipartite hops, not
+$K$. With measured bipartite radius 3 and diameter 6:
+
+\begin{equation*}
+2K \geq \text{diameter} = 6 \quad\Longrightarrow\quad K \geq 3
+\end{equation*}
+
+So \textbf{$K = 3$ rounds suffice to span the graph}, and the project's $K = 5$
+carries ${\sim}4$ hops of margin. (The derived $I\to I$ projection does
+\emph{not} simply halve these numbers: the repo measures it at radius 2,
+diameter 4 --- \code{RESULTS.md} 2026-07-09 --- because the projection is its
+own graph object, not the bipartite metric divided by two. At one $I\to I$ hop
+per round, that view requires $K \geq 4$. Either way, $K = 5$ exceeds the
+requirement.) Beware the version of this claim that reads ``radius 3, diameter 6
+$\implies K = 5$'': under a one-hop-per-round convention $K = 5$ would
+\emph{fail} to cover a diameter-6 graph, and under the two-hop convention it
+overshoots. Neither reading yields 5 --- the number is a design margin, and
+should be defended as one.
+
+Deeper is not obviously better:
+
+\begin{itemize}
+\item \textbf{Oversmoothing:} as $K$ grows, node representations converge toward
+      a common value and become indistinguishable \citep{li2018}. At $K = 5$ not
+      yet serious, but it bounds how much depth can help.
+\item \textbf{Expressivity:} message passing is bounded above by the
+      1-Weisfeiler--Lehman test in distinguishing power
+      (\citealt{xu2019}; \citealt{morris2019} --- the theorems hold for labelled
+      graphs too; 1-WL runs on the initial node labels). Irrelevant here ---
+      nodes carry distinguishing features ($Z$, $A$, $Y$), so the colouring
+      separates nodes from iteration 0 and the bound never binds.
+\end{itemize}
+
+\textbf{Equivariance.} The physics is invariant to relabelling species.
+Equation \eqref{eq:message-passing} is permutation-equivariant by construction
+\citep{battaglia2018,bronstein2021}. A dense MLP must learn this from data,
+spending capacity on a symmetry that could have been free.
+
+% ---------------------------------------------------------------------
+\chapter{Feature and loss design under 15 decades of dynamic range}
+\label{sec:featureloss}
+
+\section{Inputs first --- the transform that is legal}
+\label{sec:inputtransform}
+
+The raw composition vector spans 15 decades, which no standard initialization or
+normalization scheme tolerates. The conventional fix is a signed-log or
+inverse-hyperbolic-sine transform on the \emph{inputs}:
+
+\begin{equation*}
+\tilde{x}_i = \asinh\!\left(\frac{X_i}{s}\right) \qquad \text{or} \qquad
+\log_{10}(X_i + X_0)
+\end{equation*}
+
+\textbf{This is legal, and it is important to be clear about why}, given
+\S\ref{sec:whereconservation} spends its length forbidding exactly this
+function. The rule is not ``asinh is banned''. The rule is:
+
+\begin{invariant}
+asinh/signed-log are fine as \textbf{internal latents}, including on inputs.
+They may never be the space in which a \textbf{sum constraint or projection} is
+evaluated.
+\end{invariant}
+
+Encoding $X$ into a latent and decoding $\varphi$ (or $\dd Y$) in a linear space
+keeps the conservation map downstream of every nonlinearity, which is the whole
+requirement. The NuGNN failure mode was subtler than ``projecting in the warped
+space'': because its outputs live in a signed-log space, any explicit
+conservation enforcement (loss term or output activation) required inverting the
+warp inside training, which destabilized optimization --- so enforcement was
+dropped entirely, leaving an unconstrained model plus a retry-on-drift heuristic
+at rollout \citep{kim2026}. The lesson is the same, not the warp itself: a sum
+constraint is only enforceable where the output is linear.
+
+Other input channels worth having, most of them free:
+
+\begin{itemize}
+\item ($\log T$, $\log\rho$) --- already logarithmic, already $O(1)$ after box
+      normalization
+\item per-node static features: $Z$, $A$, $N-Z$, binding energy per nucleon, the
+      weak/strong flag
+\item per-node dynamic features: $Y_i$, and the equilibrium departure $\delta_i$
+      if computed
+\item per-reaction features: $Q$-value, chapter/$\Delta N$, screening factor,
+      and \textbf{$\kappa$ diagnostics}
+\end{itemize}
+
+That last one is a project decision worth understanding: once the Guidry mask
+was measured empty, the $\kappa$ information did not become useless --- it was
+demoted from a \emph{mask} (a hard architectural gate) to a \emph{feature}
+(something the model may condition on). Carrying a diagnostic as a feature is
+the fallback when it is informative but not cleanly separable.
+
+\textbf{The zero problem.} Many $X_i$ are exactly 0 in initial conditions, and
+$\log(0)$ is undefined. asinh handles it ($\asinh 0 = 0$); log needs an additive
+floor, which then becomes a hyperparameter encoding what counts as negligible.
+Prefer asinh on inputs for this reason alone.
+
+\section{Then losses --- where the naive choices all fail}
+\label{sec:losses}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.75} R{1.25}@{}}
+\toprule
+\textbf{Loss} & \textbf{Failure mode} \\
+\midrule
+MSE on $X$ &
+  Dominated entirely by the few species with $X \sim 1$; trace species
+  contribute nothing \\
+MSE on $\log X$ &
+  Undefined at $X = 0$; and the $10^{-15}$ floor is \emph{censored}, so
+  log-space error there measures a clamp \\
+Relative error $|\Delta X|/X$ &
+  Explodes for trace species; amplifies label noise where $X$ is at the float32
+  noise level \\
+Relative with floor $|\Delta X|/(X + X_0)$ &
+  Workable --- but $X_0$ is now a hyperparameter encoding what you consider
+  negligible \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{The structural observations that reframe the problem:}
+
+\begin{itemize}
+\item The quantity that must be accurate is $\Ye = \sum Z_i Y_i$, a weighted
+      sum. Errors in species with small $Z_i/A_i$ deviation from 0.5 barely
+      matter. A loss weighted toward \Ye{}-controlling species is physically
+      motivated, not a hack --- and the project already identifies the target
+      channels (top-$|\dd\dot{Y}_e|$ weak channels: \nuc{Ni}{56} EC,
+      \nuc{S}{31} EC, \nuc{Fe}{52} EC, $p$ EC).
+\item Supervising in $\Phi$ \textbf{space} rather than $\Delta X$ space
+      side-steps the dynamic-range problem partly, because fluxes are more
+      nearly log-uniform. This is exactly what the auxiliary $\Phi$ labels from
+      the reference integrator are for.
+\item \textbf{Censoring must be handled explicitly.} A value at $10^{-15}$ means
+      ``$\leq 10^{-15}$'', not ``$= 10^{-15}$''. The correct treatment is a
+      one-sided (censored) likelihood --- the standard Tobit treatment
+      \citep{tobin1958} --- not a squared error against the clamp.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\chapter{MESA and bbq, concretely}
+\label{sec:mesabbq}
+
+\textbf{MESA} (Modules for Experiments in Stellar Astrophysics) is a modular 1-D
+stellar evolution code \citep{paxton2011,jermyn2023}. The relevant modules:
+
+\begin{itemize}
+\item \code{net} --- the nuclear reaction network solver
+\item \code{rates} --- REACLIB fits, tabulated weak rates, screening
+\item \code{weaklib} --- tabulated weak rates on $(T, \rho\Ye)$ grids, with
+      source precedence LMP $>$ \citeauthor{oda1994} $>$ \citeauthor{ffn} (\citealt{paxton2011}; in r23.05.1
+      this machinery lives inside the \code{rates} module rather than as a
+      separate directory)
+\end{itemize}
+
+\textbf{Network types} in MESA (``hard-wired'' is MESA's own terminology;
+``softwired'' is community usage --- \citealt{farmer2016} classify the
+\code{mesa\_*.net} family exactly this way):
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l Y@{}}
+\toprule
+\textbf{Type} & \textbf{Meaning} \\
+\midrule
+\emph{hardwired} & Fixed species and fixed reaction list, compiled in \\
+\textbf{softwired} &
+  Fixed species list; reaction links assembled at runtime from whatever rates
+  connect them --- \textbf{what \msn{80}/\msn{151} are} \\
+\emph{approx} &
+  Reduced networks with lumped/approximated links (e.g.\ \code{approx21}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+A \code{.net} file declares the species; the links follow. This is why the
+reaction \emph{count} (607 / 1518) is something you have to \emph{measure} by
+asking MESA what it built, rather than read off a list --- the entire point of
+the Fortran probe in \code{src/mesa\_probes/probe.f90} and the reconciliation in
+S6.
+
+\textbf{bbq} is a one-zone burner utility built on MESA's \code{net}
+(\citealt{farmerbbq}, Zenodo record 7585202; the tool behind
+\citealt{grichener2025}): give it $(T, \rho, \mathbf{X}_0)$ and a time grid, get
+back the composition history and energetics. Its \code{use\_hydrostatic} $+$
+\code{times\_from\_file} mode produced both the shipped test trajectories and
+the local rerun campaign.
+
+% ---------------------------------------------------------------------
+\chapter{Prior art in network acceleration --- where ML actually sits}
+\label{sec:priorart}
+
+ML is the newest entry in a long line of attempts. Knowing the line matters,
+because the project's vocabulary is borrowed from it:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.8} R{1.25} R{0.95}@{}}
+\toprule
+\textbf{Approach} & \textbf{Idea} &
+\textbf{Why it appears in this project} \\
+\midrule
+\textbf{NSE tabulation} &
+  Above ${\sim}7$~GK, skip the ODE --- composition is algebraic in
+  $(T,\rho,\Ye)$ \citep{hix1999b} &
+  Sets the box's upper edge (\S\ref{sec:regimebox}) \\
+\textbf{QSE / cluster reduction} \citep{hix1996,hix1999a,hix2007} &
+  Equilibrated groups collapse to one unknown per cluster; integrate only
+  bridges $+$ weak &
+  The \code{qse/} solver, the Si-group config, \code{r\_QSE} \\
+\textbf{Partial equilibrium / explicit asymptotic} \citep{guidry2013} &
+  Detect equilibrated forward--reverse \emph{pairs} dynamically, drop them from
+  integration, use explicit methods for the rest &
+  The ``Guidry mask'', the $\delta_r$ criterion, the $\epsilon$ sweep \\
+\textbf{Adaptive networks} &
+  Grow/shrink the species set by local importance &
+  Related to the active-set framing of the kill-test \\
+\textbf{ML surrogates} & Learn the flow map &
+  This project, and the NNN baseline \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{aside}
+\textbf{Read the kill-test as a test of whether the QSE-reduction idea applies
+to \emph{this} data.} The Guidry mask being measured \emph{empty} is a statement
+that the classical reduction strategy does not have a clean target here ---
+itself a result, and why the flux head ended up full-width.
+\end{aside}
+
+% ---------------------------------------------------------------------
+\chapter*{Self-check --- ML framing}
+\addcontentsline{toc}{chapter}{Self-check --- ML framing}
+\label{sec:selfcheck-ml}
+
+\begin{selfcheck}
+\item Explain why this is not neural-operator learning in the DeepONet/FNO
+      sense, and what the ``operator'' framing does refer to.
+\item Write \eqref{eq:message-passing} for the bipartite network and justify sum
+      aggregation on the R$\to$I half-step from equation
+      \eqref{eq:network-ode}.
+\item Give a concrete failure case for each of the four losses in
+      \S\ref{sec:losses}, using real numbers from the box ($X \sim 1$ species vs
+      $X \sim 10^{-12}$ species).
+\item Explain why the reaction count must be \emph{measured} in a softwired
+      network, and name the code path that measures it.
+\item For each entry in the \S\ref{sec:priorart} prior-art table, name the module
+      or config in this repository that inherits its vocabulary.
+\end{selfcheck}
+
+\begin{aside}
+\textbf{One question from the source document's \S VI.7 is not here.} Item~6
+(tracing the inference chain from a 1\% \Ye{} error to a changed observable)
+tests \S VI.6, whose material now opens the report as
+\S\ref{sec:obsgrounding}; it appears in Part~\ref{part:context}'s self-check
+instead. See Appendix~\ref{app:concordance}.
+\end{aside}

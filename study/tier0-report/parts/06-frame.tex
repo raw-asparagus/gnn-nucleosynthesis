@@ -1,0 +1,353 @@
+% =====================================================================
+%  Part VI -- The modelling frame.
+%  Source: tier0.md Part IV (2226-2479), order unchanged.
+% =====================================================================
+\part{The modelling frame}
+\label{part:frame}
+
+What sits between the physics and the model. This part contains the single most
+load-bearing unexamined assumption in the project (\S\ref{sec:splitting}).
+
+% ---------------------------------------------------------------------
+\chapter{Operator splitting --- the assumption everything rests on}
+\label{sec:splitting}
+
+\section{The setup}
+\label{sec:splitsetup}
+
+A stellar evolution code solves, per zone, a coupled system:
+
+\begin{align*}
+\frac{\partial \mathbf{X}}{\partial t}
+  &= \text{burn}(\mathbf{X};\,T,\rho) \;+\; \text{mix}(\mathbf{X})
+  && \text{(composition)}\\
+\frac{\partial T}{\partial t}
+  &= \frac{e_{\text{nuc}}(\mathbf{X};T,\rho) - e_\nu - \nabla\!\cdot\!F}{c_p}
+  && \text{(energy)}\\
+&\quad\ \text{hydrostatic equilibrium} && \text{(structure)}
+\end{align*}
+
+These are coupled: burning changes $\mathbf{X}$, which changes
+$e_{\text{nuc}}$, which changes $T$, which changes the rates, which changes the
+burning. \textbf{MESA's default actually solves this monolithically} --- it
+``simultaneously solves the full set of coupled equations'' for all cells
+\citep{paxton2011}. But in the Si/Fe-burning regime this project targets, the
+\emph{split} mode is the practical one: over a timestep $\Delta t$, hold
+$(T, \rho)$ fixed, advance the network alone, then update the thermodynamics
+with the resulting energy release, then handle mixing. That is MESA's
+\code{op\_split\_burn}, which sub-steps the composition at fixed $(T, \rho)$ and
+``may be the only way to make certain problems tractable'' during Si and Fe
+burning \citep{jermyn2023}.
+
+This is Godunov / Lie--Trotter (first-order) or Strang (second-order) operator
+splitting \citep{strang1968,blanes2008}, with splitting error:
+
+\begin{equation*}
+\text{Godunov:}\ \ O(\Delta t) \qquad\qquad \text{Strang:}\ \ O(\Delta t^2)
+\end{equation*}
+
+\section{Why this is the project's foundational assumption}
+\label{sec:whyfoundational}
+
+\textbf{The emulator is a drop-in for the network sub-step.} Its contract is
+therefore precisely:
+
+\begin{invariant}
+Given $(T, \rho, \mathbf{X})$ held \emph{constant} over $\Delta t$, return
+$\mathbf{X}'$.
+\end{invariant}
+
+And that is exactly what the training data is. Read the campaign inlist:
+
+\begin{srclisting}
+&hydrostatic
+   logT = {logT}
+   logRho = {logRho}
+   times_from_file = .true.
+\end{srclisting}
+
+\code{scripts/bbq\_campaign/inlist.template} fixes \code{logT} and
+\code{logRho} for the entire run. The labels are
+\textbf{constant-$(T,\rho)$ burns}. The Sobol training set is generated the same
+way.
+
+So the operator being learned is well-defined and matches how a host code would
+call it. Good. But three things follow that you should hold consciously:
+
+\section{Consequence 1 --- the split's validity is a physical constraint on
+  \texorpdfstring{$\Delta t$}{dt}}
+\label{sec:splitconsequence1}
+
+Silicon-burning rates are exponentially temperature-sensitive. If burning
+releases enough energy to raise $T$ appreciably \emph{within} the step, then a
+constant-$T$ burn is the wrong operator.
+
+Estimate the danger. A rate with effective temperature sensitivity
+$\nu_T \equiv \partial\ln\lambda/\partial\ln T$ (typically 20--40 for the
+controlling photodisintegration rates in this regime, $\nu_T \approx Q/kT$;
+captures are milder --- \S\ref{sec:dtgrid}) changes by a factor
+
+\begin{equation*}
+\frac{\lambda(T+\delta T)}{\lambda(T)}
+  \approx \left(1 + \frac{\delta T}{T}\right)^{\!\nu_T}
+  \approx \exp\!\left(\nu_T\,\frac{\delta T}{T}\right)
+\end{equation*}
+
+With $\nu_T = 30$, a mere $\delta T/T = 3\%$ doubles the rate. At the long end
+of the $\dd t$ grid ($\Delta t = 10^{2}$~s) in vigorous burning, $\delta T/T$ of
+a few percent is entirely plausible.
+
+\begin{aside}
+\textbf{This is a real open question, not a settled one.} The
+constant-$(T,\rho)$ labels are self-consistent and the emulator will faithfully
+learn them. The question is whether the \emph{host code} calls the network the
+same way at large $\Delta t$, or whether it sub-cycles with temperature
+feedback. If they differ, the emulator is accurate at the wrong thing.
+
+Partial answer from the code: in \code{op\_split\_burn} mode MESA does call the
+network exactly this way --- constant-$(T,\rho)$ sub-steps with an adaptive
+sub-timestep and no in-step temperature feedback \citep{jermyn2023}. The
+fully-coupled default, by contrast, does not call it as a $\Delta t$-map at all.
+\end{aside}
+
+Worth checking directly against how MESA's \code{net} module is invoked in
+production, and worth knowing that the nine-decade $\dd t$ grid spans from
+definitely-safe to questionable.
+
+\section{Consequence 2 --- the emulator inherits the split's error, it does not
+  fix it}
+\label{sec:splitconsequence2}
+
+An emulator that reproduces the constant-$(T,\rho)$ operator to $10^{-8}$ still
+carries the $O(\Delta t)$ splitting error of the host scheme. \textbf{Accuracy
+of the surrogate is bounded above by the accuracy of the scheme it plugs into.}
+A useful sanity anchor when someone proposes tightening a gate: below the
+splitting error, extra fidelity buys nothing.
+
+\section{Consequence 3 --- it makes the problem tractable at all}
+\label{sec:splitconsequence3}
+
+The flip side: because $(T, \rho)$ are frozen, the network ODE is
+\textbf{autonomous}. That is what makes $\Phi_{\Delta t}$ a genuine flow map with
+a semigroup structure (\S\ref{sec:rollouterror}), and what makes the
+augmented-state integrator of S10 well-posed.
+
+% ---------------------------------------------------------------------
+\chapter{The one-zone approximation --- and the reachable manifold}
+\label{sec:onezone}
+
+\section{What bbq is}
+\label{sec:whatisbbq}
+
+\code{bbq} is a \textbf{one-zone burner}: a single fluid element at fixed
+$(T, \rho)$, no neighbours, no mixing, no transport. It integrates the network
+and nothing else. This matches the split of \S\ref{sec:splitting} exactly ---
+mixing is the host's job.
+
+\section{The subtlety nobody states}
+\label{sec:convectivesubtlety}
+
+Silicon-burning cores are \textbf{convective}. Convective turnover times are
+${\sim}10^{1}$--$10^{3}$~s (\S\ref{sec:timescales} --- seconds to tens of
+minutes, and the range is genuinely that wide; the one well-measured 3-D
+Si-shell point sits at the fast corner, $v \approx 10^{7}$~cm/s and
+$\tau \approx 20$~s --- \citealt{couch2015}); core Si burning lasts days,
+${\sim}10^{5}$--$10^{6}$~s (WHW02). So mixing is \emph{not} a small correction
+--- it runs $10^{2}$--$10^{4}$ turnovers over the burning phase, continuously
+resupplying fuel and homogenizing composition.
+
+The one-zone burner does not model this, and correctly so under splitting. But
+it means:
+
+\begin{result}
+The compositions a real star presents to the network are the output of burning
+\textbf{plus} mixing \textbf{plus} the star's history. They lie on a
+low-dimensional \textbf{reachable manifold}, not spread over composition space.
+\end{result}
+
+\section{This is the deepest structural insight in Tier 0}
+\label{sec:reachablemanifold}
+
+The Sobol design samples composition space \textbf{uniformly over the box}. The
+physically reachable set is a manifold of far lower dimension. Therefore:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small]
+
+% outer box = composition space
+\draw[line width=0.9pt, rounded corners=2pt] (0,0) rectangle (10.2,5.0);
+\node[font=\footnotesize, anchor=south west] at (0,5.12)
+  {composition space (dim $\approx 80$ or 151)};
+
+% uniform Sobol dots
+\foreach \x in {0.45,1.05,...,9.9}{
+  \foreach \y in {0.4,1.0,...,4.7}{
+    \fill[black!55] (\x,\y) circle (0.7pt);}}
+
+% reachable manifold blob, drawn over the dots
+\begin{scope}
+\fill[resultrule!16, draw=resultrule, line width=0.9pt, rounded corners=6pt]
+  plot[smooth cycle, tension=0.85] coordinates
+  {(3.1,3.9) (5.2,4.25) (7.1,3.55) (7.5,2.4) (6.2,1.35)
+   (4.3,1.1) (2.8,1.9) (2.5,3.0)};
+\end{scope}
+\node[align=center, font=\footnotesize] at (5.0,2.65)
+  {\textbf{reachable}\\\textbf{manifold}\\(trajectories)};
+
+% annotations to the right
+\node[anchor=west, font=\scriptsize, align=left, text width=4.6cm]
+  (a1) at (10.7,4.35)
+  {$\leftarrow$ Sobol training grid:\\uniform, ${\sim}10^{6}$ points,\\
+   mostly \textbf{UNREACHABLE}};
+\node[anchor=west, font=\scriptsize, align=left, text width=4.6cm]
+  (a2) at (10.7,1.85)
+  {$\leftarrow$ relaxed manifold:\\where the physics is};
+
+\end{tikzpicture}
+\caption{The training distribution covers the box; the deployment distribution
+lies on a low-dimensional relaxed manifold inside it. Measuring a dynamical
+property on the coverage distribution can give a confident, meaningless answer.}
+\label{fig:reachable}
+\end{figure}
+
+\textbf{Three project findings are direct corollaries, and you can now predict
+them before reading them:}
+
+\begin{enumerate}
+\item \textbf{$\kappa \approx 1$ everywhere on the training grid.} A random
+      composition is nowhere near flux balance --- forward and reverse rates of
+      a pair are unrelated, so $|f^+-f^-| \approx f^++f^-$. Cancellation is a
+      property of \emph{relaxed} states, and there are none in a uniform sample.
+      This is why the kill-test on the training grid was a \emph{vacuous} pass.
+\item \textbf{The kill-test had to be re-run on a relaxed manifold}, populated
+      by actual bbq trajectory reruns. Measuring a cancellation phenomenon
+      requires sampling where cancellation exists.
+\item \textbf{The Sobol$\to$real-MESA distribution-shift check exists} for
+      exactly this reason, with a retrain trigger if the real-track error
+      exceeds the Sobol-measured value by more than $3\times$.
+\end{enumerate}
+
+\begin{aside}
+\textbf{Generalize the lesson:} when the training distribution is chosen for
+\emph{coverage} and the deployment distribution is set by \emph{dynamics}, they
+are different objects. Measuring a dynamical property on the coverage
+distribution can produce a confident, meaningless answer.
+\end{aside}
+
+% ---------------------------------------------------------------------
+\chapter{The semigroup structure and rollout error}
+\label{sec:rollouterror}
+
+\section{The semigroup property}
+\label{sec:semigroup}
+
+For an autonomous flow (which \S\ref{sec:splitting} guarantees), the exact
+solution operator satisfies
+
+\begin{equation}
+\Phi_{s+t} = \Phi_s \circ \Phi_t
+\label{eq:semigroup}
+\end{equation}
+
+The training set contains \textbf{nine} $\dd t$ values for the \emph{same}
+initial states. So \eqref{eq:semigroup} is a hard consistency condition the data
+satisfies and a learned $\hat\Phi$ generally will not:
+
+\begin{equation*}
+\hat{\Phi}_{10^{-5}} \circ \hat{\Phi}_{10^{-5}} \;\neq\;
+\hat{\Phi}_{10^{-4}} \qquad \text{in general}
+\end{equation*}
+
+\begin{aside}
+\textbf{This is a free, label-independent test} --- a self-consistency check
+requiring no ground truth. It is not currently used anywhere in the project, and
+it is arguably the cheapest available diagnostic of rollout health.
+\end{aside}
+
+\section{Rollout error propagation --- deriving the accumulation trichotomy}
+\label{sec:accumulationtrichotomy}
+
+In deployment the emulator is applied autoregressively:
+$X_{n+1} = \hat\Phi(X_n)$. Let $e_n$ be the error after $n$ steps and $\delta$
+the per-step error injected. Linearizing about the true trajectory with
+$J = \partial\Phi/\partial X$:
+
+\begin{equation}
+e_{n+1} = J\,e_n + \delta_n
+\label{eq:rollout-recursion}
+\end{equation}
+
+Three regimes, depending on the contraction factor $c = \|J\|$:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.911} R{1.018} R{1.071} c@{}}
+\toprule
+\textbf{Regime} & \textbf{Condition} &
+\textbf{Accumulated after $N$ steps} & \textbf{log--log slope} \\
+\midrule
+\textbf{Systematic, neutral} & $c = 1$, $\delta_n$ correlated &
+  $N\delta$ & \textbf{1} \\
+\textbf{Random walk} & $c = 1$, $\delta_n$ independent &
+  $\sqrt{N}\,\delta$ & \textbf{0.5} \\
+\textbf{Contracting} & $c < 1$ &
+  $\delta/(1-c)$, saturates & \textbf{$\to 0$} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The project states the first two and treats measuring the slope as its biggest
+single lever --- correctly, since the per-step \Ye{} budget moves by more than an
+order of magnitude between them.
+
+\textbf{But the third case is the one worth predicting.} Silicon burning
+\emph{contracts} toward quasi-equilibrium and then NSE: nearby compositions
+converge. So $\|J\| < 1$ over much of the regime, and the physically expected
+behaviour is \textbf{saturation}, not growth --- at least in the strong sector.
+
+The catch, and it is a big one: \textbf{\Ye{} has no restoring force.} Strong
+reactions conserve it exactly (\S\ref{sec:ye}), so contraction of the strong
+sector says nothing about \Ye{} error. \Ye{} error should behave like a random
+walk or systematic drift on top of a contracting background.
+
+\begin{aside}
+\textbf{Prediction to test:} composition errors saturate (slope $\to 0$), while
+\Ye{} error accumulates (slope 0.5 or 1). If the measurement shows that split,
+the gate should be written on \Ye{} alone --- which is what the project already
+does, for what would then be a \emph{derived} rather than assumed reason.
+\end{aside}
+
+% ---------------------------------------------------------------------
+\chapter*{Self-check --- the modelling frame}
+\addcontentsline{toc}{chapter}{Self-check --- the modelling frame}
+\label{sec:selfcheck-frame}
+
+\begin{selfcheck}
+\item Write the split step explicitly for one $\Delta t$: what is held fixed,
+      what is updated, in what order. Where does the $O(\Delta t)$ error enter?
+\item Using $\nu_T \approx 30$, compute the $\delta T/T$ that would change rates
+      by $10\times$. Then estimate whether a $\Delta t = 10^{2}$~s burn at
+      $\Tn = 4$ could plausibly reach it.
+\item Estimate the dimension of the reachable manifold during quasi-equilibrium
+      silicon burning. (Hint: if a cluster is internally equilibrated, how many
+      free parameters describe it?) Compare with 80.
+\item Predict what $\kappa$ would look like on states drawn from a real MESA
+      track, then check against the measured relaxed-manifold distribution.
+\item Argue both sides: is training on unreachable states harmful (wasted
+      capacity, wrong inductive bias) or helpful (regularization, robustness
+      during rollout excursions)?
+\item Derive \eqref{eq:rollout-recursion} and the three regimes. Under what
+      condition does the contracting case still fail? (Hint: what if $\delta$ is
+      itself biased?)
+\item Explain why strong-sector contraction cannot damp \Ye{} error, using the
+      structure of $\nu$.
+\end{selfcheck}
+
+\begin{repopointer}
+\textbf{Code anchors:} \code{scripts/bbq\_campaign/inlist.template} (the split
+made concrete), \code{scripts/bbq\_campaign/make\_campaign.py} (composition
+families --- ``shipped'' vs ``canonical'' vs ``sobol'' is exactly the
+reachable-vs-sampled distinction), \code{data/trajectories.py} (the reachable
+manifold as data), \code{killtest/manifold.py} (its assembly).
+\end{repopointer}

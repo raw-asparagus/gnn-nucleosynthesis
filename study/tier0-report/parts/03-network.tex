@@ -1,0 +1,1024 @@
+% =====================================================================
+%  Part III -- The reaction network as a formal object.
+%  Source: tier0.md Part II (1442-1828) then 0.5 (643-757),
+%          0.6 (759-844), 0.7 (846-946).
+%  Ordered so that every pointer from the old 0.5-0.7 into Part II
+%  resolves backward.
+%  Self-check merges II.8 (minus items 4 and 7, relocated to Part IV)
+%  with 0.7.1.
+% =====================================================================
+\part{The reaction network as a formal object}
+\label{part:network}
+
+% ---------------------------------------------------------------------
+\chapter{Nuclide bookkeeping}
+\label{sec:bookkeeping}
+
+A nuclide is specified by $(Z, N)$: $Z$ protons, $N$ neutrons, $A = Z + N$.
+
+\begin{itemize}
+\item Names are \textbf{MESA/pynucastro chem ids}, lowercase: \code{si28},
+      \code{fe56}, \code{he4}, and critically \code{neut} for the free neutron,
+      \code{h1} for the free proton.
+\item Free nucleons are \textbf{network species}, not a background bath.
+      \code{neut} carries ($Z=0$, $A=1$); \code{h1} carries ($Z=1$, $A=1$). At
+      silicon-burning temperatures photodisintegration liberates free nucleons
+      in abundance --- the Sobol initial compositions carry median
+      $X_{\mathrm{neut}} \approx 1.7\times10^{-2}$. They participate in the
+      same algebra as every other species, and this is not incidental:
+      \S\ref{sec:lastday} established that Si burning \emph{is} the traffic in
+      free nucleons and $\alpha$ particles.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\chapter{Binding energy and why the iron peak exists}
+\label{sec:bindingenergy}
+
+\begin{equation*}
+B(Z,N) = \bigl[Z m_p + N m_n - m(Z,N)\bigr]\,c^2
+\end{equation*}
+
+Semi-empirical mass formula \citep[][this coefficient set is the least-squares
+fit of \citealt{eisberg1985}]{krane1988}:
+
+\begin{equation*}
+B \approx a_V A - a_S A^{2/3} - a_C \frac{Z(Z-1)}{A^{1/3}}
+        - a_A \frac{(A-2Z)^2}{A} \pm \delta
+\end{equation*}
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l l Y@{}}
+\toprule
+\textbf{Term} & \textbf{Coefficient} & \textbf{Effect} \\
+\midrule
+Volume    & $a_V \approx 15.8$~MeV & grows as $A$ --- favours heavy nuclei \\
+Surface   & $a_S \approx 18.3$     & penalizes small $A$ --- $B/A$ rises
+                                     steeply at low $A$ \\
+Coulomb   & $a_C \approx 0.714$    & grows as $Z^2/A^{1/3}$ --- penalizes heavy
+                                     nuclei \\
+Asymmetry & $a_A \approx 23.2$     & penalizes $N \neq Z$ \\
+Pairing   & $\pm\delta$            & even--even favoured \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Surface losses fade with $A$ while Coulomb losses grow, so $B/A$ peaks near
+$A \approx 56$--62 and declines. Fusion is exothermic below the peak,
+endothermic above. \textbf{This is why silicon burning is the last stage.}
+
+\begin{warn}
+\textbf{The mass-excess trap.} Data tables give the mass \emph{excess} $\Delta$,
+and masses are \emph{atomic}. Converting takes
+$B = Z\Delta(\nuc{H}{1}) + N\Delta(n) - \Delta$, and $Q$-values are
+$Q = \sum\Delta_{\mathrm{in}} - \sum\Delta_{\mathrm{out}}$. Worked examples and
+a verification exercise against \code{configs/reactions\_*\_mesa.yaml} are in
+\S\ref{sec:massexcess}.
+\end{warn}
+
+\section{The subtlety to internalize now}
+\label{sec:constrainedoptimum}
+
+The most bound nuclide is \nuc{Ni}{62} ($B/A = 8.795$~MeV;
+\citealt{fewell1995}), the most bound at $A = 56$ is \nuc{Fe}{56} (8.790) ---
+yet silicon burning at $\Ye \approx 0.5$ produces \textbf{\nuc{Ni}{56}}
+(8.643). The reason: the equilibrium composition maximizes binding
+\emph{subject to the \Ye{} constraint}. At $\Ye = 0.5$ matter cannot reach
+\nuc{Fe}{56} ($\Ye = 26/56 = 0.464$) without weak reactions, which are slow.
+\nuc{Ni}{56} is the most bound nuclide with $Z = N$, and doubly magic on top of
+that (\S\ref{sec:magicnumbers}).
+
+\textbf{Carry this forward:} ``the equilibrium composition'' is always \emph{at
+a given \Ye{}}. That is why the NSE solver has exactly two constraints,
+$\sum X = 1$ and \Ye{}, and why the label-pathology finding is stated as a
+distance from NSE \emph{at the label's own \Ye{}}.
+
+% ---------------------------------------------------------------------
+\chapter{From number density to molar abundance --- derive
+  \texorpdfstring{$Y = X/A$}{Y = X/A}}
+\label{sec:molarabundance}
+
+The mass density in species $i$ is $\rho X_i$, and each nucleus has mass
+$\approx A_i m_u$:
+
+\begin{equation*}
+n_i = \frac{\rho X_i}{A_i m_u} = \frac{\rho N_A X_i}{A_i}
+\end{equation*}
+
+using $m_u = 1/N_A$ in cgs. Define the \textbf{molar abundance}:
+
+\begin{equation}
+Y_i \equiv \frac{X_i}{A_i} \qquad \text{so} \qquad n_i = \rho N_A Y_i
+\label{eq:molar-abundance}
+\end{equation}
+
+The mass-fraction normalization becomes
+
+\begin{equation}
+\sum_i X_i = 1 \qquad \iff \qquad \sum_i A_i Y_i = 1
+\label{eq:baryon-conservation}
+\end{equation}
+
+Equation \eqref{eq:baryon-conservation} is the baryon conservation law the
+entire conservation layer is built on. It is \textbf{linear in $Y$} --- not an
+accident; it is the reason $Y$ is the right variable (and the standard network
+variable: \citealt{hix1999b} introduce $Y_i = n_i/\rho N_A$ for exactly these
+reasons). A pedantic aside on $m_u = 1/N_A$: exact in the pre-2019 cgs
+convention; since the 2019 SI redefinition,
+$m_u N_A = 1~\mathrm{g/mol} \times (1 + 1.05\times10^{-9})$
+\citep{codata2022} --- six orders below anything tabulated here.
+
+\textbf{A precision note.} Strictly $A_i m_u$ is not the nuclear mass. The
+deviation is exactly the mass excess of \S\ref{sec:massexcess},
+$(M - A u)/(A u) = \Delta/(A \cdot 931.494~\mathrm{MeV})$, and it is worth
+tabulating because its \emph{sign and size are both counter-intuitive}:
+
+\begin{center}
+\begin{tabular}{@{}l c c c c c@{}}
+\toprule
+ & \code{neut} & \code{h1} & \code{he4} & \code{si28} & \code{fe56} \\
+\midrule
+$(M - A u)/(A u)$ & \textbf{$+0.87\%$} & \textbf{$+0.78\%$} & $+0.065\%$
+                  & $-0.082\%$ & $-0.116\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Two traps here (values from AME2020; note these are atomic-convention numbers
+--- the \code{h1} entry includes the electron, and the bare proton would read
+$+0.73\%$). First, the largest deviations belong to the \textbf{free nucleons},
+and they are \textbf{positive} --- $n$ and $p$ are \emph{heavier} than
+$A\cdot u$, because the atomic mass unit is defined by \nuc{C}{12}, which is
+itself bound. Second, for the heavy nuclei that carry the mass the deviation is
+only ${\sim}10^{-3}$, an order of magnitude smaller. The ${\sim}0.9\%$ figure
+that is easy to reach for is $B/(A m_u c^2)$ --- the defect relative to
+\emph{free constituent nucleons} --- which is a different quantity and answers
+a different question.
+
+Using the integer $A$ means $\sum A_i Y_i = 1$ holds \emph{exactly by
+definition} rather than approximately, and the mass defect is accounted
+separately in the energy equation ($\enuc = -N_A \sum m_i c^2 \Delta Y_i$, with
+the mass excess usable in place of $m_i c^2$ because nucleon number is
+conserved --- \citealt{hix1999b}, eq.~12). This is a deliberate bookkeeping
+split: \textbf{exact integer arithmetic for the constraint, mass excesses for
+the energy.} It is what makes $A\cdot\nu = 0$ hold to machine zero rather than
+to the ${\sim}10^{-3}$ set by the heavy-nucleus column of the table above.
+
+\begin{repopointer}
+\textbf{In the code:} \code{src/gnn\_nucleo/data/subsample.py::compute\_ye\_initial}
+is \code{X @ (Z/A)}, i.e.\ exactly $\sum_i Z_i X_i/A_i$ --- a one-line
+implementation of \eqref{eq:molar-abundance} and \eqref{eq:ye}.
+\end{repopointer}
+
+% ---------------------------------------------------------------------
+\chapter{Why networks integrate \texorpdfstring{$Y$}{Y} and not
+  \texorpdfstring{$X$}{X} --- the real reason}
+\label{sec:whyY}
+
+\section{Argument 1 --- \texorpdfstring{$Y$}{Y} is a per-baryon quantity,
+  invariant under compression}
+\label{sec:perbaryon}
+
+From \eqref{eq:molar-abundance}, $Y_i = n_i/(\rho N_A) =$ (number of species
+$i$) / (number of baryons). Compressing or expanding a fluid element changes
+$\rho$ and every $n_i$ in proportion, leaving every $Y_i$ untouched. So in the
+Lagrangian frame:
+
+\begin{equation*}
+\left.\frac{\dd Y_i}{\dd t}\right|_{\text{total}}
+= \left.\frac{\dd Y_i}{\dd t}\right|_{\text{reactions}}
+\end{equation*}
+
+with no advection or compression term. Working in $n_i$ you would carry a
+spurious $-n_i(\dot\rho/\rho)$ term in every equation; in $X$ you would carry it
+too, hidden inside a nonlinear rate expression.
+
+\section{Argument 2 --- the constraint stays linear with constant coefficients}
+\label{sec:linearconstraint}
+
+\begin{equation*}
+\begin{aligned}
+\text{In } Y: &\quad \sum_i A_i Y_i = 1
+  && \text{coefficients } A_i \text{ are integers, fixed forever}\\
+\text{In } n: &\quad \sum_i A_i n_i = \rho N_A
+  && \text{right-hand side is time-dependent}
+\end{aligned}
+\end{equation*}
+
+This is what makes the conservation layer a \emph{fixed} linear operator,
+precomputed once and applied in decode. In any other variable the constraint
+matrix would be state-dependent and the architecture would collapse. Trace the
+dependency: linear constraint $\to$ fixed $\nu$ and $C$ $\to$ exact
+$A\cdot\nu = 0$ $\to$ conservation survives a random $\varphi$ $\to$
+conservation-by-construction is possible at all.
+
+\section{The network ODE}
+\label{sec:networkode}
+
+With rate $R_j$ [mol\,g$^{-1}$\,s$^{-1}$] and $\nu_{ij}$ the net stoichiometric
+coefficient (products $+$, reactants $-$):
+
+\begin{equation}
+\frac{\dd Y_i}{\dd t} = \sum_j \nu_{ij} R_j \qquad \iff \qquad
+\frac{\dd\mathbf{Y}}{\dd t} = \nu\,\mathbf{R}
+\label{eq:network-ode}
+\end{equation}
+
+For a two-body reaction $1 + 2 \to 3$,
+$r = n_1n_2\langle\sigma v\rangle/(1+\delta_{12})$ per unit volume; converting
+with \eqref{eq:molar-abundance} and $R = r/(\rho N_A)$:
+
+\begin{equation*}
+R = \frac{\rho N_A Y_1 Y_2 \langle\sigma v\rangle}{1+\delta_{12}}
+\end{equation*}
+
+--- one net power of $N_A$ (\citealt{hix1999b}, eq.~10: two-body terms carry
+$\rho N_A$, three-body $\rho^2 N_A^2$); equivalently
+$R = \rho Y_1 Y_2 \cdot [N_A\langle\sigma v\rangle]/(1+\delta_{12})$, where
+$N_A\langle\sigma v\rangle$ is the tabulated REACLIB quantity.
+
+The general form --- density exponent $\rho^{N-1}$ for $N$ reactants, $1/n!$
+for $n$ identical reactants --- is derived in S2. Note now only that $R$ is a
+\textbf{product of abundances times a function of $(T, \rho)$}, which makes
+$\partial R/\partial Y$ analytically available by the product rule --- the fact
+S10's integrator Jacobian rests on.
+
+% ---------------------------------------------------------------------
+\chapter{The electron fraction \texorpdfstring{\Ye{}}{Ye} --- the central
+  variable}
+\label{sec:ye}
+
+\section{Derivation}
+\label{sec:yederivation}
+
+Charge neutrality: electron number density equals total proton number density,
+
+\begin{equation*}
+n_e = \sum_i Z_i n_i = \rho N_A \sum_i Z_i Y_i
+\end{equation*}
+
+Define, in exact parallel to \eqref{eq:molar-abundance}:
+
+\begin{equation}
+Y_e \equiv \frac{n_e}{\rho N_A} = \sum_i Z_i Y_i = \sum_i \frac{Z_i X_i}{A_i}
+\label{eq:ye}
+\end{equation}
+
+\Ye{} is the number of electrons per baryon. For any nuclide with $Z = A/2$,
+$Z_i/A_i = 1/2$, so symmetric matter has $\Ye = 0.5$ exactly. $\Ye < 0.5$ is
+neutron-rich.
+
+\section{The neutron excess}
+\label{sec:neutronexcess}
+
+\begin{equation}
+\eta = \sum_i (N_i - Z_i)\,Y_i
+     = \sum_i A_i Y_i - 2\sum_i Z_i Y_i = 1 - 2Y_e
+\label{eq:neutron-excess}
+\end{equation}
+
+So $\eta$ and \Ye{} carry the same information ($\eta$ is the standard neutron
+excess --- \citealt{hix1999b}). The literature uses both, and confusing them is
+a real source of misread thresholds --- this repo carries an explicit open item
+on exactly that ambiguity in a cited paper.
+
+\textbf{Percentages quoted ``in $\eta$'' and ``in \Ye{}'' are not
+interchangeable}, and the amplification is larger than it first looks.
+Differentiating \eqref{eq:neutron-excess} gives $\delta\eta = \mathbf{-2}\,
+\delta\Ye$, so the relative-error amplification is
+
+\begin{equation*}
+\frac{|\delta\eta|/\eta}{|\delta Y_e|/Y_e}
+  \;=\; \frac{2Y_e}{\eta} \;=\; \frac{2Y_e}{1-2Y_e}
+\end{equation*}
+
+At $\Ye = 0.47$, $\eta = 0.06$ and the factor is
+$2(0.47)/0.06 = \mathbf{15.7}$: a 1\% error in \Ye{} is a
+\textbf{${\sim}16\%$} error in $\eta$, not 8\%. (Dropping the factor of 2 from
+\eqref{eq:neutron-excess} is the easy way to get 7.8 and it is wrong.) The
+amplification diverges as $\Ye \to 0.5$ --- precisely the upper edge of the
+regime box --- which is why $\eta$ is the worse variable to write a tolerance
+in here, and why every gate in this project is stated in \Ye{}.
+
+\section{What changes \texorpdfstring{\Ye{}}{Ye}}
+\label{sec:whatchangesye}
+
+Strong and electromagnetic reactions conserve $Z$ and $A$ separately, so they
+cannot change \Ye{} at all. Only \textbf{weak reactions} can:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{1.000} l l l@{}}
+\toprule
+\textbf{Process} & \textbf{Effect on $(Z, N)$} & \textbf{Effect on \Ye{}} &
+\textbf{Emits} \\
+\midrule
+electron capture, $e^- + p \to n + \nu$   & $Z-1$, $N+1$ &
+  \textbf{decreases} & $\nu$ \\
+$\beta^+$ decay, $p \to n + e^+ + \nu$    & $Z-1$, $N+1$ &
+  \textbf{decreases} & $\nu$ \\
+$\beta^-$ decay, $n \to p + e^- + \bar\nu$ & $Z+1$, $N-1$ &
+  \textbf{increases} & $\bar\nu$ \\
+positron capture, $e^+ + n \to p + \bar\nu$ & $Z+1$, $N-1$ &
+  \textbf{increases} & $\bar\nu$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+All at \textbf{fixed $A$} (process definitions as in
+\citealt{langanke2000,langanke2003}; the grouping is verbatim in
+\citealt{heger2001} --- EC and $\beta^+$ decay decrease \Ye{}, positron capture
+and $\beta^-$ decay increase it). Note the pairing carefully, because it is easy
+to get backwards: the processes group by \textbf{which way $Z$ moves}, not by
+which lepton is named. EC and $\beta^+$ decay both \emph{lower} $Z$ and \Ye{}
+and emit a $\nu$; $\beta^-$ decay and positron \emph{capture} both \emph{raise}
+$Z$ and \Ye{} and emit a $\bar\nu$. Grouping ``$\beta^+$ decay / positron
+capture'' together --- the intuitive but wrong reading --- puts a \Ye{}-raising
+process in the \Ye{}-lowering row, which is exactly the sign error the
+project's invariant \#3 exists to catch.
+
+\textbf{What the code carries.} \code{graph/stoich.py::WEAK\_LEDGERS} has three
+keys --- \code{electron\_capture}, \code{beta\_neg}, \code{beta\_pos} --- with
+EC and $\beta^+$ sharing the ledger signature $(-1, +1, 0)$ under the
+annihilated-positron convention (the emitted positron annihilates on a plasma
+electron, so the net electron-ledger effect is $-1$). Positron capture has no
+separate entry: it is folded into the \emph{evaluated} $\beta^-$-direction weak
+rate --- MESA's weaklib sums decay $+$ capture per direction at evaluation time,
+although the raw tables do carry a separate positron-capture column before that
+sum (and its contribution is small at these conditions ---
+\citealt{langanke2000}; \citealt{heger2001} neglected it outright). So the
+fourth row above is physics you must know in order to read a weak-rate table
+correctly, not a column you will find in \code{weak\_mask}.
+
+Hence a structural statement you should verify against the exported matrix:
+
+\begin{invariant}
+A column of $\nu$ is a weak column \textbf{if and only if} it moves \Ye{}, i.e.
+$\sum_i Z_i \nu_{ij} \neq 0$ while $\sum_i A_i \nu_{ij} = 0$ --- with
+\textbf{both sums taken over the nuclei block only.} On the extended
+$\tilde\nu$ (which appends the $e^-$/$\nu$/$\bar\nu$ ledger rows) the charge sum
+is zero for \emph{every} column, weak included, because charge is conserved by
+the reaction.
+\end{invariant}
+
+Verify it, but do not adopt it as a \emph{definition}: \code{graph/stoich.py}
+assigns the lepton ledger from the rate's \code{weak\_type} and warns explicitly
+against back-deriving it from $Z\cdot\nu$, ``that would make the
+charge-to-lepton closure a tautology''. The eligible-mask machinery is built
+structurally from \code{weak\_mask} at construction time for the same reason.
+
+\section{Why silicon burning drives \texorpdfstring{\Ye{}}{Ye} down --- now
+  quantitatively}
+\label{sec:yedown}
+
+Electron capture on free protons requires total electron energy
+$E_e \geq (m_n - m_p)c^2 = 1.293$~MeV. In a degenerate gas the available energy
+is $E_F$, and setting $E_F = 1.293$~MeV gives a \textbf{critical density
+$\rho \approx 2.4\times10^{7}$~\gcc} at $\Ye = 0.5$ (\S\ref{sec:ecthreshold}).
+
+That is \emph{inside the regime box, near its lower edge}. Below it captures are
+thermally suppressed; above it they are degeneracy-driven and vigorous. At
+$\rho = 10^{8}$ the Fermi energy is 1.97~MeV --- comfortably above threshold ---
+and at $10^{9}$ it is 4.1~MeV.
+
+The emitted neutrinos escape (\S\ref{sec:freestreaming}), so nothing accumulates
+to push the weak sector back toward equilibrium: \textbf{\Ye{} ratchets downward
+in net}, and by \S\ref{sec:explodability} the Chandrasekhar mass follows it. The
+individual channels still run both ways --- $\beta^-$ decay raises \Ye{} every
+step --- so ``monotonic'' is a statement about the sum over weak columns, not
+about any one of them (\S\ref{sec:freestreaming}). That net one-way ratchet over
+${\sim}10^{5}$~s is the physical signal this entire project exists to reproduce
+accurately.
+
+\section{The lepton ledger}
+\label{sec:leptonledger}
+
+Because neutrinos leave, bookkeeping must be explicit. $C$ carries three rows:
+
+\begin{enumerate}
+\item \textbf{baryon} --- $A_i$ on nuclei
+\item \textbf{charge} --- $Z_i$ on nuclei, \textbf{$-1$ on the electron
+      column}, 0 on neutrinos
+\item \textbf{lepton number} --- $e^-$ $+1$, $\nu$ $+1$, $\bar\nu$ $-1$
+\end{enumerate}
+
+The projector therefore acts on the \textbf{extended} vector
+$[\dd Y_{\text{nuclei}}\ldots, \dd Y_{e^-}, \dd Y_\nu, \dd Y_{\bar\nu}]$.
+
+\textbf{Why the extension is not optional.} Projecting a nuclei-only vector
+would force $\sum Z_i \dd Y_i = 0$ --- precisely the statement that \Ye{} never
+changes. It would silently erase the physical signal. This is the concrete
+content of the invariant ``a design that zeroes $\dd\Ye$ to make drift residuals
+vanish is wrong'': zeroing the signal is the \emph{easy} way to pass a
+conservation test, and the architecture must make it impossible by accident.
+\code{test\_projector.py} carries a dedicated
+\code{test\_projection\_preserves\_weak\_dYe\_signal} for exactly this.
+
+Note the conceptual subtlety the third row encodes: lepton number is
+\emph{conserved by the reaction}, and then the neutrino physically leaves the
+zone. The ledger lets you state both facts without contradiction.
+
+% ---------------------------------------------------------------------
+\chapter{The network as a bipartite graph}
+\label{sec:bipartite}
+
+Two node types:
+
+\begin{itemize}
+\item \textbf{Isotope nodes} $I$: one per species (80 or 151).
+\item \textbf{Reaction nodes} $R$: one per reaction (607 or 1518 after
+      reconciliation).
+\end{itemize}
+
+Two edge types:
+
+\begin{itemize}
+\item \textbf{$I \to R$} reactant incidence.
+\item \textbf{$R \to I$} signed product incidence, carrying the stoichiometric
+      coefficient.
+\end{itemize}
+
+$\nu$ is exactly the (signed, summed) biadjacency matrix --- the graph and the
+linear algebra are two views of one object.
+
+\textbf{Why bipartite rather than species-only.} A reaction with three reactants
+is a genuine 3-way interaction --- a \textbf{hyperedge}. Collapsing it to
+pairwise $I\to I$ edges loses the information that the three must act
+\emph{jointly}: from the projected graph you cannot tell whether $\{a,b,c\}$
+came from one ternary reaction or three binary ones, and the rate expressions
+differ ($\rho^2 Y_aY_bY_c$ versus sums of $\rho Y\cdot Y$). The bipartite form
+represents the hyperedge exactly. The cost is a doubled hop count: an
+$I\to I$ step corresponds to two bipartite hops along an alternating path, which
+is why the bipartite diameter measures 6 while the derived $I\to I$ view is
+measured at diameter 4 (\code{RESULTS.md} --- not exactly half, because the
+projection is its own graph object). One message-passing round traverses both
+halves --- see \S\ref{sec:messagepassing} for the depth arithmetic and for why
+the shipped $K = 5$ is margin rather than a minimum.
+
+\textbf{Forward and reverse are separate columns}, not one signed column. MESA
+softwires them separately and pynucastro treats them as distinct rates, so the
+canonical key convention makes a directed key per direction, and \code{pair\_col}
+recovers the pairing downstream. This is exactly what makes $\kappa$ computable
+per pair --- and note that it is a \emph{choice}: a signed-column representation
+would make conservation just as exact but would destroy the ability to measure
+detailed balance, because $f^+$ and $f^-$ would already have been summed.
+
+% ---------------------------------------------------------------------
+\chapter{Reaction nomenclature and REACLIB chapters}
+\label{sec:nomenclature}
+
+Basic literacy. The configs index reactions by these categories, and the
+project's headline bug is indexed by \emph{chapter}.
+
+\section{Channel notation}
+\label{sec:channelnotation}
+
+\begin{equation*}
+A(b,c)D \qquad \text{means} \qquad A + b \to c + D
+\end{equation*}
+
+with the light participants abbreviated: $n$, $p$, $\alpha$, $\gamma$, $e^-$,
+$\nu$ (standard notation --- \citealt{jose2011}). Channels that appear in this
+network:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}l R{0.864} R{1.136}@{}}
+\toprule
+\textbf{Channel} & \textbf{Meaning} & \textbf{Role in Si burning} \\
+\midrule
+$(\alpha,\gamma)$ / $(\gamma,\alpha)$ &
+  $\alpha$ capture / $\alpha$ photodisintegration &
+  \textbf{the ladder} --- Si $\to$ S $\to$ Ar $\to \ldots \to$ Ni \\
+$(p,\gamma)$ / $(\gamma,p)$ & proton capture / release &
+  side flow, bottlenecks \\
+$(n,\gamma)$ / $(\gamma,n)$ & neutron capture / release &
+  fastest pairs; set the stiffness ceiling \\
+$(p,\alpha)$, $(\alpha,p)$ & rearrangement & bridges between groups \\
+$(n,\alpha)$, $(\alpha,n)$ & rearrangement & bridges \\
+$(p,n)$, $(n,p)$ & charge exchange, strong &
+  conserves \Ye{} (both $A$ and $Z$ conserved overall) \\
+$(e^-,\nu)$ & electron capture & \textbf{weak} --- lowers \Ye{} \\
+$\beta^-$, $\beta^+$ & beta decay &
+  \textbf{weak} --- raises / lowers \Ye{} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{A reverse is a distinct reaction}, not a sign flip: $(\alpha,\gamma)$
+and $(\gamma,\alpha)$ are two columns of $\nu$, two rate evaluations, two rows
+in the config. \S\ref{sec:bipartite} explains why that representational choice
+is what makes $\kappa$ measurable.
+
+\section{REACLIB chapters}
+\label{sec:reaclibchapters}
+
+REACLIB indexes every rate by a \textbf{chapter}, which is simply the reactant
+and product counts \citep[][all eleven forms below verified against the JINA
+REACLIB format definition]{cyburt2010}:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}c R{0.95} c R{1.05}@{}}
+\toprule
+\textbf{Chapter} & \textbf{Form} &
+\textbf{$\Delta N = n_{\text{out}} - n_{\text{in}}$} & \textbf{Example} \\
+\midrule
+1  & $e_1 \to e_2$ & 0 & $\beta$ decay, electron capture \\
+2  & $e_1 \to e_2 + e_3$ & $+1$ &
+     $(\gamma,n)$, $(\gamma,p)$, $(\gamma,\alpha)$ \\
+3  & $e_1 \to e_2 + e_3 + e_4$ & $+2$ & $\nuc{C}{12} \to 3\alpha$ \\
+4  & $e_1 + e_2 \to e_3$ & $-1$ &
+     $(n,\gamma)$, $(p,\gamma)$, $(\alpha,\gamma)$ \\
+5  & $e_1 + e_2 \to e_3 + e_4$ & 0 &
+     $(p,\alpha)$, $(\alpha,n)$, $(n,p)$ \\
+6  & $e_1 + e_2 \to e_3 + e_4 + e_5$ & $+1$ &
+     $\nuc{B}{11}(p,2\alpha)\alpha$, $\nuc{He}{3}(\nuc{He}{3},2p)\nuc{He}{4}$
+     class \\
+7  & $e_1 + e_2 \to e_3 + e_4 + e_5 + e_6$ & $+2$ &
+     light-ion $2\to4$ breakup, e.g.\
+     $\nuc{Li}{7}(\nuc{He}{3},n p \alpha)\alpha$ \\
+8  & $e_1 + e_2 + e_3 \to e_4$ & $-2$ &
+     \textbf{$3\alpha \to \nuc{C}{12}$} \\
+9  & $e_1 + e_2 + e_3 \to e_4 + e_5$ & $-1$ & \\
+10 & $e_1 + e_2 + e_3 + e_4 \to e_5 + e_6$ & $-2$ & \\
+11 & $e_1 \to e_2 + e_3 + e_4 + e_5$ & $+3$ & \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Why the chapter is the quantity that matters.} Detailed balance relates
+a forward rate to its reverse through a phase-space factor carrying one power of
+
+\begin{equation*}
+\left(\frac{\mu\,kT}{2\pi\hbar^2}\right)^{3/2}\Big/ N_A
+\end{equation*}
+
+\textbf{per excess product} --- i.e.\ per unit of $|\Delta N|$
+(\S\ref{sec:detailedbalance}, and derived properly in S3; the general
+reverse-ratio formula carries the factor to the power $r - p$ ---
+\citealt{rauscher2000}; \citealt{smith2023}, appendix). Note the reduced mass
+$\mu$ inside: without it the factor is not a number density, and the
+bookkeeping does not close dimensionally.
+
+\begin{warn}
+\textbf{Do not compress this to ``$|\Delta N| \neq 1$ is the bug''.} That is the
+natural guess and it is wrong --- see below. The discriminator is the
+\emph{arity} of the tabulated direction, not $|\Delta N|$.
+\end{warn}
+
+The gh-575 / Appendix-B bug lives here (\citealp{mesa575}; \citealt[App.~B]{grichener2025}): stock MESA's detailed-balance path handles only the
+\textbf{$2 \to 1$} forward (chapter 4, giving the chapter-2 reverse), where
+exactly one power of the factor is required, plus the factor-free $2 \to 2$
+case. Any tabulated direction with \textbf{three or more participants on a
+side} falls outside that path --- the issue reports the phase-space factor is
+omitted there, producing reverse rates wrong by up to ${\sim}24$ orders of
+magnitude (exactly how many powers are missing per channel is an inference from
+the formula, not stated in the issue). So the affected forward chapters are
+\textbf{6} ($2\to3$), \textbf{7} ($2\to4$), \textbf{8} ($3\to1$), and
+\textbf{9} ($3\to2$), and it is their \emph{inverses} that MESA gets wrong.
+
+\textbf{Read the config with its convention in hand}, because it is not stated
+in the file: in \code{configs/appendixb\_excluded\_channels.yaml},
+\code{chapter} is the chapter of the \textbf{tabulated forward}, while
+\code{mesa\_handle} and \code{dN} describe the \textbf{inverse} --- the
+direction actually being flagged. Hence rows like
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\footnotesize\ttfamily,
+  ann/.style={font=\footnotesize\rmfamily\itshape, align=left,
+              text=warnrule}]
+
+\node[anchor=west, align=left] (r1) at (0,0)
+  {chapter: 8\ \ \ dN: +2\ \ \ \ r\_c12\_to\_he4\_he4\_he4};
+\node[anchor=west, align=left] (r2) at (0,-1.35)
+  {chapter: 6\ \ \ dN: $-$1\ \ \ \ r\_he4\_he4\_he4\_to\_h1\_b11};
+
+\node[ann, anchor=west] (a1) at (8.35,0.16)
+  {forward $3\alpha\to\nuc{C}{12}$ is ch-8;};
+\node[ann, anchor=west] (a1b) at (8.35,-0.20)
+  {the flagged handle is its $1\to3$ inverse};
+
+\node[ann, anchor=west] (a2) at (8.35,-1.19)
+  {forward $h1+b11\to3\alpha$ is ch-6;};
+\node[ann, anchor=west] (a2b) at (8.35,-1.55)
+  {the flagged handle is its $3\to2$ inverse};
+
+\draw[-{Latex[length=1.6mm]}, warnrule, line width=0.6pt]
+  ([xshift=2mm]r1.east) -- ([xshift=-2mm]a1.west);
+\draw[-{Latex[length=1.6mm]}, warnrule, line width=0.6pt]
+  ([xshift=2mm]r2.east) -- ([xshift=-2mm]a2.west);
+\end{tikzpicture}
+\caption{Two rows of \code{configs/appendixb\_excluded\_channels.yaml} with
+their convention made explicit: \code{chapter} names the tabulated
+\emph{forward}, \code{dN} the flagged \emph{inverse}.}
+\label{fig:appendixb}
+\end{figure}
+
+\begin{exercise}
+\textbf{The falsification you should perform yourself.} Count \code{dN} over the
+20 rows of that config (11 for \msn{151}, 9 for \msn{80}): \textbf{13 of them
+have $|dN| = 1$} --- all eleven chapter-6 rows and both chapter-9 rows. The only
+rows with $|dN| \neq 1$ are the two chapter-7 ($dN = -2$) and five chapter-8
+($dN = +2$) entries. If ``$|\Delta N| \neq 1$'' were the bug, the other thirteen
+rows could not be there. Conversely chapter 8's forward \emph{does} have a
+single product, so a rule phrased on product count alone would wrongly exonerate
+$3\alpha \to \nuc{C}{12}$ --- whose inverse is in the config with
+\code{dlog10} in the tens. The config's own \code{class} values name the real
+criterion (\code{multi\_body\_inverse} for the ch-6/7/9 rows,
+\code{photo\_of\_multibody} for the five ch-8 rows --- the $3\alpha$ inverse is
+the latter). The \code{dlog10} column is how far wrong the rate was.
+\end{exercise}
+
+Chapter 5 ($2\to2$) is safe for a different reason again --- $\Delta N = 0$, so
+no factor is needed at all. Chapters 10 and 11 do not appear as
+tabulated-\emph{forward} chapters: REACLIB's five ch-10 entries are all
+v-flagged detailed-balance reverses of the ch-7 forwards (three touch only
+in-network species, e.g.\ $n+p+\alpha+\alpha \to \nuc{He}{3}+\nuc{Li}{7}$ ---
+i.e.\ exactly the raw-reverse class the pf gate forbids using), and its ch-11
+forwards are all $\beta$-delayed multi-neutron emitters near the dripline,
+outside these networks. Not because either arity would be safe.
+
+\begin{repopointer}
+\textbf{In the code:}
+\code{configs/reactions\_mesa\{80,151\}\_mesa.yaml} carries \code{category} per
+reaction (see \S\ref{sec:topology});
+\code{configs/appendixb\_excluded\_channels.yaml} carries \code{chapter} and
+\code{dN}. \code{crosscheck/canonical.py} builds the directed multiset key that
+makes ``same reaction'' decidable across MESA and pynucastro.
+\end{repopointer}
+
+% ---------------------------------------------------------------------
+\chapter{The topology of silicon burning}
+\label{sec:topology}
+
+What actually flows where. \S\ref{sec:lastday} said ``photodisintegration
+rearrangement''; this is the mechanism in detail.
+
+\section{The \texorpdfstring{$\alpha$}{alpha} ladder}
+\label{sec:alphaladder}
+
+Photodisintegration of the least-bound nuclei liberates $\alpha$, $p$, $n$.
+Those light particles are captured by the rest, walking composition up an
+$\alpha$-chain \citep{bodansky1968,wac1973,hix1996}:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  nuc/.style={draw, rounded corners=2pt, line width=0.7pt, inner sep=3.5pt,
+              fill=resultrule!7, minimum height=7mm},
+  fwd/.style={-{Latex[length=1.7mm]}, line width=0.65pt},
+  lbl/.style={font=\scriptsize, inner sep=1.4pt},
+  node distance=13mm]
+
+% top row, left to right
+\node[nuc] (si)  at (0,0)      {\nuc{Si}{28}};
+\node[nuc] (s)   at (2.75,0)   {\nuc{S}{32}};
+\node[nuc] (ar)  at (5.5,0)    {\nuc{Ar}{36}};
+\node[nuc] (ca)  at (8.25,0)   {\nuc{Ca}{40}};
+\node[nuc] (ti)  at (11.0,0)   {\nuc{Ti}{44}};
+% bottom row, right to left
+\node[nuc] (cr)  at (11.0,-2.3) {\nuc{Cr}{48}};
+\node[nuc] (fe)  at (8.25,-2.3) {\nuc{Fe}{52}};
+\node[nuc] (ni)  at (5.5,-2.3)  {\nuc{Ni}{56}};
+
+\foreach \a/\b in {si/s, s/ar, ar/ca, ca/ti} {
+  \draw[fwd] ([yshift=1.6mm]\a.east) -- ([yshift=1.6mm]\b.west)
+    node[lbl, midway, above] {$(\alpha,\gamma)$};
+  \draw[fwd] ([yshift=-1.6mm]\b.west) -- ([yshift=-1.6mm]\a.east)
+    node[lbl, midway, below] {$(\gamma,\alpha)$};
+}
+
+% Ti44 -> Cr48 turn
+\draw[fwd] (ti.south) -- (cr.north);
+
+\foreach \a/\b in {cr/fe, fe/ni} {
+  \draw[fwd] (\a.west) -- (\b.east)
+    node[lbl, midway, above] {$(\alpha,\gamma)$};
+}
+\end{tikzpicture}
+\caption{The $\alpha$ ladder. Each rung is a capture/photodisintegration pair;
+the chain turns at \nuc{Ti}{44} and runs back along the lower row to the
+\nuc{Ni}{56} endpoint.}
+\label{fig:alphaladder}
+\end{figure}
+
+\textbf{The config category names are literally this ladder.} Count them in
+\code{configs/reactions\_mesa80\_mesa.yaml}:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.955} l R{1.045}@{}}
+\toprule
+\textbf{Category} & \textbf{Count (\msn{80})} & \textbf{What it is} \\
+\midrule
+\code{photo} & \textbf{151} &
+  photodisintegration --- the largest single category \\
+\code{si\_alpha}, \code{s\_alpha}, \code{ar\_alpha}, \code{ca\_alpha},
+\code{ti\_alpha}, \code{cr\_alpha} & 27, 22, 19, 17, 14, 14 &
+  the rungs of the ladder \\
+\code{fe\_co\_ni} & 17 & the top of the ladder \\
+\code{c\_alpha}, \code{n\_alpha}, \code{o\_alpha}, \code{ne\_alpha},
+\code{na\_alpha}, \code{mg\_alpha} & 7, 10, 23, 32, 25, 27 &
+  below Si --- inherited from earlier stages \\
+\code{tri\_alpha} & 1 &
+  $3\alpha \to \nuc{C}{12}$ (its $1\to3$ inverse is the gh-575 casualty,
+  \S\ref{sec:reaclibchapters}) \\
+\code{c12\_c12}, \code{o16\_o16} & 3, 3 &
+  heavy-ion fusion, earlier stages \\
+\code{pp}, \code{cno} & 15, 33 &
+  hydrogen burning, essentially inert here \\
+\code{other} & 147 & $(p,n)$, $(n,p)$, weak, everything else \\
+\midrule
+\textbf{total} & \textbf{607} & $\leftarrow$ the table sums; check it \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+That \code{photo} is the largest category is the whole story of
+\S\ref{sec:lastday} in one number.
+
+\section{Two clusters and the bridges between them}
+\label{sec:clusters}
+
+Both ends of the ladder equilibrate internally faster than material crosses the
+middle. This produces the structure the project's QSE machinery targets --- two
+QSE groups divided near $A \approx 45$ \citep{wac1973,hix1996}:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small,
+  grp/.style={draw, line width=0.8pt, rounded corners=3pt, align=center,
+              minimum width=46mm, minimum height=20mm, fill=resultrule!6},
+  lbl/.style={font=\scriptsize, align=center}]
+
+\node[grp] (si) at (0,0)
+  {\textbf{SILICON GROUP}\\[2pt] $24 \le A < 45$\\[2pt]
+   \emph{internally fast}};
+\node[grp] (fe) at (8.4,0)
+  {\textbf{IRON GROUP}\\[2pt] $A \gtrsim 45$\\[2pt]
+   \emph{internally fast}};
+
+\draw[-{Latex[length=2.4mm]}, line width=1.1pt]
+  (si.east) -- (fe.west)
+  node[lbl, midway, above=1pt] {bridges}
+  node[lbl, midway, below=1pt] {bottleneck\\reactions};
+
+\draw[-{Latex[length=2.2mm]}, line width=0.7pt]
+  (fe.south) -- ++(0,-1.1) coordinate (bend)
+  -| (si.south);
+\node[lbl, fill=white, inner sep=2pt] at (4.2,-1.85)
+  {free $n$, $p$, $\alpha$};
+\end{tikzpicture}
+\caption{The two QSE clusters, each internally equilibrated, coupled by a
+handful of rate-limiting bridge reactions and by the shared reservoir of free
+light particles.}
+\label{fig:clusters}
+\end{figure}
+
+\begin{itemize}
+\item \textbf{Within a group}, forward and reverse rates are fast and nearly
+      balanced --- so $\kappa$ is small there, and the abundances follow an
+      equilibrium (Saha-like) distribution up to one cluster-wide offset
+      (\S\ref{sec:chempotential}, eq.~\eqref{eq:qse-offset}).
+\item \textbf{Between groups}, flow is rate-limited by a handful of
+      \textbf{bridge} reactions. These carry the net baryon flux and therefore
+      control how fast Si becomes Fe.
+\end{itemize}
+
+This is what \code{configs/qse\_groups.yaml} encodes (\code{a\_min: 24},
+\code{a\_max: 45}, with the \code{a24\_46} variant moving the boundary so that
+\nuc{Sc}{45} falls inside), and what the bridge analysis of S9 measures. It also
+explains why a \emph{bottleneck} reaction like
+$\nuc{Sc}{45}(p,\gamma)\nuc{Ti}{46}$ is worth naming individually: a small
+number of reactions carry a large share of the inter-group flow --- in the
+classic analysis that single reaction dominated the linkage, with perhaps a
+quarter of the flow through lesser channels \citep[][as quoted by
+\citealt{hix1996}]{wac1973}.
+
+\section{A note on energy accounting}
+\label{sec:energyaccounting}
+
+Two independent routes to the same specific energy release, both used by the
+project as a mutual check:
+
+\begin{align*}
+\text{composition route:}\quad \enuc &= -N_A\sum_i m_i c^2\,\Delta Y_i
+  && \text{(mass excesses, \S\ref{sec:massexcess})}\\
+\text{flux route:}\quad \enuc &= \sum_j Q_j\,\Phi_j
+  && \text{($Q$-values} \times \text{fluxes)}
+\end{align*}
+
+They must agree, because $Q$-values are themselves differences of mass excesses.
+Agreement is therefore \emph{near-algebraic} when $Q$ is taken constant --- it
+bounds $Q$-table rounding, not route physics. A genuinely independent check
+needs the energy from one code's rates against another's composition change,
+which is why the project reports two separate readings and treats only the
+second as informative. Keep that distinction; it is easy to over-claim here.
+
+% ---------------------------------------------------------------------
+\chapter{The timescale hierarchy}
+\label{sec:timescales}
+
+Every structural feature of this problem is a statement about a ratio of
+timescales. Assembling them in one place is the single most useful organizing
+device in Tier 0.
+
+\section{The species destruction timescale}
+\label{sec:tauspecies}
+
+For species $i$, define
+
+\begin{equation}
+\tau_i = \frac{Y_i}{|\dot{Y}_i|}
+\label{eq:tau-species}
+\end{equation}
+
+--- the e-folding time of that species at the current state. This is the
+quantity that decides whether a label step is ``linear'' ($\tau \gg \Delta t$)
+or a full relaxation ($\tau \lesssim \Delta t$), and it is what the handshake
+analysis bins on (\S\ref{sec:dtgrid}).
+
+\section{The hierarchy, at box centre}
+\label{sec:hierarchy}
+
+Order-of-magnitude estimates at $\Tn \approx 4$, $\rho \approx 10^{8}$ ---
+derive each yourself rather than trusting the table:
+
+\begin{center}
+\small
+\begin{tabularx}{\textwidth}{@{}R{0.930} l R{1.070}@{}}
+\toprule
+\textbf{Process} & \textbf{Timescale} & \textbf{Set by} \\
+\midrule
+$(\gamma,n)$ / $(n,\gamma)$ on loosely bound nuclei &
+  $10^{-10}$--$10^{-6}$~s & $e^{-Q/kT}$ with $Q \sim$ few MeV \\
+charged-particle captures & $10^{-6}$--$10^{0}$~s &
+  Coulomb barrier $+$ screening \\
+intra-group equilibration & $\lesssim 10^{-3}$~s &
+  the above, within a cluster \\
+\textbf{inter-group (bridge) flow} & $10^{-1}$--$10^{2}$~s &
+  bottleneck reactions \\
+\textbf{weak reactions (EC, $\beta$)} & $10^{2}$--$10^{5}$~s &
+  $ft$ values, $E_F$ \\
+label $\dd t$ grid & $10^{-6}$--$10^{2}$~s &
+  $\leftarrow$ the emulator's window \\
+convective turnover & $10^{1}$--$10^{3}$~s &
+  $v_{\mathrm{conv}} \sim 10^{6}$--$10^{7}$~cm/s over
+  $L \sim 10^{8}$--$10^{9}$~cm \\
+core Si burning duration &
+  ${\sim}10^{5}$--$10^{6}$~s ($\approx$1 day to ${\sim}$2 weeks,
+  mass-dependent; WHW02) & neutrino cooling \\
+free-fall collapse & ${\sim}0.07$~s &
+  $\sqrt{3\pi/32G\rho}$ at $\rho = 10^{9}$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Read the consequences straight off the table:}
+
+\begin{itemize}
+\item \textbf{Stiffness ratio} (\S\ref{sec:stiffness}) is the ratio of the
+      extremes: ${\sim}10^{10}/10^{-5} \approx 10^{15}$.
+\item \textbf{QSE exists} because intra-group $\ll$ inter-group. The separation
+      \emph{is} the cluster structure.
+\item \textbf{\Ye{} is slow} --- weak timescales are the longest in the burning
+      problem, which is why \Ye{} evolution is the thing you must integrate
+      accurately for a long time, and why it has no restoring force on the fast
+      manifold (\S\ref{sec:rollouterror}).
+\item \textbf{The $\dd t$ grid brackets the interesting range} --- its
+      $10^{-6}$~s floor sits at (not below) the fastest charged-particle capture
+      timescales, and its top end reaches past the bridge timescale.
+\item \textbf{Operator splitting is safe at the short end, questionable at the
+      long end} (\S\ref{sec:splitting}): $\Delta t = 10^{2}$~s is comparable to
+      the bridge and convective timescales.
+\item \textbf{One-zone is an approximation} because convective turnover
+      ($10^{1}$--$10^{3}$~s) is \emph{not} long compared to the bridge timescale
+      (\S\ref{sec:onezone}).
+\end{itemize}
+
+\begin{warn}
+\textbf{Do the convective row's arithmetic yourself, and notice it is a range
+you cannot pin.} $\tau_{\mathrm{conv}} = L/v_{\mathrm{conv}}$, and both factors
+are uncertain by a decade: $L \sim 10^{8}$--$10^{9}$~cm for the convective
+Si-burning core, $v_{\mathrm{conv}} \sim 10^{6}$--$10^{7}$~cm/s. The corners
+give 10~s and $10^{3}$~s. Quoting a tight ``$10^{2}$--$10^{3}$~s'' requires
+committing to $L \sim 10^{9}$~cm, which is defensible but is a choice, not a
+derivation. This matters because two conclusions lean on the comparison:
+whether $\Delta t = 10^{2}$~s violates the splitting assumption
+(\S\ref{sec:splitting}) and whether one-zone is safe (\S\ref{sec:onezone}). At
+the fast corner mixing is \emph{faster} than the bridge flow and one-zone is
+worse than the table suggests; at the slow corner they are comparable. Carry
+the range, not a point value.
+\end{warn}
+
+\section{The separation you are tempted to assume does not exist}
+\label{sec:nogap}
+
+The natural next move is: ``the fast sector is 6--8 orders faster than the slow
+sector, so equilibrate it algebraically and integrate only the slow part.''
+
+That figure was carried in this project as an \emph{assumed} number and has been
+\textbf{retired by measurement}. On the actual label manifold, per-stratum
+medians of
+
+\begin{equation*}
+\log_{10}\left[\frac{\text{fastest } \kappa\text{-balanced gross rate}}
+                    {\text{slowest inter-group bottleneck net rate}}\right]
+\end{equation*}
+
+span roughly \textbf{$-12$ to $+1.4$~dex} ($p_{10} \approx -25$,
+$p_{90} \approx +3.5$). There is no cleanly separated fast equilibrated sector:
+$\kappa$-balanced pairs are $\le 0.4\%$ of carrying pairs and are mostly
+low-flux.
+
+\begin{aside}
+\textbf{So the hierarchy above is a real and useful organizing device, but it is
+a hierarchy of \emph{typical} values with enormous overlap --- not a spectral
+gap.} Any design that assumes a clean gap (a frozen equilibrium mask, a
+two-timescale reduction) has to justify itself against that measurement. This is
+the quantitative reason the Guidry mask came up empty and the flux head ended up
+full-width.
+\end{aside}
+
+% ---------------------------------------------------------------------
+\chapter{Code walkthrough}
+\label{sec:codewalkthrough-s0}
+
+\textbf{\code{configs/isotopes\_mesa80.yaml} / \code{isotopes\_mesa151.yaml}}
+--- authoritative species tables. Read the provenance headers: lists come from
+the \emph{data column headers}, cross-checked against the published paper's
+appendix table, which \textbf{omits \nuc{Ca}{41}}. Resolution recorded: ``paper
+typo; data is authoritative.'' The working principle it establishes --- when
+paper and data disagree, the data wins, and the disagreement is recorded rather
+than smoothed over --- recurs throughout the project.
+
+\textbf{\code{graph/isotopes.py}} --- \code{IsotopeTable},
+\code{load\_isotope\_table}, \code{canonical\_network}. The job is naming
+discipline: YAML names and order define $\nu$'s row order, the npz
+\code{species} array, and graph node names, matching the training-CSV column
+suffixes \code{initial\_<name>}. pynucastro's capitalization (\code{"Neut"},
+\code{"H1"}) is \textbf{never stored} --- mapping is fail-loud at the boundary.
+
+\begin{repopointer}
+\textbf{Oracle:} \code{tests/test\_schema.py::test\_network\_species\_counts}\\
+\textbf{Notebook:} \code{01-data-inventory} Fig~2 (($N$,$Z$) plane), Fig~3
+(\Ye{}-controller membership)
+\end{repopointer}
+
+% ---------------------------------------------------------------------
+\chapter*{Self-check --- the network as a formal object}
+\addcontentsline{toc}{chapter}{Self-check --- the network as a formal object}
+\label{sec:selfcheck-network}
+
+\begin{selfcheck}
+\item Derive $Y = X/A$ and $\sum A_i Y_i = 1$ from
+      $n_i = \rho N_A X_i/A_i$ without looking.
+\item Show that the \emph{only} columns of $\nu$ with
+      $\sum Z_i \nu_{ij} \neq 0$ are weak columns, and confirm numerically
+      against the exported \code{weak\_mask}.
+\item Given $M_{\mathrm{ch}} = 5.83\,Y_e^2\,\Msun$, compute the fractional
+      change for $\Ye: 0.50 \to 0.47 \to 0.45$. Then compute what per-step \Ye{}
+      error, accumulated systematically over $1.6\times10^{3}$ steps, produces a
+      1\% $M_{\mathrm{ch}}$ error. Compare to the $3\times10^{-6}$ gate.
+\item Explain why \code{neut} must be a network species rather than a bath, in
+      terms of equation \eqref{eq:baryon-conservation}.
+\item Explain the \S\ref{sec:molarabundance} precision note: why use integer $A$
+      in the constraint when $M \neq A\cdot u$? Compute $(M - A u)/(A u)$
+      yourself for \code{neut}, \code{he4}, and \code{fe56} from the mass
+      excesses in \S\ref{sec:massexcess} --- get the signs right --- and say
+      which of those numbers sets the $10^{-3}$ that $A\cdot\nu = 0$ would
+      otherwise be limited to. What breaks if you use real masses in the
+      constraint row instead?
+\item Explain what is lost by projecting the bipartite graph onto species-only
+      edges, using a concrete ternary reaction from the network.
+\item Write $\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$ and its reverse in chapter
+      notation. What is $\Delta N$ for each? Why is this pair safe --- and state
+      the reason in terms of arity, not $|\Delta N|$.
+\item Take three entries from
+      \code{configs/appendixb\_excluded\_channels.yaml} and verify both fields
+      against the table in \S\ref{sec:reaclibchapters} --- remembering that
+      \code{chapter} describes the tabulated \emph{forward} while \code{dN}
+      describes the flagged \emph{inverse}. Then tabulate $|dN|$ over all 20
+      rows and confirm that most of them are 1, i.e.\ that
+      $|\Delta N| \neq 1$ is \emph{not} the criterion.
+\item Why is \code{photo} the largest reaction category in the network? Connect
+      to \S\ref{sec:lastday}.
+\item Estimate $\tau$ for a $(\gamma,n)$ with $Q = 8$~MeV at $\Tn = 4$ and at
+      $\Tn = 5$. How many decades does one GK buy you?
+\item Given the hierarchy table, predict which pairs of processes could
+      plausibly \emph{swap order} somewhere in the box. Check against the
+      $-12\ldots+1.4$~dex measurement.
+\item State in one sentence why ``6--8 orders of separation'' being false does
+      not invalidate the QSE \emph{concept}, only its algebraic exploitation.
+\end{selfcheck}
+
+\begin{aside}
+\textbf{Two questions from the source document's \S II.8 are not here.} Item~4
+(the \msn{80}/\msn{151} diff and its \Ye{} bias) and item~7 (the $\asinh$
+constraint counter-example) both test material that now sits later, in
+Part~\ref{part:computational}; they appear in that part's self-check instead.
+See Appendix~\ref{app:concordance}.
+\end{aside}

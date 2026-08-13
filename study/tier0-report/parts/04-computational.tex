@@ -1,0 +1,522 @@
+% =====================================================================
+%  Part IV -- The computational problem.
+%  Source: tier0.md I.3 (1103-1147), I.4 (1149-1220), I.5 (1222-1256),
+%          I.6 (1258-1313), I.7 (1315-1347), I.8 (1349-1423),
+%          I.9 items 4-6 (1433-1438), plus II.8 items 4 and 7
+%          (1816-1817, 1825-1826) relocated here.
+% =====================================================================
+\part{The computational problem}
+\label{part:computational}
+
+% ---------------------------------------------------------------------
+\chapter{Why nuclear networks are the computational bottleneck}
+\label{sec:bottleneck}
+
+\begin{equation*}
+\frac{\dd\mathbf{Y}}{\dd t} = \nu\,\mathbf{R}(\mathbf{Y};\,T,\rho) \qquad
+n_{\text{species}} \text{ equations}, \; n_{\text{rxn}} \text{ terms}
+\end{equation*}
+
+\section{The three costs, quantified}
+\label{sec:threecosts}
+
+\textbf{1. Stiffness forces implicit integration.} The stiffness ratio
+$S = \max|\mathrm{Re}\,\lambda|/\min|\mathrm{Re}\,\lambda|$ reaches
+$10^{12}$--$10^{15}$ here (\S\ref{sec:stiffness}; ``$S > 10^{15}$ is not
+uncommon in astrophysics'' --- \citealt{hix1999b}). An explicit method needs
+${\sim}S$ steps. Implicit is not an optimization, it is a necessity.
+
+\textbf{2. Each implicit step costs a Jacobian build plus a linear solve.}
+Newton iteration on the backward-Euler / BDF residual requires forming
+$J = \nu\,\partial R/\partial Y$ ($n \times n$) and factorizing $(I - hJ)$.
+Dense LU is $\approx 2n^3/3$ FLOPs, i.e.\ $n^3/3$ multiply--add pairs
+\citep{golub2013}; the table counts the latter:
+
+\begin{center}
+\begin{tabular}{@{}l r r r@{}}
+\toprule
+\textbf{Network} & \textbf{$n$} &
+\textbf{Dense LU (multiply--adds/factorization)} & \textbf{Ratio} \\
+\midrule
+\msn{80}  & 80  & $1.7\times10^{5}$ & $1\times$ \\
+\msn{151} & 151 & $1.1\times10^{6}$ & \textbf{$6.7\times$} \\
+\msn{204} & 204 & $2.8\times10^{6}$ & $17\times$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Why sparsity does not rescue you.} The Jacobian is sparse
+\emph{structurally} --- each species couples only to reaction partners --- but
+LU factorization \textbf{fills in}: eliminating one variable creates couplings
+between all its neighbours. Nuclear networks are strongly connected through free
+nucleons --- \code{neut} and \code{h1} each appear in ${\sim}41\%$ of
+\msn{80}'s 607 reactions (either in 72\%), and \citet{hix1999b} describe exactly
+this structure as a ``doubly bordered, band diagonal'' matrix whose dense border
+carries the free $n$, $p$, $\alpha$ --- so those rows and columns are nearly
+dense and the fill-in propagates. Reordering helps but does not restore the
+sparsity. On top of that, each \emph{step} takes several Newton iterations, and
+each iteration may re-factorize.
+
+\textbf{3. Every zone, every step.} A stellar model has $10^{3}$--$10^{4}$ zones
+(\citealt{hix1999b}: ``hundreds to thousands'' for 1-D models) and takes of
+order $10^{4}$--$10^{6}$ timesteps to core collapse. The multiplication is what
+makes the network a runtime majority-holder in late burning stages (within the
+network step itself, the matrix solve alone consumes 90$+$\% of the time ---
+\citealt{hix1999b}).
+
+\textbf{The compromise no one is happy with:} use a network small enough to
+afford, and accept that it gets the composition --- and therefore \Ye{} ---
+wrong.
+
+% ---------------------------------------------------------------------
+\chapter{Softwired networks: the compromise MESA makes}
+\label{sec:softwired}
+
+MESA's response is the \textbf{softwired} network: a fixed species list, with
+reaction links assembled at runtime from whichever rates connect those species
+(as opposed to \emph{hardwired} fixed lists or \emph{approx} lumped networks ---
+\S\ref{sec:mesabbq}).
+
+An immediate methodological consequence: \textbf{the reaction count is a
+measured quantity, not a documented one.} You have to ask MESA what it built.
+That is the entire purpose of the Fortran probe
+(\code{src/mesa\_probes/probe.f90}) and the reconciliation of S6, which
+established 607 / 1518 reactions with \code{MESA\_ONLY = 0}.
+
+\section{The actual shape of the trade-off}
+\label{sec:networkshape}
+
+Computed from the repository's own isotope lists:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  x=0.95cm, y=0.62cm,
+  sp/.style={font=\footnotesize\ttfamily, inner sep=0.6pt, anchor=base west},
+  only151/.style={circle, draw=resultrule, line width=0.5pt, fill=white,
+                  inner sep=0pt, minimum size=1.6mm},
+  zlab/.style={font=\footnotesize, anchor=east},
+  leg/.style={font=\scriptsize, anchor=west},
+  note/.style={font=\scriptsize\itshape, anchor=west, text=warnrule}]
+
+% mesa_80-only marker, set INSIDE the species label so it can never be
+% misread as belonging to the next species along the row.
+\def\m{\,\raisebox{0.15ex}{\textcolor{warnrule}{$\bullet$}}}
+% a run of open circles: start slot #1, row #2, count #3
+\def\opencircles#1#2#3{%
+  \foreach \k in {1,...,#3}{\node[only151] at (#1+\k-1, #2) {};}}
+
+% ---- axes
+\draw[line width=0.7pt] (-0.4,-0.4) -- (-0.4,12.5);
+\draw[-{Latex[length=2.2mm]}, line width=0.7pt] (-0.4,-0.4) -- (11.5,-0.4);
+\node[font=\footnotesize, anchor=west] at (11.65,-0.4) {$N$};
+\node[font=\footnotesize, anchor=south] at (-0.75,12.5) {$Z$};
+\node[font=\scriptsize, anchor=north] at (5.0,-0.75)
+  {(neutron-rich direction $\longrightarrow$)};
+
+% ---- rows: Z label, named species, then open circles
+\node[zlab] at (-0.55,12) {30};
+\node[sp] at (-0.25,12) {zn60\m};
+
+\node[zlab] at (-0.55,11) {29};
+\node[sp] at (-0.25,11) {cu59\m};
+
+\node[zlab] at (-0.55,10) {28};
+\node[sp] at (-0.25,10) {ni56}; \node[sp] at (0.75,10) {ni57};
+\node[sp] at (1.75,10) {ni58}; \node[sp] at (2.75,10) {ni59};
+\opencircles{3.9}{10.08}{6}
+
+\node[zlab] at (-0.55,9) {26};
+\node[sp] at (-0.25,9) {fe52}; \node[sp] at (0.75,9) {fe53};
+\node[sp] at (1.75,9) {fe54}; \node[sp] at (2.75,9) {\_\_};
+\node[sp] at (3.75,9) {fe56};
+\opencircles{4.9}{9.08}{6}
+
+\node[zlab] at (-0.55,8) {24};
+\node[sp] at (-0.25,8) {cr48}; \node[sp] at (0.75,8) {cr49};
+\node[sp] at (1.75,8) {cr50};
+\opencircles{2.9}{8.08}{5}
+
+\node[zlab] at (-0.55,7) {22};
+\node[sp] at (-0.25,7) {ti44}; \node[sp] at (0.75,7) {ti45};
+\node[sp] at (1.75,7) {ti46};
+\opencircles{2.9}{7.08}{5}
+
+\node[zlab] at (-0.55,6) {21};
+\node[sp] at (-0.25,6) {sc43};
+\opencircles{0.9}{6.08}{6}
+\node[note] at (7.1,6.05) {$\leftarrow$ \msn{80} has ONE scandium};
+
+\node[zlab] at (-0.55,5) {20};
+\node[sp] at (-0.25,5) {ca39\m}; \node[sp] at (0.75,5) {ca40};
+\node[sp] at (1.75,5) {ca41}; \node[sp] at (2.75,5) {ca42};
+\opencircles{3.9}{5.08}{7}
+
+\node[zlab] at (-0.55,4) {18};
+\node[sp] at (-0.25,4) {ar35\m}; \node[sp] at (0.75,4) {ar36};
+\node[sp] at (1.75,4) {ar37}; \node[sp] at (2.75,4) {ar38};
+\opencircles{3.9}{4.08}{3}
+
+\node[zlab] at (-0.55,3) {14};
+\node[sp] at (-0.25,3) {si27}; \node[sp] at (0.75,3) {si28};
+\node[sp] at (1.75,3) {si29}; \node[sp] at (2.75,3) {si30};
+\opencircles{3.9}{3.08}{3}
+
+\node[zlab] at (-0.55,2) {10};
+\node[sp] at (-0.25,2) {ne18\m}; \node[sp] at (0.75,2) {ne19};
+\node[sp] at (1.75,2) {ne20}; \node[sp] at (2.75,2) {ne21};
+\node[sp] at (3.75,2) {ne22};
+\opencircles{4.9}{2.08}{1}
+
+\node[zlab] at (-0.55,1) {8};
+\node[sp] at (-0.25,1) {o14\m}; \node[sp] at (0.75,1) {o15};
+\node[sp] at (1.75,1) {o16}; \node[sp] at (2.75,1) {o17};
+\node[sp] at (3.75,1) {o18};
+\opencircles{4.9}{1.08}{1}
+
+% ---- legend, below the axis so it cannot collide with any row
+\node[leg] at (-0.4,-1.75)
+  {\raisebox{0.15ex}{\textcolor{warnrule}{$\bullet$}}\ \ $=$ in \msn{80} only
+   (6 species)};
+\node[only151] at (-0.28,-2.42) {};
+\node[leg] at (-0.05,-2.5) {$=$ in \msn{151} only (77 species)};
+\node[leg] at (-0.4,-3.25) {(unmarked) $=$ in both (74 species)};
+\end{tikzpicture}
+\caption{The two networks on the $(N,Z)$ plane, computed from the repository's
+own isotope lists. \msn{151} is not a superset: it buys neutron-rich reach by
+dropping the proton-rich upper-$Z$ corner.}
+\label{fig:nzplane}
+\end{figure}
+
+\textbf{The two networks are not ``small'' and ``large'' --- they are
+differently shaped.} This is the most important structural fact in Tier 0, and
+it is invisible unless you diff the lists:
+
+\begin{itemize}
+\item \textbf{\msn{151} is not a superset of \msn{80}.} Six species ---
+      \code{o14}, \code{ne18}, \code{ar35}, \code{ca39}, \code{cu59},
+      \code{zn60} --- are in \msn{80} and \emph{absent} from \msn{151}.
+\item \msn{80} reaches \textbf{$Z = 30$ (Zn)} but is narrow in neutron number.
+\item \msn{151} caps at \textbf{$Z = 28$ (Ni)} but extends deep into
+      neutron-rich territory: \code{fe55}, \code{fe57}--\code{fe61},
+      \code{ni60}--\code{ni65}, \code{ca43}--\code{ca49},
+      \code{sc44}--\code{sc49}, \code{ti47}--\code{ti51},
+      \code{mn52}--\code{mn56}.
+\end{itemize}
+
+So the 77 extra species \msn{151} buys are almost entirely
+\textbf{neutron-rich}, purchased partly by \emph{dropping} the proton-rich
+upper-$Z$ corner. That is a deliberate physics choice: neutron-rich isotopes are
+exactly the $\beta$-decay and electron-capture partners that govern \Ye{}.
+\textbf{\msn{151} is not ``more of the same'' --- it is a network reshaped
+toward getting the weak sector right.}
+
+\section{The measured consequence}
+\label{sec:measuredconsequence}
+
+\msn{80} contains only 6 of 9 electron-capture controllers and \textbf{0 of 8}
+$\beta$-decay partners of the \Ye{}-controller set. It is structurally incapable
+of representing those \emph{dominant} neutron-rich $\beta$-decay chains ---
+though not weak-one-sided overall: it still carries 19 $\beta^-$ channels and 19
+\Ye{}-raising weak reactions in total (\code{RESULTS.md}, 2026-07-08).
+
+Two things follow:
+
+\begin{itemize}
+\item The ``zero-shot \msn{80} $\to$ \msn{151} size transfer'' falsifier is not
+      testing a superset extension. It tests whether a model trained on a
+      network with \textbf{no} $\beta$-decay partners can predict a network
+      dominated by them. Expect it to be hard, and know the reason.
+\item The high-\Ye{} bottleneck $\nuc{Sc}{45}(p,\gamma)\nuc{Ti}{46}$ is a
+      \textbf{\msn{151}-only} phenomenon. \msn{80} has exactly one scandium
+      isotope, \nuc{Sc}{43}. You cannot even pose the question in \msn{80}.
+\end{itemize}
+
+\textbf{Predict the bias direction yourself} (self-check item~4 below): with EC
+present but the dominant $\beta$-decay partners absent, \msn{80}'s \Ye{}
+evolution is biased downward --- the restoring flux that remains is carried by
+weaker channels.
+
+% ---------------------------------------------------------------------
+\chapter{Why machine-learning emulation}
+\label{sec:whyml}
+
+The network step is a \textbf{map}, and a well-posed one:
+
+\begin{equation*}
+\Phi_{\Delta t} : (T, \rho, \mathbf{X}) \;\mapsto\;
+(\mathbf{X}', e_{\text{nuc}}, \varepsilon_\nu)
+\end{equation*}
+
+For fixed $(T, \rho)$ it is the time-$\Delta t$ flow of an \emph{autonomous} ODE
+--- deterministic, smooth almost everywhere, fixed finite-dimensional input and
+output. The autonomy is not free: it is granted by operator splitting, examined
+properly in \S\ref{sec:splitting}.
+
+\section{The cost model --- what speedup would actually matter}
+\label{sec:costmodel}
+
+Replace an adaptive implicit solve (several Newton iterations $\times$ several
+substeps $\times$ $O(n^3)$ each) with one forward pass. For a GNN with $K = 5$
+rounds and hidden width $d$ over $n$ nodes and $m$ edges, forward cost is
+$O(K(n + m)d^2)$ --- linear in graph size, and \textbf{independent of
+stiffness}.
+
+That last clause is the real prize. Classical cost grows as the problem
+stiffens; surrogate cost does not. In the hardest states --- precisely where the
+network dominates runtime --- the ratio is most favourable.
+
+\textbf{The strategic payoff:} if the surrogate is accurate, you can afford the
+\emph{large} network everywhere, ending the accuracy-vs-cost compromise of
+\S\ref{sec:softwired} rather than merely optimizing within it.
+
+\section{Framing it honestly}
+\label{sec:framinghonestly}
+
+This is operator learning with a twist. The operator has exact algebraic
+invariants (mass, charge, lepton number), and those invariants are not
+decoration --- they are the observable (\S\ref{sec:explodability}). Note also
+what is \emph{not} the difficulty: expressivity. An MLP can represent this map.
+The difficulties are dynamic range, stiffness, exact constraints, and rollout
+drift (\S\ref{sec:learningproblem}).
+
+% ---------------------------------------------------------------------
+\chapter{What breaks when an emulator does not conserve}
+\label{sec:conservationfailure}
+
+\section{Mode 1 --- accumulation}
+\label{sec:accumulation}
+
+Let the per-step conservation violation be $\delta$. Linearizing error
+propagation about the true trajectory with contraction factor
+$c = \|\partial\Phi/\partial X\|$ gives three regimes (derived in
+\S\ref{sec:rollouterror}):
+
+\begin{center}
+\begin{tabular}{@{}l l c@{}}
+\toprule
+\textbf{Regime} & \textbf{Accumulated after $N$ steps} &
+\textbf{log--log slope} \\
+\midrule
+Systematic ($c = 1$, correlated $\delta$)   & $N\delta$ & 1 \\
+Random walk ($c = 1$, independent $\delta$) & $\sqrt{N}\,\delta$ & 0.5 \\
+Contracting ($c < 1$) & $\delta/(1-c)$ --- saturates & $\to 0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+At $N \approx 10^{3}$--$10^{6}$ steps per stellar model, even
+$\delta = 10^{-6}$ is fatal in the systematic case. This is exactly why the
+project's per-step \Ye{} budget ($\lesssim 3\times10^{-6}$) is stated \emph{under
+a stated accumulation model}, and why measuring the slope is the biggest single
+lever.
+
+\textbf{The prediction worth carrying} (\S\ref{sec:rollouterror}): silicon
+burning contracts toward quasi-equilibrium, so \emph{composition} error should
+saturate --- but \Ye{} has no restoring force, because strong reactions conserve
+it exactly. Expect the two to behave differently, and expect the gate to belong
+on \Ye{}.
+
+\section{Mode 2 --- physical inconsistency}
+\label{sec:physicalinconsistency}
+
+$\sum_i X_i \neq 1$ --- equivalently $\sum_i A_i Y_i \neq 1$, equation
+\eqref{eq:baryon-conservation} --- means the equation of state, the opacity, and
+the energy generation are evaluated on a composition that does not exist. The
+host code does not error; it silently produces a wrong star. (Note it is
+$\sum X_i$ that is normalized, not $\sum A_iX_i$: the latter is
+$\approx \bar{A} \sim 30$ and is not conserved by anything.)
+
+\section{Why soft penalties are the wrong fix}
+\label{sec:softpenalties}
+
+The standard ML response is a loss term $\lambda\|C\cdot \dd Y\|^2$. This gives
+conservation \emph{on average, on the training distribution, to within
+optimization tolerance}. Every qualifier fails where you need it: rollouts leave
+the training distribution, and averages do not constrain individual steps.
+Worse, $\lambda$ becomes a hyperparameter trading accuracy against conservation
+--- you are tuning how much physics to violate.
+
+\textbf{Conservation by construction} removes the trade-off. If the decoder is
+$\dd Y = \nu\varphi$ and $\nu$ is the exact integer stoichiometric matrix, then
+$A\cdot\nu = 0$ \emph{identically}, so $A\cdot \dd Y = 0$ for \textbf{any}
+$\varphi$ --- including a randomly initialized, untrained network. Conservation
+becomes a property of the architecture, not of the training. (The same
+soft-vs-hard contrast has been measured directly in climate-model emulation:
+soft-constrained networks show a monotonic accuracy--conservation trade-off in
+the penalty weight and large per-sample violations, while the architecturally
+constrained variant conserves to machine precision without losing accuracy ---
+\citealt{beucler2021}.)
+
+This is why the conservation test asserts the gate holds \textbf{with random
+flux heads}, and why it is a blocking gate rather than a metric. Note the
+further precision this buys: floating-point analysis (\S\ref{sec:floatingpoint})
+shows residual drift is bounded by ${\sim}n\varepsilon \approx
+3.4\times10^{-14}$ in float64 --- 1.5 decades under the $10^{-12}$ gate. In
+float32 it would miss by seven orders of magnitude.
+
+% ---------------------------------------------------------------------
+\chapter{Why a graph neural network}
+\label{sec:whygnn}
+
+The reaction network \emph{is} a graph --- not an analogy:
+
+\begin{itemize}
+\item \textbf{Nodes}: species (80 or 151), with features ($Z$, $A$, binding
+      energy, abundance).
+\item \textbf{Edges}: reactions; naturally \textbf{bipartite}, with species
+      nodes and reaction nodes, since one reaction touches several species (the
+      same representation NuGNN adopts --- \citealt{kim2026}).
+\end{itemize}
+
+Three properties follow --- formalism in \S\ref{sec:messagepassing}:
+
+\begin{enumerate}
+\item \textbf{Locality.} A reaction couples 2--4 species; information propagates
+      in hops. Measured bipartite radius 3, diameter 6 --- and since one
+      \emph{round} is species $\to$ reaction $\to$ species, i.e.\ \textbf{2
+      bipartite hops}, $K = 3$ rounds already spans the graph. $K = 5$ is the
+      project's choice and carries margin (\S\ref{sec:messagepassing}).
+\item \textbf{Permutation equivariance.} The physics does not depend on species
+      ordering; a GNN has this built in, an MLP must learn it, spending capacity
+      on a symmetry that could have been free.
+\item \textbf{Transferability.} Weights attach to node/edge \emph{types}, not to
+      slots in a fixed-length vector --- which is what makes the
+      \msn{80} $\to$ \msn{151} question askable at all, though
+      \S\ref{sec:softwired} says why it is harder than it looks.
+\end{enumerate}
+
+\textbf{One design point worth noting now:} on the reaction $\to$ species
+half-step, the correct aggregator is \textbf{sum}, because the true update is
+literally a signed sum, $\dd Y_i = \sum_r \nu_{ir} \varphi_r$. Mean or max would
+destroy extensivity. The architecture's aggregator choice is fixed by physics,
+not by ablation.
+
+The competing published surrogate (a dense feed-forward network) has none of
+these; it is a fixed-width map from an $(80+2)$-vector to an $(80+2)$-vector ---
+$(T, \rho, \mathbf{X})$ in, $(\mathbf{X}', e_{\text{nuc}}, \varepsilon_\nu)$ out
+--- retrained from scratch for 151, with a separate network per timestep and
+even a different depth per network size \citep{grichener2025}.
+
+% ---------------------------------------------------------------------
+\chapter{Where conservation is allowed to live}
+\label{sec:whereconservation}
+
+\section{Target A}
+\label{sec:targetA}
+
+Predict signed net per-reaction fluxes $\varphi$, decode through fixed
+stoichiometry:
+
+\begin{equation*}
+\dd\mathbf{Y} = \nu\,\boldsymbol{\varphi}
+\end{equation*}
+
+Conserves for any $\varphi$. Also carries per-reaction structure: you can
+inspect which reaction the model thinks is carrying flux, which is what makes
+bridge and bottleneck analysis possible at all.
+
+\section{Target B --- and the full projector derivation}
+\label{sec:targetB}
+
+Predict $\dd Y$ directly, then project onto the constraint manifold. We want the
+\textbf{orthogonal projector onto $\ker C$}, where $C$ is the $m \times (n+3)$
+constraint matrix (the construction is standard linear algebra --- e.g.\
+\citealt{golub2013}).
+
+Seek $P$ such that (i) $CP = 0$, (ii) $P v = v$ for $v \in \ker C$, (iii)
+$P = P\Tr$. Decompose any vector into row-space and null-space parts. The row
+space of $C$ is spanned by $C\Tr$, so write the row-space component as
+$C\Tr\mathbf{a}$. Requiring $C(\mathbf{v} - C\Tr\mathbf{a}) = 0$ gives
+
+\begin{equation*}
+C\mathbf{v} = CC\Tr\mathbf{a} \quad\implies\quad
+\mathbf{a} = (CC\Tr)^{-1} C\mathbf{v} \qquad
+(CC\Tr \text{ invertible} \iff C \text{ full row rank})
+\end{equation*}
+
+Hence the null-space component is
+
+\begin{equation}
+\mathbf{v} - C\Tr(CC\Tr)^{-1}C\mathbf{v} \quad\implies\quad
+\boxed{\;P = I - C\Tr(CC\Tr)^{-1}C\;}
+\label{eq:projector}
+\end{equation}
+
+Verify the three properties:
+
+\begin{itemize}
+\item $\boldsymbol{CP} = C - CC\Tr(CC\Tr)^{-1}C = C - C = 0$ \yes
+\item $\boldsymbol{P^2} = I - 2C\Tr(CC\Tr)^{-1}C
+       + C\Tr(CC\Tr)^{-1}CC\Tr(CC\Tr)^{-1}C
+       = I - C\Tr(CC\Tr)^{-1}C = P$ \yes
+\item $\boldsymbol{P\Tr} = P$, since $(CC\Tr)^{-1}$ is symmetric \yes
+\item $\operatorname{\mathbf{rank}} P = (n+3) - \operatorname{rank} C$ \yes
+\end{itemize}
+
+Note the requirement \textbf{$C$ must be full row rank} --- otherwise $CC\Tr$ is
+singular. This is why \code{tests/test\_projector.py} includes a
+rank-deficient-$C$ rejection test: it guards the existence condition of the
+derivation, not just input validation. In practice the implementation uses a QR
+null-space form, which is numerically better conditioned than forming
+$(CC\Tr)^{-1}$ explicitly.
+
+\section{The critical theorem --- and the documented failure mode}
+\label{sec:criticaltheorem}
+
+$P$ is valid \textbf{only in a linear output space}. Suppose you predict in a
+signed-log space, $u = \asinh(\dd Y/s)$, and apply $P$ there. Then you have
+enforced
+
+\begin{equation*}
+\sum_i A_i u_i = 0
+\end{equation*}
+
+which says \emph{nothing whatever} about $\sum_i A_i \dd Y_i$, because a sum
+constraint does not commute with a nonlinear map. You get a beautifully
+conserved quantity in a space with no physical meaning, and unconserved physics.
+
+\textbf{Make the failure concrete.} Take two species with $A = 1$ and
+$\dd Y = \pm10^{-3}$, so $\sum A\,\dd Y = 0$ exactly. Apply
+$u = \asinh(\dd Y/s)$ with $s = 10^{-6}$: $u = \pm\asinh(10^{3}) \approx
+\pm7.6$, and $\sum A u = 0$ too --- the symmetric case survives. Now take
+$(+2\times10^{-3}, -10^{-3}, -10^{-3})$: $\sum A\,\dd Y = 0$ still, but
+$\sum A u = 8.29 - 7.60 - 7.60 = -6.9 \neq 0$. Enforcing $\sum A u = 0$ would
+therefore \emph{require} $\sum A\,\dd Y \neq 0$. The constraint sets are
+genuinely different manifolds.
+
+The rule that follows:
+
+\begin{invariant}
+\textbf{Conservation lives in the decode step, never inside latent dynamics.}
+No nonlinear transform may sit between the conservation map and the output.
+\end{invariant}
+
+Internal $\asinh$/signed-log latents are fine --- they just may never be the
+space where a sum constraint is evaluated.
+
+% ---------------------------------------------------------------------
+\chapter*{Self-check --- the computational problem}
+\addcontentsline{toc}{chapter}{Self-check --- the computational problem}
+\label{sec:selfcheck-computational}
+
+\begin{selfcheck}
+\item Why does sparsity fail to make the Jacobian factorization cheap? Name the
+      specific species responsible.
+\item Give the one-sentence argument for why soft conservation penalties cannot
+      substitute for architectural conservation, referencing rollout.
+\item Derive $P = I - C\Tr(CC\Tr)^{-1}C$ and verify idempotence. What breaks if
+      $C$ is rank deficient, and which test guards it?
+\item Using the diff in \S\ref{sec:networkshape}: list three $\beta$-decay
+      chains representable in \msn{151} but not \msn{80}. Predict which
+      direction \msn{80}'s \Ye{} evolution is biased.
+      \emph{(Relocated here from the source document's \S II.8 item~4, which
+      required \S I.4 --- the material now in \S\ref{sec:softwired}.)}
+      \label{sc:mesadiff}
+\item Construct a three-species example showing that $\sum A u = 0$ and
+      $\sum A\,\dd Y = 0$ are different constraints under $u = \asinh(\dd Y/s)$.
+      (Sketched in \S\ref{sec:criticaltheorem}.)
+      \emph{(Relocated here from the source document's \S II.8 item~7, for the
+      same reason.)}
+\end{selfcheck}

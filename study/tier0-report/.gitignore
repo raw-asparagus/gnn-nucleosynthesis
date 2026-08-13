@@ -1,0 +1,16 @@
+# LaTeX build artifacts. The repo root .gitignore scopes these to a tex/
+# prefix only, which is why the docs/ papers have their PDFs tracked.
+# Do not repeat that here.
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.pdf
+build/
