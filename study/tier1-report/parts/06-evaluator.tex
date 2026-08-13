@@ -1,0 +1,524 @@
+% =====================================================================
+%  LAYER B -- The compiled evaluator.
+%  Section 6: every code contract in Tier 1, gathered.
+%
+%  Source: tier1.md 1.1.4 (302-329) + the prefactor/ye_weighted snippets
+%          of 1.1.2-1.1.3 (229-239, 286-300); II.2's vflag_sets extraction
+%          (965-976); II.4 (1028-1058); II.5 (1060-1087); II.6b
+%          (1116-1148); III.3's pf spline + pf_matrix (1429-1472);
+%          III.8 db_reverses.py (1714-1745); IV.5/IV.6 vectorisation and
+%          screen_map (2183-2185, 2285-2296); V.5's compile/engine
+%          snippets (2753-2773); V.6's ledger assertion (2854-2870);
+%          V.7's duplicate-link resolution (2917-2928); V.9 the code path
+%          (2945-2962).
+%  Self-check: the items relocated from Part I (item 4), Part II
+%          (items 4-6) and Part V (items 5, 10).
+% =====================================================================
+
+\section{The compiled evaluator}
+\label{part:evaluator}
+
+Everything so far has been physics. This section is the other half of the
+DERIVE\,/\,READ loop: the code contract that turns
+\S\ref{part:ratetheory}--\S\ref{part:weak} into dense array algebra over
+$10^5$--$10^6$ plasma states. The source document interleaves these fragments
+with their derivations; gathering them makes visible what is otherwise easy to
+miss --- that the whole \code{fluxes/} package is one design idea applied
+repeatedly.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.2cm} L{2.0cm} Y@{}}
+\toprule
+\textbf{What is implemented} & \textbf{Derived in} & \textbf{Here} \\
+\midrule
+$R_j$ from $\lambda_j$, arity, $\rho$ powers &
+  \S\ref{sec:molar} & \S\ref{sec:code-contract} \\
+The seven-coefficient sum &
+  \S\ref{sec:sevencoeff} & \S\ref{sec:coefftensor} \\
+The v flag as a boolean array &
+  \S\ref{sec:labelprops} & \S\ref{sec:vflag-extraction} \\
+Post-multiplied pf and screening corrections &
+  \S\ref{sec:sevencoeff} & \S\ref{sec:lambda-to-R} \\
+$\lambda$'s dynamic range &
+  \S\ref{sec:multisets} & \S\ref{sec:lambda-range} \\
+$\prod G_{\Rset}/\prod G_{\Pset}$ as a signed incidence matmul &
+  \S\ref{sec:pf-in-ratio} & \S\ref{sec:pf-spline} \\
+Replacing every v-flag reverse with a \code{DerivedRate} &
+  \S\ref{sec:vflag} & \S\ref{sec:db-replacement} \\
+$h$ per reaction from deduplicated pairs &
+  \S\ref{sec:screening-pairs} & \S\ref{sec:screening-code} \\
+Bilinear interpolation of the weak tables &
+  \S\ref{sec:weaktable} & \S\ref{sec:tabular-path} \\
+The lepton ledger as an assertion &
+  \S\ref{sec:ledger} & \S\ref{sec:ledger-enforcement} \\
+Tabular-wins duplicate resolution &
+  \S\ref{sec:tablefamilies} & \S\ref{sec:duplicate-links} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\subsection{The code contract}
+\label{sec:code-contract}
+
+\code{CompiledNetwork} stores exactly the pieces of \eqref{eq:grossflux}:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{3.0cm} L{3.4cm} Y@{}}
+\toprule
+\textbf{Field} & \textbf{Shape} & \textbf{Meaning} \\
+\midrule
+\code{prefactor} & (n\_rxn,) & $1/\prod c_s!$ \\
+\code{dens\_exp} & (n\_rxn,) & n\_reactants $-$ 1 ($+1$ if \Ye-weighted) \\
+\code{reactant\_idx} & (n\_rxn, max\_nr) & species indices,
+  sentinel $=$ n\_species \\
+\code{ye\_weighted} & (n\_rxn,) bool & the \rhoye{} carriers \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+and \code{engine.evaluate\_fluxes} assembles them:
+
+\begin{srclisting}
+R = lam * cn.prefactor[:, None] * rho[None, :] ** cn.dens_exp[:, None]
+...
+Ypad = np.vstack([Y, np.ones((1, n_states), dtype=np.float64)])  # sentinel row = 1.0
+for k in range(cn.reactant_idx.shape[1]):
+    R *= Ypad[cn.reactant_idx[:, k]]
+\end{srclisting}
+
+The sentinel trick is worth pausing on: reactions have different arities, so the
+reactant index array is ragged. Padding with an index that points at a row of
+ones turns the ragged product into a fixed-length dense one, at the cost of one
+wasted multiply per unused slot.
+
+\begin{result}
+This is the recurring shape of the whole \code{fluxes/} package --- \emph{turn
+per-reaction control flow into dense array algebra}, which is what makes
+$7\times10^5$ states\,/\,min\,/\,core possible \resultsref{2026-07-10}.
+\end{result}
+
+The two halves of the \Ye-weighting rule of \S\ref{sec:molar} are mirrored
+across compile and evaluate:
+
+\begin{srclisting}
+ye_weighted[j] = bool(getattr(rate, "use_ye_weighting", False))   # compile.py:285
+...
+R[cn.ye_weighted] *= ye[None, :]                                  # engine.py:179
+\end{srclisting}
+
+and \code{prefactor} --- the pure combinatorial factor of
+\S\ref{sec:double-counting} --- is built once at compile time
+(\code{fluxes/compile.py:286}) and never touched again, because it has no
+temperature dependence and therefore no business inside the coefficient tensor.
+
+% =====================================================================
+\subsection{The coefficient tensor}
+\label{sec:coefftensor}
+
+The compile step's job is to turn a ragged object graph (rates, each with a list
+of sets, each with seven coefficients) into flat arrays:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.4cm} Y@{}}
+\toprule
+\textbf{Field} & \textbf{Meaning} \\
+\midrule
+\code{coeffs} (n\_sets, 7) & every set of every rate, stacked \\
+\code{set\_owner} (n\_sets,) & which reaction column owns each set \\
+\code{set\_starts}, \code{owned\_cols} & \code{reduceat} boundaries for the
+  segment sum \\
+\code{pf\_splines}, \code{pf\_matrix} & per-nucleus log-pf splines $+$ the $\pm$
+  multiplicity-count incidence matrix ($+n$ per reactant occurrence, $-n$ per
+  product occurrence) \\
+\code{tab\_*} & per-tabular-rate grids and 2-D log-rate arrays \\
+\code{screen\_pairs}, \code{screen\_map} & deduplicated $(Z,A)$ pairs $+$
+  per-reaction multiplicity \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Two design points worth internalising, because they recur:
+
+\begin{enumerate}
+\item \textbf{Deduplicate over pairs, not reactions.} Many reactions share the
+      same screening pair (everything capturing an $\alpha$ on a $Z = 14$
+      nucleus). \code{screen\_pairs} holds unique pairs; \code{screen\_map} is a
+      sparse (n\_rxn $\times$ n\_pairs) multiplicity matrix. Screening is then
+      one evaluation per unique pair per state, plus a sparse matmul. Same idea
+      for \code{pf\_splines}\,/\,\code{pf\_matrix} over nuclei.
+\item \textbf{The pf incidence matrix carries signs, and the signs are of the
+      \emph{source} rate.} In \code{compile.py:232-239}, source-rate
+      \emph{reactants} get $+1$ and \emph{products} $-1$ --- because the
+      correction being applied is the ratio
+      $\prod G_{\rm reactants}/\prod G_{\rm products}$ of the \textbf{forward}
+      rate, applied to the derived reverse (\eqref{eq:dbratio},
+      \S\ref{sec:pf-in-ratio}). Getting that sign backwards would invert every
+      partition-function correction while leaving all shapes and magnitudes
+      plausible. This is the kind of bug the $\kappa$-at-NSE test
+      (\S\ref{sec:oracles-db}) exists to catch.
+\end{enumerate}
+
+% =====================================================================
+\subsection{The v flag, extracted}
+\label{sec:vflag-extraction}
+
+Character 5 of \code{labelprops} (\S\ref{sec:labelprops}) becomes a boolean
+array at compile time and is handed straight to the gate:
+
+\begin{srclisting}
+vflag_sets = np.array([lp[5] == "v" for lp in set_labelprops], dtype=bool)  # compile.py:250
+assert_pf_gate(vflag_sets, context=f"{network} compiled set tensor")
+\end{srclisting}
+
+pynucastro's \code{derived\_from\_inverse} boolean surfaces the same fact at the
+\code{Rate} level and is exported into the $\nu$ npz, so the gate can be
+evaluated either from a live collection or from an artifact on disk
+(\S\ref{sec:guard-pf}).
+
+% =====================================================================
+\subsection{From \texorpdfstring{$\lambda$}{lambda} to the gross flux}
+\label{sec:lambda-to-R}
+
+Equation \eqref{eq:grossflux}, implemented. Two subtleties visible only in the
+code:
+
+\paragraph{Screening and pf enter as a post-multiplication.}
+\code{evaluate\_lambda} computes the set sum first, then multiplies by
+$\exp(\text{corr})$:
+
+\begin{srclisting}
+lam[cn.owned_cols] = np.add.reduceat(np.exp(log_sets), cn.set_starts, axis=0)
+...
+corr = cn.pf_matrix @ log_pf          # DerivedRate columns
+corr = corr + cn.screen_map @ log_scor
+lam *= np.exp(corr)
+\end{srclisting}
+
+This is algebraically identical to adding inside each set's exponent --- provided
+the correction is the same for all sets of a column, which it is (both pf and
+screening are properties of the \emph{reaction}, not of the fit component). The
+module docstring says exactly this, and says it is ``fp-equal to ${\sim}1$
+ulp''. That equivalence is precisely what the $5\times10^{-12}$ oracle measures
+(\S\ref{sec:oracle-compile}).
+
+\paragraph{Tabular weak rates bypass the coefficient tensor entirely} --- they
+are interpolated, then written into the same \code{lam} array
+(\S\ref{sec:tabular-path}). One array, two completely different evaluation
+mechanisms, unified by column index. That unification is the design decision
+that makes everything downstream (\code{stoich.nu @ R}, the pair map, $\kappa$)
+indifferent to rate provenance.
+
+\paragraph{Column identity is the invariant that makes it safe.}
+\code{compile\_network} asserts the compiled column order equals
+\code{stoich.rate\_fnames}, i.e.\ the $\nu$ export order
+(\code{compile.py:173-183}). If that ever drifts, every flux is silently
+attributed to the wrong reaction --- a failure mode with no numerical signature.
+Hence the assertion rather than a comment.
+
+% =====================================================================
+\subsection{The numerical range of \texorpdfstring{$\lambda$}{lambda}, and why nothing overflows}
+\label{sec:lambda-range}
+
+A deep-dive worth doing once, because it explains several design choices at
+once. Measured on \msn{80}, screening off, $\rho = 10^8$ \derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}lllrr@{}}
+\toprule
+\textbf{\Tn} & \textbf{$\lambda$ range ($\log_{10}$)} & \textbf{span}
+  & \textbf{$\lambda = 0$} & \textbf{$\lambda$ non-finite} \\
+\midrule
+1.6 & $-63.83 \ldots +11.61$ & \textbf{75 decades} & 0 & 0 \\
+3.3 & $-30.61 \ldots +12.93$ & 44 decades & 0 & 0 \\
+5.0 & $-24.59 \ldots +14.01$ & 39 decades & 0 & 0 \\
+7.9 & $-20.37 \ldots +16.62$ & 37 decades & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+And at the level of individual sets, the exponent $a\cdot\text{basis}$ ranges
+from \textbf{$-4.4\times10^6$ to $+38$} across the box edges.
+
+Three readings:
+
+\begin{enumerate}
+\item \textbf{Nothing ever overflows.} The maximum exponent ($+38$) is nowhere
+      near $\ln(\text{DBL\_MAX}) = 709.78$. The evaluator can compute \code{exp}
+      unguarded.
+\item \textbf{43 of the 1834 set-evaluations across the two box-edge
+      temperatures underflow to exactly 0} (\msn{80} has 917 sets; 7 underflow
+      at $\Tn = 1.6$ and 36 at $\Tn = 7.9$). This is \emph{correct} --- those
+      are rates whose true value is $e^{-4\times10^6}$, i.e.\ zero to any
+      meaning of the word. The compiled path relies on IEEE graceful underflow
+      rather than masking, which is the right call: a masked branch would cost a
+      comparison on every set at every state to reproduce the answer the
+      hardware already gives.
+\item \textbf{The 75-decade span at $\Tn = 1.6$ is the reason everything
+      downstream is log-space or ratio-based.} It is also the reason the
+      conservation gate is phrased relative to \emph{gross} flux rather than
+      absolutely (Tier~0's $\max(10^{-12}s,\,10^{-13}G)$ form): an absolute
+      tolerance is meaningless against a quantity spanning 75 decades. The
+      dynamic range narrows as $T$ rises --- the Gamow exponent
+      $\tau \propto T^{-1/3}$ compresses everything --- which is why the box's
+      cold corner is the numerically hardest, not the hot one.
+\end{enumerate}
+
+% =====================================================================
+\subsection{The pf spline, and what happens past the table}
+\label{sec:pf-spline}
+
+Both \code{fluxes/compile.py} and \code{qse/coeffs.py} rebuild the same object:
+
+\begin{srclisting}
+InterpolatedUnivariateSpline(pf.T9_points, pf.log_pf_data,
+                             k=pf.interpolant_order, ext="const")
+\end{srclisting}
+
+\code{ext="const"} means \textbf{constant extrapolation} --- past the last
+tabulated \Tn{} the spline holds its final value rather than continuing the
+(steeply rising) trend. Three notes:
+
+\begin{enumerate}
+\item Constant extrapolation of $\log G$ is conservative: it
+      \emph{under}-estimates $G$ at high $T$ rather than diverging. The
+      alternative (\code{ext=0}, spline extrapolation) with a cubic would run
+      away.
+\item The Rauscher tables extend well past $\Tn = 7.9$, so the box never
+      triggers it. Like the \code{smooth\_clip} in the screening module
+      (\S\ref{sec:chugunov}), it is a guard that should never fire, present so
+      that out-of-box calls degrade rather than explode.
+\item \textbf{The two rebuilds must agree.} Rate-side pf
+      (\S\ref{sec:pf-in-ratio}) and Saha-side pf (\code{qse/coeffs.py}) are
+      constructed from the same fields with the same spline order and the same
+      \code{ext} --- deliberately, because $\kappa$-at-NSE compares a rate ratio
+      against a composition computed from the equilibrium side. A mismatch there
+      would produce a nonzero $\kappa$ floor with no defect in either component.
+      The \code{qse/coeffs.py} docstring makes the point explicitly: using the
+      same inputs is what makes the solver cross-check ``a genuine independence
+      test of the SOLVER, not the data''.
+\end{enumerate}
+
+\textbf{In the code}, the correction is applied as a sparse incidence matmul:
+
+\begin{srclisting}
+for nuc in rate.source_rate.reactants:   pf_entries[(j, m)] += 1.0
+for nuc in rate.source_rate.products:    pf_entries[(j, m)] -= 1.0   # compile.py:232-239
+...
+corr = cn.pf_matrix @ log_pf ;  lam *= np.exp(corr)                  # engine.py:133,148
+\end{srclisting}
+
+Note again (\S\ref{sec:coefftensor}) that the signs are keyed to the
+\textbf{source (forward) rate's} reactants and products, matching
+$\prod G_{\Rset}/\prod G_{\Pset}$ in \eqref{eq:dbratio}. The same splines, from
+the same Rauscher tables, are rebuilt independently in \code{qse/coeffs.py} for
+the Saha side --- and the two are cross-checked, because a pf mismatch between
+the rate side and the equilibrium side would make $\kappa$-at-NSE nonzero for
+reasons that have nothing to do with the rates.
+
+% =====================================================================
+\subsection{\texorpdfstring{\code{db\_reverses.py}}{db reverses.py}: the replacement}
+\label{sec:db-replacement}
+
+The construction \S\ref{sec:vflag} mandates --- every v-flag reverse swapped for
+a \code{DerivedRate(use\_pf=True)} --- is one function:
+
+\begin{srclisting}
+def replace_vflag_reverses(rc, table, info=None) -> tuple[list, ReplaceReport]
+\end{srclisting}
+
+Positional replacement --- the returned list preserves collection order, so
+$\nu$ is untouched. Three details that are each a lesson:
+
+\begin{enumerate}
+\item \textbf{Forward lookup is two-tier.} Canonical directed key within the
+      collection first, then a lazily-built
+      \code{ReacLibLibrary().linking\_nuclei(...)} fallback --- because a v-flag
+      reverse can be in the reconciled set while its forward is not. Measured
+      outcome: \textbf{all} forward partners were found in-collection (280/280
+      \msn{80}, 672/672 \msn{151}) \resultsref{2026-07-10}, so the fallback
+      never fired. It exists because the failure would otherwise be silent.
+
+\item \textbf{Multiset identity is asserted, not assumed.}
+      \begin{srclisting}
+if Counter(map(str, derived.reactants)) != Counter(map(str, rate.reactants)) or ...:
+    raise ValueError("... changed the reactant/product multisets -- nu column identity broken")
+      \end{srclisting}
+      The replacement is the one operation in the pipeline that swaps a live
+      object in a column; the assertion pins the only thing that must not change.
+
+\item \textbf{Failures are reported, not swallowed.} \code{ReplaceReport.failed}
+      must be empty for the pf gate to pass. A channel whose spin states are
+      missing cannot get a \code{DerivedRate}, and the design decision is to
+      \emph{stop} and force an explicit routing decision (mesa\_probe24 values,
+      or exclude-with-footnote) rather than fall back to the v-flag.
+\end{enumerate}
+
+The \code{missing\_pf\_nuclei} field records nuclei with no Rauscher table, where
+pynucastro defaults $\log_{\rm pf} = 0$. Measured: light sector only ($d$,
+\nuc{He}{3}, \nuc{He}{4}, \nuc{Li}{7}, \nuc{Be}{7,9,10}, \nuc{B}{8},
+\nuc{C}{12,13}, \nuc{N}{13-15}) \resultsref{2026-07-10} --- harmless, since
+$G \approx 1$ there for exactly the \S0.2.2 reason (few low-lying levels in
+light nuclei).
+
+% =====================================================================
+\subsection{Screening, vectorised}
+\label{sec:screening-code}
+
+\code{fluxes/screening.py} reimplements pynucastro's scalar jitclass over numpy
+state vectors; the physics it evaluates is \eqref{eq:plasmastate}--%
+\eqref{eq:chugunov}. The per-reaction bookkeeping is the dedup-over-pairs idea
+of \S\ref{sec:coefftensor}:
+
+\begin{srclisting}
+for n1, n2 in getattr(rate, "screening_pairs", []):
+    key = (n1.Z, n1.A, n2.Z, n2.A)  ... screen_map[j, pair_index[key]] += 1
+\end{srclisting}
+
+and the per-reaction correction is $\sum$ over its pairs of $h$ --- i.e.\ the
+\textbf{product} of factors, since $h$ is a log. Composite intermediates (screen
+A against B, then the composite A$+$B against C) enter as additional pairs, so
+the multiplicity matrix carries them with no special case
+(\S\ref{sec:screening-pairs}).
+
+% =====================================================================
+\subsection{The tabular path}
+\label{sec:tabular-path}
+
+\code{compile.py:217-226} slices the flat weak table
+(\S\ref{sec:weaktable}) into \code{(n\_rhoy, n\_temp)}, and the engine
+interpolates with a clamped searchsorted:
+
+\begin{srclisting}
+i = maximum(0, minimum(len(rhoy)-1, searchsorted(rhoy, logrhoy)) - 1)
+...
+lam[col] = 10.0 ** _bilinear_vec(...)
+\end{srclisting}
+
+and raises on out-of-bounds rather than clipping --- a deliberate divergence
+from MESA's behaviour (\S\ref{sec:weaktable}), chosen so the engine cannot
+silently produce edge values.
+
+\textbf{And the \rhoye{} that indexes it comes from the composition:}
+
+\begin{srclisting}
+ye = (cn.stoich.Z @ Y) / (cn.stoich.A @ Y)     # engine.py:151
+logrhoy = np.log10(rho * ye)
+\end{srclisting}
+
+Note \Ye{} is computed as $\sum Z_iY_i / \sum A_iY_i$, i.e.\ normalised,
+matching pynucastro's \code{Composition.ye}. Since $\sum A_iY_i = 1$ for a valid
+composition this is a no-op --- but it is a \emph{robust} no-op, and it means
+the tabular path degrades gracefully on slightly unnormalised inputs instead of
+drifting.
+
+% =====================================================================
+\subsection{The lepton ledger as an assertion}
+\label{sec:ledger-enforcement}
+
+The ledger of \S\ref{sec:ledger} is enforced, not documented:
+
+\begin{srclisting}
+if dq != d_e[j]:
+    raise ValueError("... nuclear dZ = ... but ledger d_electron = ... -- "
+                     "charge-to-lepton closure broken")
+\end{srclisting}
+
+\begin{result}
+\textbf{The ledgers are assigned from \code{weak\_type}, never back-derived from
+$Z\cdot\nu$.} The docstring says why: back-deriving would make the
+charge-to-lepton closure a tautology, and the conservation gate would pass
+vacuously. This is the single best example in the repo of a test being designed
+so it \emph{can} fail.
+\end{result}
+
+% =====================================================================
+\subsection{Duplicate-link resolution}
+\label{sec:duplicate-links}
+
+Where both a REACLIB fit and a tabular rate cover the same transition
+(\S\ref{sec:tablefamilies}), \code{build\_rate\_collection} drops the ReacLib
+member:
+
+\begin{srclisting}
+for rate in group:
+    if isinstance(rate, pyna.rates.TabularRate): survivors.append(rate)
+    else: full.remove_rate(rate)
+\end{srclisting}
+
+% =====================================================================
+\subsection{The code path, end to end}
+\label{sec:codepath}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  stage/.style={draw, rounded corners=2pt, line width=0.7pt, align=left,
+                inner sep=5pt, text width=0.80\textwidth, fill=resultrule!5},
+  lbl/.style={font=\scriptsize\itshape, inner sep=2pt},
+  arr/.style={-{Latex[length=2mm]}, line width=0.6pt}]
+
+\node[stage] (a) {\code{isotopes\_mesa80.yaml}};
+\node[stage, below=7mm of a] (b)
+  {\code{graph/network.py}: \code{ReacLibLibrary} $+$
+   \code{TabularLibrary(ordering=PINNED)}\\
+   \code{linking\_nuclei} $\to$ duplicate resolution (tabular wins) $\to$
+   disposition drop\\
+   \code{build\_stoich} $\to$ \code{weak\_mask}, \code{weak\_type},
+   \code{d\_electron}\,/\,\code{d\_neutrino}\,/\,\code{d\_antineutrino}};
+\node[stage, below=7mm of b] (c)
+  {\code{fluxes/compile.py}: tabular rates $\to$ (\code{tab\_cols},
+   \code{tab\_rhoy}, \code{tab\_temp}, \code{tab\_rate2d})\\
+   strong rates $\to$ coefficient tensor (\S\ref{sec:coefftensor})};
+\node[stage, below=7mm of c] (d)
+  {\code{fluxes/engine.py}:
+   \code{lam[tab\_cols] = 10**bilinear(log rho*Ye, log T)}\\
+   $R = $ \code{prefactor} $\cdot \rho^{\code{densexp}} \cdot \prod Y \cdot$
+   \code{lam}\\
+   \code{dye\_weak = (Z nu)[weak] @ R[weak]}};
+
+\draw[arr] (a) -- node[lbl,right]{\code{load\_isotope\_table}} (b);
+\draw[arr] (b) -- (c);
+\draw[arr] (c) -- (d);
+\end{tikzpicture}
+\caption{The weak-sector code path, from the isotope list to the \Ye{} signal.}
+\label{fig:codepath}
+\end{figure}
+
+That last line is invariant \#3 made computable: the physical \Ye{} signal
+carried by the weak columns, asserted nonzero by
+\code{test\_flux\_engine.py::test\_dye\_weak\_nonzero}
+(\S\ref{sec:oracles-db}).
+
+% =====================================================================
+\subsection*{Self-check --- the compiled evaluator}
+\addcontentsline{toc}{subsection}{Self-check --- the compiled evaluator}
+\label{sec:selfcheck-evaluator}
+
+\begin{aside}
+Every question in this block arrives from a source self-check whose material was
+re-homed here: item 1 from the source's Part-I block, items 2--4 from the
+Part-II block, items 5--6 from the Part-V block.
+Appendix~\ref{app:concordance} records the mapping.
+\end{aside}
+
+\begin{selfcheck}
+\item A reaction has \code{prefactor} $1/2$ and \code{dens\_exp} 1. What is its
+      arity, and what are its reactants? Now do the same for \code{prefactor}
+      $1/6$.
+\item Write out \code{lam} for a chapter-8 rate (3 reactants $\to$ 1 product)
+      with two sets, symbolically, all the way to $R_j$ including
+      \code{prefactor} and $\rho$ powers.
+\item Why does \code{set\_starts} exist rather than a loop over columns? Estimate
+      the speedup for \msn{151} (1518 columns, ${\sim}1700$ sets, 4096 states).
+\item \code{compile\_network} raises if \code{set\_owner} is not sorted. What
+      downstream computation would silently produce wrong answers if it were
+      not?
+\item The engine raises on out-of-table states while MESA clips. Argue which is
+      correct for \emph{this project}, and name a situation where the other
+      choice would be right.
+\item The engine reads only column 5 of the weak tables. Name one quantity the
+      project needs that lives in another column, and say which invariant it
+      blocks.
+\end{selfcheck}

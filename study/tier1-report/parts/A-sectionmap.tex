@@ -1,0 +1,133 @@
+% =====================================================================
+%  Appendix A -- the source document's own section map.
+%  Source: tier1.md:60-136 (the Contents table and the <details> "Full
+%  section list"), reproduced so that the source's own Part I--VIII
+%  architecture survives the re-architecture into layers.
+% =====================================================================
+
+\section{The source document's section map}
+\label{app:sectionmap}
+
+This report re-architects \code{study/tier1.md} into epistemic layers
+(\S\ref{sec:status}). The source's own organisation --- node by node, Part~I to
+Part~VIII --- is reproduced here so that nothing about it is lost, and so that a
+reader who knows the source document can navigate this one.
+Appendix~\ref{app:concordance} is the heading-by-heading map between them.
+
+\subsection{The source's Contents table}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{3.0cm} Y@{}}
+\toprule
+\textbf{Part} & \textbf{Covers} \\
+\midrule
+\textbf{I} --- Rate theory &
+  \sigv{} from cross-sections, Coulomb barrier \& Gamow peak, resonances \&
+  Hauser--Feshbach, photodisintegration, what the rates \emph{do} in Si
+  burning \\
+\textbf{II} (S2) --- REACLIB &
+  The seven-coefficient form derived, sets\,/\,chapters\,/\,labels,
+  $\lambda \to$ gross flux $R_j$, the compiled evaluator \\
+\textbf{III} (S3) --- Detailed balance &
+  The reverse\,/\,forward ratio derived in full, the phase-space factor per
+  $|\Delta N|$, partition functions, the v-flag dissection, $\kappa$ as the DB
+  test, gh-575 \\
+\textbf{IV} (S4) --- Screening &
+  Debye--H\"uckel derived, $\Gamma$ regimes, \code{chugunov\_2007}
+  term-by-term, the per-reaction pairing and its $\kappa$ consequence \\
+\textbf{V} (S5) --- The weak sector &
+  Fermi golden rule $\to$ $ft$ $\to$ allowed rates, Gamow--Teller, EC in a
+  degenerate plasma, the $(T, \rhoye)$ tables, table families, the network
+  asymmetry \\
+\textbf{VI} (S6) --- Reconciliation &
+  Canonical keys, membership vs values, dispositions, the measured comparison,
+  the Fortran probe, what it licenses \\
+\textbf{VII} --- Executable policy &
+  \code{fluxes/guards.py}: the four Tier-1 gates as code that refuses to run \\
+\textbf{VIII} --- Open prerequisites &
+  Standing cross-tier register. Two audit passes: the physics the code
+  implements (\S VIII.C, ten gaps) and the project's own spec documents vs the
+  study map (\S VIII.E --- an entire missing \textbf{Tier 4}: the model, its
+  conditioning, its training) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{The source's full section list}
+
+Reproduced verbatim from the source's collapsed ``Full section list'' block.
+
+\begin{srclisting}
+1.1  From cross-section to <sigma v>  1.1.1 rate per volume . 1.1.2 double counting
+                                      1.1.3 the molar convention . 1.1.4 code contract
+1.2  Coulomb barrier & Gamow peak     1.2.1 tunnelling . 1.2.2 the S-factor
+                                      1.2.3 saddle point -> E0, Delta
+                                      1.2.4 numbers in the box
+                                      1.2.5 neutrons have no Gamow peak
+                                      1.2.6 the 1/v law . the reciprocity theorem
+1.3  Resonances & Hauser-Feshbach     narrow-resonance rate . the HF regime
+                                      1.3.3 where the uncertainty actually is
+                                      1.3.4 Gamma/D, level densities, Wigner limit
+                                      1.3.5 (!) ground-state vs stellar rates (SEF)
+1.4  Photodisintegration              the Planck tail . the Q/kT exponential
+                                      worked crossover Si28 <-> S32
+                                      why QSE turns on at ~3 GK
+                                      1.4.4 LTE for photons . 3-alpha & the Hoyle state
+1.5  What the rates do                mapping Part I onto the Tier-0 topology
+1.6  self-check
+
+II.1 The seven-coefficient form    II.5  Code: the coefficient tensor
+II.2 Sets, chapters, labels        II.6  Oracle: the 5e-12 gate
+II.3 One rate dissected            II.6b lambda's 75-decade range; over/underflow
+II.4 lambda -> R_j                 II.6c multiple sets; fit validity range
+                                   II.7  A fit library, not a theory
+                                   II.8  self-check
+
+III.1 DB from chemical equilibrium III.7  gh-575 derived from the same algebra
+III.2 The phase-space factor       III.8  Code: db_reverses + the pf gate
+III.3 Partition functions          III.9  Oracles
+      (!) the G vs (2J+1)G trap    III.10 The two kappa conventions
+      spline extrapolation         III.11 Coulomb corrections to NSE
+III.4 Three ways to build a reverse III.12 Q(T) derived + measured
+III.5 The v-flag dissected         III.13 self-check
+III.6 kappa as the numerical DB test
+
+IV.1 Why screening exists          IV.6  Per-reaction pairs
+IV.2 Debye-Huckel derived          IV.7  The screened-kappa offset derived
+IV.3 Strong screening & Gamma      IV.8  Code + oracle
+      the free-energy derivation   IV.9  Screening of the WEAK sector (MU/DQ/VS)
+IV.4 Where the box sits            IV.10 self-check
+IV.5 chugunov_2007 term by term
+
+V.1 Why weak is categorical        V.6  The three channels & the ledger
+V.2 Golden rule -> ft              V.7  The table families
+V.3 Gamow-Teller strength          V.8  Neutrino losses
+V.4 EC in a degenerate plasma      V.9  Code
+      V.4b Pauli blocking = the ratchet   V.10 The mesa_80/151 asymmetry
+V.5 The (T, rho*Ye) table          V.11 self-check
+      V.5b interpolation error derived
+
+VI.1 Why this node exists          VI.6  Appendix-B as a measurement
+VI.2 The canonical key             VI.7  The screening determination
+VI.3 Membership vs values          VI.8  The Fortran probe
+VI.4 The disposition algebra       VI.8b probe modes & the grid
+VI.5 The measured comparison       VI.8c reading the statistics honestly
+                                   VI.9  What it licenses . VI.10 self-check
+
+VIII.A deferred by design          VIII.C (!) ten genuine gaps (physics pass)
+VIII.B closed in this revision     VIII.D the common-mode habit
+                                   VIII.E (!!) the missing TIER 4 (spec pass)
+                                   VIII.F priorities across both passes
+\end{srclisting}
+
+\begin{aside}
+\textbf{Glyph substitutions in the listing above.} The block is set in a
+monospaced face, so a handful of source glyphs were transliterated rather than
+risk a missing glyph: \sigv{} $\to$ \code{<sigma v>}, $\Tn \to$ \code{T9},
+$E_0 \to$ \code{E0}, \rhoye{} $\to$ \code{rho*Ye}, $\rightleftharpoons\ \to$
+\code{<->}, $\to\ \to$ \code{->}, the interpunct $\to$ \code{.}, Greek letters
+to their names, isotope superscripts to \code{Si28}\,/\,\code{S32}, and the
+warning glyph to \code{(!)} (doubled as \code{(!!)} where the source doubles
+it). Nothing else was changed: the line breaks, the two-column layout, and the
+ordering are the source's.
+\end{aside}

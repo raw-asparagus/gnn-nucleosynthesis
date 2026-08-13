@@ -1,0 +1,658 @@
+% =====================================================================
+%  LAYER A -- Theory and derivation.
+%  Section 5 (S5): the weak sector.
+%
+%  Source: tier1.md Part V -- header (2459-2469), V.1 (2471-2510),
+%          V.2 (2512-2557), V.3 (2559-2591), V.4 (2593-2670),
+%          V.4b (2672-2719), V.5 (2721-2773), V.6 (2843-2870),
+%          V.7 (2872-2928), V.8 (2930-2943), V.10 (2964-2990),
+%          V.11 self-check (2992-3018).
+%  RE-HOMED IN: IV.9 "Screening of weak rates" (2382-2440), which in the
+%          source sits in the screening part and forward-references mu_e.
+%  Excluded and re-homed out: V.5b interpolation error (2775-2841) ->
+%          section 7 (where its punchline is the weak-tabular cross-check
+%          row); V.5's compile/engine snippets, V.6's ledger assertion,
+%          V.7's duplicate-link resolution and V.9's code path (2945-2962)
+%          -> section 6; the tabular-ordering guard -> section 8.
+%          Self-check items 5, 10 -> section 6; item 9 -> section 7.
+% =====================================================================
+
+\section{The weak sector (S5)}
+\label{part:weak}
+
+\begin{repopointer}
+\textbf{Files:} \code{graph/network.py} (table precedence),
+\code{graph/stoich.py} (the lepton ledgers), \code{fluxes/compile.py} $+$
+\code{engine.py} (the tabular path), \code{crosscheck/mesa\_dump.py} (MESA-side
+table provenance). \quad
+\textbf{Inventory:} \code{docs/weak-inventory-step3.md}.
+\end{repopointer}
+
+\textbf{This is the sector the entire project is about.} \Ye{} is the target
+observable (\S I.2), and \Ye{} changes only through weak reactions. Everything
+in \S\ref{part:ratetheory}--\S\ref{part:plasma} is, from the project's point of
+view, the machinery that determines \emph{which nuclei are around} for the weak
+reactions to act on. The code path that carries all of it, from the isotope
+list to the \Ye{} signal, is gathered in \S\ref{sec:codepath}.
+
+% =====================================================================
+\subsection{Why weak reactions are categorically different}
+\label{sec:weak-different}
+
+Six differences, each with a downstream consequence:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{3.4cm} L{4.0cm} Y@{}}
+\toprule
+ & \textbf{Strong\,/\,EM} & \textbf{Weak} \\
+\midrule
+Interaction & strong / electromagnetic & weak ($G_F$) \\
+Rate scale in this box & $10^3$--$10^8$\,s$^{-1}$ &
+  $10^{-5}$--$10^{2}$\,s$^{-1}$ \\
+Barrier & Coulomb (\S\ref{sec:gamow}) &
+  none --- the electron is \emph{bound to the plasma}, not tunnelling \\
+Reverse partner in-network & yes, and it equilibrates & \textbf{no} \\
+Conserves $Z$ & yes & \textbf{no} --- $\Delta Z = \pm1$ at fixed $A$ \\
+Neutrino & --- & escapes, carrying energy and lepton number \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The fourth row is the one that generates a project invariant. A $\beta^-$
+decay's formal inverse is not the corresponding electron capture: the true
+inverse of
+%
+\begin{equation*}
+A \;\longrightarrow\; B + e^- + \bar\nu
+\qquad\text{is}\qquad
+B + e^- + \bar\nu \;\longrightarrow\; A
+\end{equation*}
+%
+which requires an antineutrino to be \emph{absorbed} --- and the neutrinos
+free-stream out (\S0.4.2). \textbf{There is no detailed-balance pair.} Hence:
+
+\begin{invariant}
+\code{CLAUDE.md} \textbf{invariant \#2: weak columns are NEVER eligible for the
+equilibrium mask.} Not by convention --- by the absence of the reverse process.
+\end{invariant}
+
+and, in code, three separate places enforce it structurally:
+
+\begin{srclisting}
+# compile.py _pair_maps: weak columns are ALWAYS unpaired
+if stoich.weak_mask[j]: continue          # never gets a pair_col
+# engine.py: f_minus stays 0 for unpaired columns -> kappa = |phi|/(f+ + 0) = 1
+# test_flux_engine.py::test_weak_columns_have_zero_reverse_and_kappa_one
+\end{srclisting}
+
+$\kappa \equiv 1$ for every weak column carrying flux --- the mask threshold
+$\kappa > 0.1$ can therefore never exclude one, \emph{even if someone forgets
+the rule}. That is the difference between an invariant and a comment.
+
+% =====================================================================
+\subsection{From the golden rule to \texorpdfstring{$ft$}{ft} values}
+\label{sec:goldenrule}
+
+The allowed-approximation $\beta$-decay rate. Fermi's golden rule for a
+transition with lepton phase space:
+%
+\begin{equation*}
+\lambda = \frac{2\pi}{\hbar}\overline{|M_{fi}|^2}\,\rho_f
+\end{equation*}
+%
+For an allowed transition (leptons carry no orbital angular momentum, so their
+wavefunctions are evaluated at the nucleus and factor out), the nuclear matrix
+element separates from the lepton phase-space integral \citep{langanke2000},
+giving
+%
+\begin{equation}
+\lambda = \frac{\ln 2}{K}\,\bigl[\,g_V^2 B(F) + g_A^2 B(GT)\,\bigr]\; f(Z,W_0)
+\label{eq:betarate}
+\end{equation}
+%
+with the \textbf{phase-space integral} \citep{langanke2000}, in units of
+$m_ec^2$,
+%
+\begin{equation}
+f(Z,W_0) = \int_1^{W_0} F(Z,W)\,W\sqrt{W^2-1}\,(W_0-W)^2\,\dd W
+\label{eq:phasespaceint}
+\end{equation}
+%
+$W$ the total electron energy, $W_0$ the endpoint, $F(Z,W)$ the Fermi function
+(Coulomb distortion of the outgoing electron wave). The \textbf{comparative
+half-life} $ft = f\cdot t_{1/2}$ then isolates the nuclear physics: $ft$ is
+small for strong transitions, large for hindered ones, and the tabulated
+$\log ft$ is the experimental handle.
+
+\paragraph{Two matrix elements, two selection rules:}
+
+\begin{itemize}
+\item \textbf{Fermi (vector)}, $B(F) = |\langle\tau_+\rangle|^2$: operator
+      $\sum\tau$, $\Delta J = 0$, no parity change. Non-zero essentially only
+      for isobaric analogue transitions, so $B(F)$ is concentrated in a single
+      state at high excitation. Largely irrelevant for stellar EC on Fe-peak
+      nuclei.
+\item \textbf{Gamow--Teller (axial)}, $B(GT) = |\langle\sigma\tau_+\rangle|^2$:
+      operator $\sum\sigma\tau$, $\Delta J = 0, \pm1$ (no $0\to0$), no parity
+      change. \textbf{This is the one that matters} \citep{langanke2003}.
+\end{itemize}
+
+Note the crucial feature of \eqref{eq:phasespaceint}: \textbf{$f \propto W_0^5$
+for large endpoints.} The rate is a very steep function of the available energy.
+In a plasma, ``available energy'' includes the electron Fermi energy --- which
+is what \S\ref{sec:ec-degenerate} exploits.
+
+% =====================================================================
+\subsection{Gamow--Teller strength, and why these rates are shell-model calculations}
+\label{sec:gt}
+
+The GT$^+$ strength (the direction relevant to electron capture) is not
+concentrated in a single state; it is distributed over a \textbf{Gamow--Teller
+resonance} spread over several MeV of excitation in the daughter, with
+substantial strength at low excitation energy \citep{langanke2000,langanke2003}.
+
+Three facts that follow, all of which shape the project:
+
+\begin{enumerate}
+\item \textbf{Stellar rates $\ne$ laboratory rates.} In the lab, the decay
+      samples only states below the ground-state $Q$-value. In a star at
+      $\Tn = 4$, the \emph{parent} is thermally excited ($kT = 0.34$\,MeV, and
+      \S\ref{sec:pf-in-ratio}'s table shows pf up to 4 for mid-shell nuclei) ---
+      so transitions from excited parent states, some with much larger $B(GT)$
+      or much more favourable energetics, contribute. \textbf{A stellar weak
+      rate is a thermal average over parent states}, which is why it must be
+      tabulated as a function of $T$, not just of \rhoye.
+\item \textbf{The strength distribution must be calculated, not measured.}
+      $(p,n)$ and $(n,p)$ charge-exchange experiments constrain total strengths
+      and distributions for stable targets, but the network needs rates for
+      unstable nuclei at finite temperature. Hence large-scale shell-model
+      diagonalisation in the $pf$ shell --- Langanke \&
+      Mart\'inez-Pinedo (LMP).
+\item \textbf{Hence the large, GT-placement-dependent uncertainty}
+      (\S0.3.3 --- no blanket figure; the LMP revision moved key FFN EC rates by
+      factors ${\sim}10$--350): quenching of the axial coupling
+      (\citealp{langanke2000}: $(g_A/g_V)_{\rm eff} = 0.74\,(g_A/g_V)_{\rm
+      bare}$), model-space truncation, and the placement of GT strength all
+      enter. This is the largest physics uncertainty anywhere in this problem,
+      and it sits directly on the project's target variable.
+\end{enumerate}
+
+\begin{warn}
+Worth sitting with: the quantity this project emulates to $10^{-6}$ per step is
+computed from rates known to a factor of a few. \S\ref{sec:uncertainty}'s
+sentence applies with full force here.
+\end{warn}
+
+% =====================================================================
+\subsection{Electron capture in a degenerate plasma}
+\label{sec:ec-degenerate}
+
+Now the plasma physics, which is what makes the weak sector density-dependent.
+
+In the lab, EC uses a bound atomic electron. In this plasma the atoms are fully
+ionised, and capture proceeds on the \textbf{degenerate free-electron sea}. The
+rate becomes an integral over the electron Fermi--Dirac distribution
+(\citealp{langanke2000}; \citealp[eq.~3]{bildsten1998}):
+%
+\begin{equation}
+\lambda_{\rm EC} \propto \int_{W_{\rm thr}}^{\infty}
+W\sqrt{W^2-1}\,(W+q)^2\,F(Z,W)\,
+\frac{\dd W}{1+\exp\bigl[(W-\muE)/kT\bigr]}
+\label{eq:ecintegral}
+\end{equation}
+%
+Compare with \eqref{eq:phasespaceint}: the outgoing-electron phase space has
+been replaced by an \textbf{incoming-electron occupation}, and the neutrino now
+carries the surplus $(W + q)^2$. Two structural consequences:
+
+\begin{itemize}
+\item \textbf{Threshold.} If the nuclear transition is endothermic by $|Q|$,
+      capture requires $W \ge W_{\rm thr} \approx |Q| + m_ec^2$. At low density
+      the Fermi sea does not reach that energy and the rate is exponentially
+      suppressed; once \muE{} exceeds the threshold the rate turns on hard.
+\item \textbf{Steepness.} With $\muE \gg kT$ (degenerate), the occupation factor
+      is a near step function, so
+      $\lambda_{\rm EC} \approx \int_1^{\muE}$. The \textbf{integrand} goes as
+      $W^4$ at large $W$ ($W\sqrt{W^2-1} \to W^2$ from the electron phase space,
+      times $(W+q)^2 \to W^2$ from the neutrino), so the \textbf{integral} goes
+      as the fifth power:
+      %
+      \begin{equation*}
+      \lambda_{\rm EC} \sim \muE^5 \qquad (\muE \gg W_{\rm thr})
+      \end{equation*}
+      %
+      \textbf{A fifth-power dependence on the electron chemical potential} ---
+      and $\muE \propto (\rhoye)^{1/3}$ in the relativistic degenerate limit, so
+      $\lambda_{\rm EC} \propto (\rhoye)^{5/3}$. This is why the tables are
+      indexed on \rhoye, and why the box's two decades in $\rho$ matter
+      enormously to \Ye.
+\end{itemize}
+
+\textbf{Numbers across the box} (relativistic degenerate
+$E_F = \sqrt{p_F^2c^2 + m_e^2c^4}$, $p_F = \hbar(3\pi^2n_e)^{1/3}$)
+\derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{$\rho$ (g\,cm$^{-3}$)} & \textbf{\Ye} & \textbf{$n_e$ (cm$^{-3}$)}
+  & \textbf{$E_F$ (MeV)} \\
+\midrule
+$10^7$ & 0.50 & $3.01\times10^{30}$ & 1.019 \\
+$10^8$ & 0.50 & $3.01\times10^{31}$ & 1.967 \\
+$10^9$ & 0.45 & $2.71\times10^{32}$ & 3.983 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{warn}
+\warnglyph{}~\textbf{Get the free-proton threshold right --- it is easy to
+double-count the electron rest mass.} For $p + e^- \to n + \nu$ the reaction $Q$
+is $(m_p + m_e - m_n)c^2 = \mathbf{-0.782}$\,MeV, so by the rule just stated the
+threshold \emph{total} electron energy is
+$W_{\rm thr} = |Q| + m_ec^2 = 0.782 + 0.511 = \mathbf{1.293}$\,MeV
+(\citealp{bildsten1998}: ``the 1293\,keV threshold'') --- which is just
+$(m_n - m_p)c^2$, as it must be. It is \textbf{not} $m_ec^2 + 1.293$; the
+1.293\,MeV already includes the rest mass.
+\end{warn}
+
+Set against $W_{\rm thr} = 1.293$\,MeV: \textbf{the box's lower $\rho$ edge sits
+just below it and the upper edge far above.} Solving $E_F(\rho) = W_{\rm thr}$
+gives the crossing at \textbf{$\rho \approx 2.4\times10^7$\,g\,cm$^{-3}$} at
+$\Ye = 0.5$ \derivedhere{} --- inside the box, near its bottom edge, rather than
+somewhere between the $10^7$ and $10^8$ rows of the table. Tier~0 \S0.1.5
+derived that edge; you can now see it is a \emph{fifth-power} switch, not a soft
+one. The regime box brackets the turn-on of the \Ye-controlling process --- the
+box is defined by this physics.
+
+\begin{warn}
+\warnglyph{}~\textbf{And read that table as a $T = 0$ quantity.} $E_F$ above is
+the cold-degenerate Fermi energy; it is the right variable at the cold, dense
+end of the box and \emph{not} at the hot, thin corner. Solving the
+finite-temperature charge-neutrality condition instead, at $\Tn = 7.9$,
+$\rho = 10^7$, $\Ye = 0.498$ the electron chemical potential is
+$\muE = \mathbf{0.16}$\,MeV $< m_ec^2$ --- degeneracy parameter
+$(\muE - m_ec^2)/kT \approx -0.5$, i.e.\ the electrons there are \textbf{not
+degenerate at all} \derivedhere{}. The ``degenerate free-electron sea'' framing
+of this subsection, and the $\muE^5$ scaling that follows from it, are
+statements about the cold\,/\,dense part of the box. See
+\S\ref{sec:gap-pairs}, which is the same corner seen from the screening side.
+\end{warn}
+
+Also note the \textbf{self-limiting feedback}: capture lowers \Ye, which lowers
+$n_e$, which lowers \muE, which suppresses further capture. The \Ye{} evolution
+is stiffly self-damping, which is part of why the ``one-way ratchet''
+(\S0.4.2) is gradual rather than catastrophic.
+
+\subsubsection{Pauli blocking --- the microphysical cause of the one-way ratchet}
+\label{sec:pauli}
+
+Tier~0 \S0.4.2 established that \Ye{} ratchets \emph{down} and attributed it to
+neutrino free-streaming (which removes the inverse process). There is a second,
+entirely independent mechanism, and it is stronger:
+
+\textbf{$\beta^-$ decay emits an electron into a Fermi sea that is already
+full.} The final-state electron must land above \muE. If the decay endpoint
+$W_0 < \muE$, the transition is \textbf{Pauli-blocked} --- the phase-space
+integral \eqref{eq:phasespaceint} is truncated at \muE{} instead of $W_0$:
+%
+\begin{equation*}
+f_{\beta^-} \;\longrightarrow\; \int_{\muE}^{W_0}
+F(Z,W)\,W\sqrt{W^2-1}\,(W_0-W)^2\,\dd W
+\;\;\to\; 0 \ \text{ as } \muE \to W_0
+\end{equation*}
+%
+So in a degenerate plasma, \textbf{electron capture is enhanced
+($\lambda \propto \muE^5$) while $\beta^-$ decay is suppressed, both by the same
+\muE} \citep{langanke2000,langanke2003}. That is the ratchet, and it is a much
+sharper statement than ``neutrinos escape''.
+
+\textbf{This is directly visible in the tables.} Measuring the local power-law
+index $\dd\log_{10}\lambda / \dd\log_{10}(\rhoye)$ on the table nodes spanning
+the box ($\log\rhoye$ segments 6--7, 7--8, 8--9; $\log T$ nodes 9.0--10.0)
+\derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}llr@{}}
+\toprule
+\textbf{Channel} & \textbf{type} & \textbf{index range} \\
+\midrule
+$\nuc{Ni}{56} \to \nuc{Co}{56}$ & EC & $+0.07 \ldots +2.35$ \\
+$\nuc{Co}{55} \to \nuc{Fe}{55}$ & EC & $+0.07 \ldots +2.46$ \\
+$\nuc{Fe}{54} \to \nuc{Mn}{54}$ & EC & $+0.08 \ldots \mathbf{+5.39}$ \\
+$\nuc{Ca}{48} \to \nuc{Sc}{48}$ & $\beta^-$ & $\mathbf{-4.88} \ldots -0.04$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+EC indices are positive and bracket the 5/3 degenerate scaling (rising well
+above it near threshold, where the exponential turn-on dominates, and falling to
+${\sim}0$ where the rate saturates). \textbf{The $\beta^-$ index is negative
+throughout} --- the rate \emph{falls} by up to five decades per decade of
+\rhoye. Nothing else in the network behaves this way.
+
+Two consequences worth carrying:
+
+\begin{enumerate}
+\item \textbf{The 5/3 scaling of \S\ref{sec:ec-degenerate} is the asymptotic
+      middle of a range, not a law.} Quote it as the degenerate limit, not as
+      the behaviour in the box.
+\item \textbf{The \Ye-raising sector is density-suppressed exactly where the
+      project's interesting physics lives} ($\rho \to 10^9$). This sharpens the
+      \msn{80} concern of \S\ref{sec:weak-asymmetry}: \msn{80} carries 19
+      $\beta^-$ channels, but at high density those carry little flux anyway ---
+      so the \emph{dominant} asymmetry between the networks is on the EC side
+      (21 vs 84), which is the side that matters. Good news for size transfer;
+      bad news for anyone hoping the $\beta^-$ deficit is the whole story.
+\end{enumerate}
+
+% =====================================================================
+\subsection{The \texorpdfstring{$(T, \rhoye)$}{(T, rho Ye)} table: what is actually in the file}
+\label{sec:weaktable}
+
+Read one \derivedhere{}. \code{Ni56\_to\_Co56\_weaktab} (source: langanke):
+
+\begin{srclisting}
+shape (143, 8) = 11 log10(rho*Ye) nodes x 13 log10(T) nodes x 8 columns
+log10 rho*Ye grid : 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+log10 T      grid : 7, 8, 8.30103, 8.60206, 8.845098, 9, 9.176091,
+                    9.30103, 9.477121, 9.69897, 10, 10.477121, 11
+columns           : [log rho*Ye, log T, mu, dQ, Vs, log10 rate,
+                     log10 nu-loss, log10 gamma-heating]
+\end{srclisting}
+
+Four observations that each explain a project measurement:
+
+\begin{enumerate}
+\item \textbf{The grid is coarse.} One full decade per \rhoye{} cell. The box
+      spans $\log\rhoye \in [6.65, 8.70]$ --- two and a bit cells --- and
+      $\log T \in [9.204, 9.898]$. Interpolating a fifth-power function on a
+      one-decade grid is where the accuracy goes
+      (\S\ref{sec:interp-error}).
+\item \textbf{$\Tn = 5$ is exactly a node} ($\log_{10}(5\times10^9) = 9.69897$).
+      That is why the cross-check's median $|\Delta\log_{10}|$ collapses to
+      \textbf{0.003\,dex at the $\Tn = 5$ node} while off-node medians are
+      0.03--0.18\,dex \resultsref{2026-07-10}. The discrepancy is
+      \emph{interpolation scheme}, not physics --- MESA bilinear vs pynucastro's
+      own interpolant on the same table.
+\item \textbf{The box is interior everywhere.} $\Tn \le 7.9 \ll 10^{11}$\,K,
+      $\log\rhoye \le 8.7 < 11$. No extrapolation. Outside the box the two codes
+      diverge qualitatively --- MESA \textbf{clips} to the table edge
+      (\code{rates/private/eval\_weak.f90}), pynucastro \textbf{extrapolates}
+      \resultsref{2026-07-10}. A fact to carry if the regime ever widens.
+\item \textbf{The rate is stored as $\log_{10}$.} So bilinear interpolation is
+      bilinear \emph{in the log} --- a geometric interpolation of the rate,
+      which is the right choice for a quantity spanning decades.
+\end{enumerate}
+
+The slicing, the clamped-searchsorted bilinear evaluation, the \Ye{}
+normalisation, and the deliberate decision to raise rather than clip out of
+bounds are all \S\ref{sec:tabular-path}.
+
+% =====================================================================
+\subsection{Screening of \emph{weak} rates --- a separate mechanism entirely}
+\label{sec:weak-screening}
+
+Everything in \S\ref{part:plasma} is screening of a \textbf{charged-particle
+entrance channel}. Weak reactions have no such channel --- but they are not
+unscreened, and this is a prerequisite that neither Tier~0 nor anything above
+covers. (In the source this subsection sits inside the screening part and has to
+forward-reference \muE; here it follows \S\ref{sec:ec-degenerate}, which has
+already established it.)
+
+Electron capture depends on the electron chemical potential \muE{}
+(\S\ref{sec:ec-degenerate}), and \muE{} in a strongly-coupled plasma is not the
+ideal-Fermi-gas value: the electron sea is polarised around each nucleus, which
+shifts the energy of the captured electron. The tables carry this explicitly.
+Reading the eight columns of a weaklib\,/\,LMP table:
+
+\begin{srclisting}
+TableIndex:  RHOY=0  T=1  MU=2  DQ=3  VS=4  RATE=5  NU=6  GAMMA=7
+\end{srclisting}
+
+\begin{itemize}
+\item \textbf{MU} --- the electron chemical potential at that $(\rhoye, T)$;
+      NOTE the rest-mass convention varies by table family (langanke files:
+      without rest mass; suzuki files: with rest mass).
+\item \textbf{VS} --- the \textbf{screening potential}: the Coulomb correction
+      to \muE, i.e.\ exactly this effect.
+\item \textbf{DQ} --- the Coulomb correction to the reaction threshold:
+      $\Delta Q_C = \mu_C(Z-1) - \mu_C(Z)$, the shift in effective $Q$ from the
+      ion (nucleus) Coulomb chemical potentials in the electron background
+      \citep{suzuki2016}. Thermal population of parent excited states is folded
+      into RATE itself, not tabulated separately.
+\end{itemize}
+
+\textbf{And the engine reads only column 5.}
+
+\begin{srclisting}
+f2d = data[:, 5].reshape(len(rhoy), n_temp).copy()     # compile.py:222
+\end{srclisting}
+
+That is \emph{correct} for the rate itself --- the tabulated RATE already has
+the screening and thermal-population physics folded in, which is the entire
+point of tabulating on a $(T, \rhoye)$ grid. MU, DQ and VS are diagnostic
+columns describing \emph{how} the tabulator arrived at RATE, not corrections to
+be applied.
+
+But two consequences are worth carrying:
+
+\begin{enumerate}
+\item \textbf{Weak-rate screening is not the chugunov screening.} The
+      two-$\kappa$ conventions rule (\S\ref{sec:two-kappa}) concerns
+      \code{chugunov\_2007} on strong pairs. Turning screening ``off'' in the
+      engine (\code{screening=None}) does \textbf{not} turn off the screening
+      inside the weak tables --- it cannot, because that physics is baked into
+      the tabulated numbers. An ``unscreened'' run is unscreened \emph{on the
+      strong sector only}. Since weak columns are unpaired and carry
+      $\kappa \equiv 1$ regardless, this does not corrupt any $\kappa$ threshold
+      --- but it does mean ``unscreened'' is a sector-specific statement, not a
+      global one.
+\item \textbf{Column 6 (NU) is dropped, and it is the one invariant \#5 needs.}
+      The neutrino energy-loss rate per reaction is tabulated and pynucastro
+      exposes it as \code{TabularRate.get\_nu\_loss}, but the compiled evaluator
+      never builds it. Any flux-route energy accounting that must be ``net of
+      neutrino losses'' --- which is the trajectory-file \code{eps\_nuc}
+      convention \resultsref{2026-07-11} --- needs this column compiled in.
+      Named in \S\ref{sec:gap-nu} as an open prerequisite. (Status: the
+      2026-07-10 UNRESOLVED row on the flux-route vs bbq \code{eps\_nuc}
+      comparison was retired by the 2026-07-11 \code{eps\_nuc} convention pin ---
+      a units\,/\,convention mismatch, not an engine error
+      \resultsref{2026-07-11}; invariant-\#5 proper passed 2026-07-12 with the
+      constant-$Q$ caveat of \S\ref{sec:qoft} \resultsref{2026-07-12}; the
+      NU-column gap itself stands.)
+\end{enumerate}
+
+% =====================================================================
+\subsection{The three channels and the lepton ledger}
+\label{sec:ledger}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.7cm} L{4.4cm} L{0.7cm} L{0.7cm} L{0.7cm}
+                              L{0.7cm} Y@{}}
+\toprule
+\textbf{weak\_type} & \textbf{reaction} & \textbf{$\Delta Z$} & \textbf{$d_{e^-}$}
+  & \textbf{$d_\nu$} & \textbf{$d_{\bar\nu}$} & \textbf{effect on \Ye} \\
+\midrule
+\code{electron\_capture} & $A(Z) + e^- \to A(Z{-}1) + \nu$ & $-1$ & $-1$ & $+1$
+  & 0 & \textbf{lowers} \\
+\code{beta\_pos} & $A(Z) \to A(Z{-}1) + e^+ + \nu$ & $-1$ & $-1$ & $+1$ & 0
+  & \textbf{lowers} \\
+\code{beta\_neg} & $A(Z) \to A(Z{+}1) + e^- + \bar\nu$ & $+1$ & $+1$ & 0 & $+1$
+  & \textbf{raises} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The $\beta^+$ row is the one that trips people. The emitted positron
+annihilates promptly with a plasma electron, so its \emph{net} effect on the
+electron ledger is $-1$ --- the nucleus loses a unit of charge to the electron
+sea, exactly as in EC. EC and $\beta^+$ therefore share a ledger signature.
+\code{graph/stoich.py}'s module docstring states this, and the code enforces it
+with an assertion whose design is worth studying in its own right
+(\S\ref{sec:ledger-enforcement}): \textbf{the ledgers are assigned from
+\code{weak\_type}, never back-derived from $Z\cdot\nu$}, because back-deriving
+would make the charge-to-lepton closure a tautology and the conservation gate
+would pass vacuously.
+
+Also enforced: \textbf{$|\Delta Z| = 1$ exactly} on every weak column --- a weak
+reaction is a single-nucleon transition. A $|\Delta Z| = 2$ weak column would be
+a double-$\beta$ process, absent from these networks, and the build aborts
+naming the reaction.
+
+% =====================================================================
+\subsection{The table families and the precedence question}
+\label{sec:tablefamilies}
+
+Five families appear in pynucastro's \code{TabularLibrary}, four of which have a
+MESA analogue:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.4cm} L{4.2cm} Y@{}}
+\toprule
+\textbf{Label} & \textbf{Source} & \textbf{Coverage} \\
+\midrule
+\code{ffn} & Fuller, Fowler \& Newman \citeyearpar{ffn} &
+  broad, early, independent-particle-model based \\
+\code{oda} (MESA ``OHMT'') & \citet{oda1994} & $sd$ shell, $A = 17$--39 \\
+\code{langanke} (MESA ``LMP'') & \citet{langanke2001} &
+  $pf$ shell, the Fe peak --- large-scale shell model \\
+\code{suzuki} & \citet{suzuki2016} &
+  $sd$ shell, more modern than Oda \\
+\code{pruet\_fuller} & \citet{pruet2003} & $A = 65$--80; no MESA analogue \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+MESA weaklib's precedence is \textbf{LMP $>$ Oda $>$ FFN}, with
+\code{use\_suzuki\_weak\_rates} defaulting to \code{.false.} --- and bbq runs with
+an empty \code{\&nuclear} namelist, so that default \emph{is} the label
+configuration. pynucastro expresses precedence as an ordering where later wins,
+so the pinned constant is \code{DEFAULT\_TABULAR\_ORDERING}
+(\S\ref{sec:guard-reconciled}).
+
+\textbf{This was measured, not assumed.} Under the pre-Step-4 suzuki-topped
+ordering, 14 (\msn{80}) / 23 (\msn{151}) matched weak pairs used Suzuki tables
+where MESA uses Oda --- \emph{every one an $sd$-shell nuclide with
+$A = 17$--28}, exactly Suzuki's coverage. After the reordering: \textbf{zero
+mismatches} \resultsref{2026-07-09}. That the residual set was exactly Suzuki's
+coverage region is the tell that made the diagnosis certain. The consequence is
+a guard, because a build with the wrong ordering would be subtly wrong in a way
+no conservation test can catch (\S\ref{sec:guard-reconciled}).
+
+\textbf{One genuine provenance difference survives:}
+$\nuc{Be}{7} \to \nuc{Li}{7}$ electron capture, where MESA uses a shipped
+\code{S13\_r\_be7\_wk\_li7.h5} $(T, \rhoye)$ table and pynucastro uses a REACLIB
+\code{ec} fit --- 2.58--2.77\,dex apart \resultsref{2026-07-10}. Carried as an
+open flag; \nuc{Be}{7} is light-sector and peripheral to Si-burning \Ye. Note
+the discipline: it is \emph{not} rounded down to ``agreement'', it is named and
+bounded.
+
+\textbf{Duplicate-link resolution.} Where both a REACLIB fit and a tabular rate
+cover the same transition, \code{build\_rate\_collection} drops the ReacLib member
+(\S\ref{sec:duplicate-links}). Correct, because the tabular rate is the
+$(T, \rhoye)$-dependent one --- and \S\ref{sec:ec-degenerate} just showed that
+the \rhoye{} dependence \emph{is} the physics. A REACLIB weak fit carries only
+$T$ dependence and would miss the fifth-power \muE{} switch entirely.
+
+% =====================================================================
+\subsection{Neutrino losses}
+\label{sec:nulosses}
+
+Column 6 of the table is $\log_{10}$ of the neutrino energy-loss rate. Two
+roles:
+
+\begin{itemize}
+\item \textbf{Energetics.} Tier~0 \S0.4 established that neutrinos free-stream
+      out (\S0.4.2), so their energy is \emph{lost}, not thermalised. The
+      trajectory-file \code{eps\_nuc} is net of neutrino losses
+      \resultsref{2026-07-11} --- a convention difference from the training CSVs
+      that has bitten before.
+\item \textbf{The open item.} $\langle E_\nu\rangle$ per capture (\S0.4.3) is
+      needed to convert a weak flux into an energy loss; the tables give the
+      loss directly, which is why the project can defer it. But any
+      \emph{flux-route} energy accounting (invariant \#5) must decide whether
+      $Q_j$ is the full $Q$ or $Q - Q_\nu$. Worth knowing that the MESA-side
+      dump carries both \code{q} and \code{qneu} per reaction
+      (\code{crosscheck/mesa\_dump.py:91-92}) precisely so the question is
+      answerable.
+\end{itemize}
+
+% =====================================================================
+\subsection{The two networks are not the same weak network}
+\label{sec:weak-asymmetry}
+
+Census \resultsref{2026-07-09}:
+
+\begin{center}
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+ & \textbf{reactions} & \textbf{ReacLib} & \textbf{tabular} & \textbf{weak}
+ & \textbf{EC} & \textbf{$\beta^-$} & \textbf{$\beta^+$} \\
+\midrule
+\msn{80}  & 607  & 569  & 38  & 46  & 21 & 19 & 6 \\
+\msn{151} & 1518 & 1354 & 164 & 173 & 84 & 84 & 5 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{\msn{151} has $3.8\times$ the weak channels of \msn{80} for $1.9\times$
+the species.} The asymmetry is not uniform, either: \msn{80} carries only
+\textbf{6/9 EC controllers and 0/8 $\beta$-decay partners} of the
+\Ye-controller set \resultsref{2026-07-08}. Reading the inventory tables
+directly, \msn{80}'s Fe-peak weak sector is essentially
+$\{\nuc{Ni}{56}, \nuc{Co}{56}, \nuc{Fe}{56}, \nuc{Cu}{59}, \nuc{Ni}{59},
+n \rightleftharpoons p\}$, while \msn{151} carries the full
+V--Cr--Mn--Fe--Co--Ni block from $A = 45$ to 61.
+
+Three consequences to carry forward:
+
+\begin{enumerate}
+\item \textbf{Size transfer is not just ``more nodes''.} A model trained on
+      \msn{80} has never seen a \nuc{Fe}{55} or \nuc{Mn}{53} electron capture.
+      The zero-shot \msn{151} falsifier (\Ye{} error $> 2\times$ internal
+      $\Rightarrow$ report as size-\emph{adaptable}, not size-transferable) is
+      testing exactly this.
+\item \textbf{Loss weighting must account for it.} The weak columns are a much
+      smaller fraction of \msn{80}'s 607 than of \msn{151}'s 1518, while
+      carrying the same physical importance.
+\item \textbf{The \Ye{} physics floor differs between the networks}, so the
+      $5\times10^{-3}$--$1.5\times10^{-2}$ per-trajectory floor is not
+      automatically a shared number.
+\end{enumerate}
+
+% =====================================================================
+\subsection*{Self-check --- S5}
+\addcontentsline{toc}{subsection}{Self-check --- S5}
+\label{sec:selfcheck-weak}
+
+\begin{selfcheck}
+\item Derive the $W_0^5$ scaling of \eqref{eq:phasespaceint} in the
+      ultrarelativistic limit. Then explain the $(\rhoye)^{5/3}$ scaling of
+      $\lambda_{\rm EC}$.
+\item Compute $E_F$ at $\rho = 3\times10^8$, $\Ye = 0.47$. Is free-proton
+      capture allowed? By how much energy?
+\item Why must a stellar weak rate be tabulated in $T$ even at fixed \rhoye,
+      when the \emph{strong} rates need only $T$? (Two distinct reasons; name
+      both.)
+\item Verify from the inventory that EC and $\beta^+$ share a ledger signature
+      but have different reaction arities. What does that imply for
+      \code{prefactor} and \code{dens\_exp} on the two classes?
+\item Given the \msn{80} weak census, predict qualitatively how a
+      \msn{80}-trained emulator will fail on \msn{151} high-\Ye{} trajectories.
+      Which isotopes first?
+\item Why does dropping the ReacLib member of a duplicate weak link matter more
+      at $\rho = 10^9$ than at $10^7$?
+\item Derive the Pauli-blocking truncation of \eqref{eq:phasespaceint} and show
+      it gives a \emph{negative} $\dd\log\lambda/\dd\log(\rhoye)$. Predict the
+      sign for an EC channel and check both against \S\ref{sec:pauli}.
+\end{selfcheck}
+
+\begin{aside}
+Three questions of this block moved with their material: the two about the
+engine's out-of-table behaviour and about reading only column 5 are now
+\S\ref{sec:selfcheck-evaluator}, and the one bounding a channel's interpolation
+error from $\max|\Delta^2\log_{10}\lambda|$ is
+\S\ref{sec:selfcheck-verification}. Appendix~\ref{app:concordance} records every
+such relocation.
+\end{aside}

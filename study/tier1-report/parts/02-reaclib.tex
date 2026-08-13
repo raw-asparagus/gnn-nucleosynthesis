@@ -1,0 +1,273 @@
+% =====================================================================
+%  LAYER A -- Theory and derivation.
+%  Section 2 (S2): REACLIB, the fitting basis.
+%
+%  Source: tier1.md Part II -- header (899-904), II.1 (905-947),
+%          II.2 (949-977), II.3 (978-1026), II.6c (1150-1172),
+%          II.7 (1174-1187), II.8 self-check (1189-1202).
+%  Excluded and re-homed: II.4 (1028-1058), II.5 (1060-1087) and II.6b
+%  (1116-1148) -> section 6 (the compiled evaluator); II.6 the 5e-12
+%  oracle (1089-1114) -> section 7; the vflag_sets/assert_pf_gate snippet
+%  -> sections 6 and 8.  Self-check items 4-6 -> section 6.
+% =====================================================================
+
+\section{REACLIB: the library and its evaluation (S2)}
+\label{part:reaclib}
+
+\begin{repopointer}
+\textbf{Files:} \code{configs/isotopes\_mesa{80,151}.yaml} $\to$
+\code{graph/network.py} $\to$ \code{fluxes/compile.py} $\to$
+\code{fluxes/engine.py}. \quad
+\textbf{Oracle:} \code{tests/test\_flux\_compile.py}
+(\S\ref{sec:oracle-compile}). \quad
+\textbf{Notebook:} 05.
+\end{repopointer}
+
+% =====================================================================
+\subsection{The seven-coefficient form, derived}
+\label{sec:sevencoeff}
+
+REACLIB stores every rate as a sum of \textbf{sets}, each set seven
+coefficients \citep[eq.~1]{cyburt2010}:
+%
+\begin{equation}
+\boxed{\;
+\Nasigv
+= \sum_{\text{sets}} \exp\Bigl[
+a_0 + \frac{a_1}{\Tn} + \frac{a_2}{\Tn^{1/3}} + a_3 \Tn^{1/3}
++ a_4 \Tn + a_5 \Tn^{5/3} + a_6 \ln \Tn \Bigr]
+\;}
+\label{eq:reaclib}
+\end{equation}
+
+Every term has a physical origin (fitting rules: \citealp{cyburt2010},
+Table~1). Derive them rather than memorising:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{3.1cm} Y@{}}
+\toprule
+\textbf{Term} & \textbf{Origin} \\
+\midrule
+$a_0$ & overall normalisation: S-factor scale, statistical weights,
+  constants \\
+$a_1/\Tn$ & \textbf{resonance}: $\exp(-E_r/kT)$, with
+  $a_1 = -11.605\cdot E_r[\text{MeV}]$ \eqref{eq:narrowres}. Also
+  \textbf{detailed-balance $Q$}: $a_1 = -11.605\cdot Q$
+  (\S\ref{part:db}) \\
+$a_2/\Tn^{1/3}$ & \textbf{the Gamow exponent} $-\tau$ from
+  \eqref{eq:tau}\,/\,\eqref{eq:taupractical}:
+  $a_2 = -4.2487(Z_1^2Z_2^2\mu)^{1/3}$ \\
+$a_3\Tn^{1/3}$, $a_4\Tn$, $a_5\Tn^{5/3}$ &
+  \textbf{empirical shape terms, not a derived expansion.} They absorb the
+  higher orders of the saddle-point approximation and the energy dependence of
+  $S(E)$ near $E_0$, and they form the odd ladder $\Tn^{1/3}$, $\Tn^{3/3}$,
+  $\Tn^{5/3}$ continuing the $a_2$ term's $\Tn^{-1/3}$. Do \textbf{not} claim a
+  clean derivation here: expanding $S(E) \approx S_0 + S'E_0 + \dots$ with
+  $E_0 \propto T^{2/3}$ generates $T^{2/3}$, $T^{4/3}$, which is not this
+  ladder. The honest statement is that the basis was chosen wide enough to fit
+  both \S\ref{sec:gamow}'s and \S\ref{sec:hf}'s asymptotics with three free
+  shape parameters left over (\S\ref{sec:fitnottheory}) \\
+$a_6\ln\Tn$ & the power-law prefactor: \textbf{$-2/3$} for non-resonant
+  \eqref{eq:nonresonant}, \textbf{$-3/2$} for a narrow resonance
+  \eqref{eq:narrowres}, and \textbf{$+3/2\cdot\Delta N$} shifts for a
+  detailed-balance reverse (\S\ref{part:db}; \citealp{rauscher2000}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Two properties of this basis are load-bearing downstream:
+
+\begin{enumerate}
+\item \textbf{It is linear in the coefficients inside the exponent.} So
+      evaluating every rate in a network at every state is one matrix product
+      \code{coeffs @ Tpow} followed by \code{exp} and a segment-sum. That is
+      exactly \code{engine.evaluate\_lambda}, and it is why the compiled
+      evaluator is fast (\S\ref{sec:coefftensor}).
+\item \textbf{Multiplicative corrections are additive in the exponent.}
+      Partition functions, screening, and the detailed-balance ratio can each be
+      \emph{either} baked into $a_0/a_1/a_6$ \emph{or} added at runtime, with
+      identical results up to floating-point association. This equivalence is
+      what the $5\times10^{-12}$ test gate is measuring
+      (\S\ref{sec:oracle-compile}) --- and, less happily, it is what allowed the
+      v-flag reverses to silently omit the partition-function term
+      (\S\ref{sec:vflag}).
+\end{enumerate}
+
+\textbf{Sets, not one fit.} Multiple sets are summed because a real rate often
+has a non-resonant component plus one or more resonances; each gets its own
+seven coefficients, and \eqref{eq:reaclib} sums the exponentials.
+\code{c12(a,g)o16} carries two sets; \code{si28(a,g)s32} carries one.
+
+% =====================================================================
+\subsection{Sets, chapters, labels, and the v flag}
+\label{sec:labelprops}
+
+Three pieces of REACLIB metadata matter here.
+
+\paragraph{Chapter} --- reactant\,/\,product counts (Tier~0 \S0.5's table;
+\citealp{cyburt2010}). Determines arity, hence \code{dens\_exp} and
+\code{prefactor}, and it is the index of the gh-575 bug (\S\ref{sec:gh575}).
+
+\paragraph{labelprops} --- a six-character field per set: positions 0--3 hold
+the four-character data source label (\code{ths8}, \code{nac2}, \code{ks03},
+\code{wc12}, \code{bet+}), position 4 a one-character resonance\,/\,weak flag
+(blank or \code{n} non-resonant, \code{r} resonant, \code{w} weak), and
+\textbf{position 5 the reverse flag \code{v}} marking a set as a \emph{pf-free
+inverse fit} \citep{rauscher2000,cyburt2010}. So \code{ths8r\ } $=$ label
+\code{ths8} $+$ resonant flag; the weak examples in this network read
+\code{wc12w\ }, \code{\ \ ecw\ }, \code{bet+w\ }.
+
+That one character is the entire discriminator for the project's blocking gate:
+it is extracted at compile time into a boolean \code{vflag\_sets} array
+(\S\ref{sec:vflag-extraction}) and handed straight to \code{assert\_pf\_gate}
+(\S\ref{part:guards}). \code{ths8r\ } (trailing space at position 5) is a
+forward; \code{ths8rv} is its v-flag reverse.
+
+\paragraph{derived\_from\_inverse} --- pynucastro's boolean surfacing of the
+same fact at the \code{Rate} level, exported into the $\nu$ npz as
+\code{derived\_from\_inverse} and consumed by \code{assert\_pf\_gate}.
+
+% =====================================================================
+\subsection{One rate dissected}
+\label{sec:onerate}
+
+This is the exercise to actually do. \code{si28(a,g)s32} and its library reverse
+\derivedhere{}:
+
+\begin{srclisting}
+si28(a,g)s32   chapter 4  prefactor 1.0  dens_exp 1  derived_from_inverse False
+   labelprops 'ths8r '
+   a = [ 47.9212,   0.0,     -59.4896,  4.47205, -4.78989,  0.5572, -0.66667]
+
+s32(g,a)si28   chapter 2  prefactor 1.0  dens_exp 0  derived_from_inverse True
+   labelprops 'ths8rv'
+   a = [ 72.8130, -80.626,   -59.4896,  4.47205, -4.78989,  0.5572, +0.83333]
+\end{srclisting}
+
+Now check every coefficient against \S\ref{part:ratetheory}:
+
+\begin{itemize}
+\item \textbf{$a_2 = -59.4896$.} From \eqref{eq:taupractical},
+      $\tau(\Tn{=}1) = 4.2487\cdot(14^2\cdot2^2\cdot3.5)^{1/3}
+      = 4.2487\cdot(2744)^{1/3} = 4.2487\cdot14 = \mathbf{59.482}$. Agreement to
+      0.01\% (the residual is the difference between integer $A$ and true
+      reduced mass in the fit). \textbf{The third REACLIB coefficient of every
+      charged-particle forward is the Gamow exponent.} Verify one yourself and
+      this stops being an incantation.
+\item \textbf{$a_6 = -0.66667 = -2/3$.} Exactly the non-resonant prefactor of
+      \eqref{eq:nonresonant}.
+\item \textbf{$a_1 = 0$} in the forward: no resonance term needed for this
+      channel.
+\item \textbf{$a_3$, $a_4$, $a_5$} are the saddle-point\,/\,$S(E)$ corrections
+      --- identical in the forward and the reverse, because detailed balance does
+      not touch them.
+\end{itemize}
+
+And now the reverse, which is where S3 begins:
+
+\begin{center}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Coefficient} & \textbf{forward} & \textbf{v-flag reverse}
+  & \textbf{difference} \\
+\midrule
+$a_0$ & 47.9212 & 72.8130 & $\mathbf{+24.8918}$ \\
+$a_1$ & 0.0 & $-80.626$ & $\mathbf{-80.626}$ \\
+$a_6$ & $-0.66667$ & $+0.83333$ & $\mathbf{+1.5}$ exactly \\
+$a_2,a_3,a_4,a_5$ & --- & --- & \textbf{identical} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Three numbers changed. Compute what they should be:
+
+\begin{itemize}
+\item $\mathbf{-80.626} = -Q/(k\cdot10^9) = -6.94782\ \text{MeV} / 0.0861733\
+      \text{MeV} = \mathbf{-80.626}$ \yes
+\item $\mathbf{+1.5} = 1.5\cdot\Delta N$ with $\Delta N = +1$ (chapter 4 $\to$
+      chapter 2, one extra product) \yes
+\item $\mathbf{+24.8918} = \ln$ of the temperature-independent phase-space and
+      statistical ratio. pynucastro computes the same thing from first
+      principles as \code{DerivedRate.ratio\_factor} $= \mathbf{24.8935}$ ---
+      agreeing to 0.0017, the difference being the mass table used. \yes
+\end{itemize}
+
+\begin{warn}
+\textbf{Nothing else changed. In particular, no partition-function term appears
+anywhere in the v-flag reverse.} Hold that observation; \S\ref{sec:vflag} turns
+it into the project's blocking gate.
+\end{warn}
+
+% =====================================================================
+\subsection{What multiple sets mean, and fit validity}
+\label{sec:multisets}
+
+\code{c12(a,g)o16} carries two sets:
+
+\begin{srclisting}
+'nac2  '  a = [254.634, -1.84097, 103.411, -420.567, 64.0874, -12.4624, 137.303]
+'nac2  '  a = [ 69.6526, -1.39254, 58.9128, -148.273,  9.08324, -0.54104, 70.3554]
+\end{srclisting}
+
+Neither set has $a_2$ resembling a Gamow exponent ($\tau(\Tn{=}1) = 32.12$ for
+C$+\alpha$), and $a_6$ is $+137$ and $+70$. \textbf{These are not
+physically-interpretable components; they are two terms of a numerical fit to a
+rate with strong resonance structure.} The lesson generalises: $a_2 = -\tau$ is
+a reliable reading only for the smooth non-resonant channels --- exactly the
+$\alpha$-ladder captures that dominate here.
+
+Which raises the question the form invites: \textbf{what happens outside the
+fitted range?} With $a_6 = +137$, extrapolating below the fit's lower $T$ bound
+produces nonsense fast. REACLIB fits are typically valid over
+$\Tn \in [0.01, 10]$ \citep{rauscher2000}; the box (1.6--7.9) sits comfortably
+inside, so this project never tests it. Worth knowing as a boundary of the
+tooling rather than of the physics --- and worth contrasting with the weak
+tables (\S\ref{sec:weaktable}), where the out-of-range behaviour \emph{is}
+specified and the two codes disagree about it.
+
+% =====================================================================
+\subsection{A fit library, not a theory}
+\label{sec:fitnottheory}
+
+Two things REACLIB is \emph{not}:
+
+\begin{itemize}
+\item \textbf{Not a physics model.} \eqref{eq:reaclib} is a fitting basis chosen
+      so that its asymptotics match the physics of
+      \S\ref{sec:gamow}--\S\ref{sec:hf}. Coefficients outside the fitted
+      temperature range can extrapolate to nonsense; pynucastro and MESA both
+      use it in-range here.
+\item \textbf{Not versionless.} REACLIB is a \emph{snapshot}. MESA r23.05.1
+      ships \code{jina 20171020}; pynucastro 2.12.0 ships a later one. Those two
+      disagree on 25 forward channels beyond the 0.004\,dex band, worst
+      $\nuc{N}{13}(p,\gamma)\nuc{O}{14}$ at $-3.7$\,dex
+      \resultsref{2026-07-10} --- and, more subtly, they disagree on \emph{which
+      direction of a pair is the fitted one} on 14/16 pairs (\msn{80}).
+      \S\ref{part:verification} is the node that measured all of this.
+\end{itemize}
+
+% =====================================================================
+\subsection*{Self-check --- S2}
+\addcontentsline{toc}{subsection}{Self-check --- S2}
+\label{sec:selfcheck-reaclib}
+
+\begin{selfcheck}
+\item From \eqref{eq:taupractical}, predict $a_2$ for
+      $\nuc{S}{32}(\alpha,\gamma)\nuc{Ar}{36}$ and
+      $\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$. Look them up in pynucastro and
+      check.
+\item \code{fe54(n,g)fe55} has $a_2 = -8.6662$. Why is this \emph{not} a Gamow
+      exponent, and what is it doing in the fit?
+\item A rate has $a_6 = -1.5$ and $a_1 = -23.2$. What kind of term is it, and
+      what is the resonance energy in MeV?
+\end{selfcheck}
+
+\begin{aside}
+The remaining three questions of this block in the source --- writing out
+\code{lam} symbolically for a chapter-8 rate all the way to $R_j$, why
+\code{set\_starts} exists rather than a loop over columns, and what would break
+if \code{set\_owner} were unsorted --- test the compiled data structures rather
+than the library, and have moved with them to
+\S\ref{sec:selfcheck-evaluator}. Appendix~\ref{app:concordance} records every
+such relocation.
+\end{aside}

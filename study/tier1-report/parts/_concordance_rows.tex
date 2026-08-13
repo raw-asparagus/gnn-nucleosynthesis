@@ -1,0 +1,128 @@
+--- & Tier 1 --- Microphysics (title) & 1 & \S\ref{sec:status} \\
+--- & Status of this document & 16 & \S\ref{sec:status} \\
+--- & How to study each node & 45 & \S\ref{sec:howtostudy} \\
+--- & Contents / full section list & 60 & \S\ref{sec:readingmap}, \S\ref{app:sectionmap} \\
+--- & Part I --- rate theory & 140 & \S\ref{part:ratetheory} \\
+1.1 & From cross-section to <sigma v> & 156 & \S\ref{sec:sigmav} \\
+1.1.1 & The reaction rate per unit volume & 158 & \S\ref{sec:rate-per-volume} \\
+1.1.2 & Double counting: identical particles & 215 & \S\ref{sec:double-counting} \\
+1.1.3 & Why the molar convention & 247 & \S\ref{sec:molar} \\
+1.1.4 & The code contract & 302 & \S\ref{sec:code-contract} \\
+1.2 & The Coulomb barrier and the Gamow peak & 330 & \S\ref{sec:gamow} \\
+1.2.1 & The problem & 332 & \S\ref{sec:barrier} \\
+1.2.2 & The Gamow factor and the S-factor & 354 & \S\ref{sec:sfactor} \\
+1.2.3 & The saddle point: $E_0$ and $\Delta$ & 385 & \S\ref{sec:saddle} \\
+1.2.4 & The numbers in this box & 449 & \S\ref{sec:gamow-numbers} \\
+1.2.5 & Neutrons have no Gamow peak & 490 & \S\ref{sec:no-gamow} \\
+1.2.6 & The $1/v$ law; the reciprocity theorem & 501 & \S\ref{sec:reciprocity} \\
+1.3 & Resonances and Hauser--Feshbach & 554 & \S\ref{sec:hf} \\
+1.3.1 & The isolated narrow resonance & 556 & \S\ref{sec:narrowres} \\
+1.3.2 & Why Hauser--Feshbach dominates here & 591 & \S\ref{sec:hf-dominates} \\
+1.3.3 & Where the uncertainty actually is & 626 & \S\ref{sec:uncertainty} \\
+1.3.4 & The $\Gamma/D$ criterion & 648 & \S\ref{sec:gammaD} \\
+1.3.5 & Ground-state vs stellar rates (SEF) & 677 & \S\ref{sec:sef} \\
+1.4 & Photodisintegration & 738 & \S\ref{sec:photodis} \\
+1.4.1 & A rate with a thermal photon bath & 740 & \S\ref{sec:photonbath} \\
+1.4.2 & Worked crossover Si28 / S32 & 760 & \S\ref{sec:crossover} \\
+1.4.3 & Why ${\sim}3$\,GK & 807 & \S\ref{sec:why3gk} \\
+1.4.4 & Two assumptions inside the photon rate & 825 & \S\ref{sec:photon-assumptions} \\
+1.5 & What the rates do & 857 & \S\ref{sec:whatratesdo} \\
+1.6 & Self-check for Part I & 880 & \S\ref{sec:selfcheck-ratetheory}, \S\ref{sec:selfcheck-evaluator} \\
+--- & Part II (S2) --- REACLIB & 899 & \S\ref{part:reaclib} \\
+II.1 & The seven-coefficient form, derived & 905 & \S\ref{sec:sevencoeff} \\
+II.2 & Sets, chapters, labels, the v flag & 949 & \S\ref{sec:labelprops}, \S\ref{sec:vflag-extraction} \\
+II.3 & One rate dissected & 978 & \S\ref{sec:onerate} \\
+II.4 & From $\lambda$ to the gross flux & 1028 & \S\ref{sec:lambda-to-R} \\
+II.5 & Code: the coefficient tensor & 1060 & \S\ref{sec:coefftensor} \\
+II.6 & Oracle: the $5\times10^{-12}$ gate & 1089 & \S\ref{sec:oracle-compile} \\
+II.6b & The numerical range of $\lambda$ & 1116 & \S\ref{sec:lambda-range} \\
+II.6c & Multiple sets, and fit validity & 1150 & \S\ref{sec:multisets} \\
+II.7 & A fit library, not a theory & 1174 & \S\ref{sec:fitnottheory} \\
+II.8 & Self-check for S2 & 1189 & \S\ref{sec:selfcheck-reaclib}, \S\ref{sec:selfcheck-evaluator} \\
+--- & Part III (S3) --- detailed balance & 1206 & \S\ref{part:db} \\
+III.1 & The reverse/forward ratio, derived & 1220 & \S\ref{sec:db-ratio} \\
+III.2 & The thermal phase-space factor & 1335 & \S\ref{sec:phasespace} \\
+III.3 & Partition functions in the ratio & 1368 & \S\ref{sec:pf-in-ratio} \\
+--- & (unnumbered) The $G$ vs $(2J{+}1)G$ trap & 1403 & \S\ref{sec:pf-normalisation} \\
+--- & (unnumbered) The pf spline past the table & 1429 & \S\ref{sec:pf-spline} \\
+III.4 & Three ways to build a reverse & 1474 & \S\ref{sec:threeways} \\
+III.5 & The v-flag dissected & 1494 & \S\ref{sec:vflag} \\
+III.6 & $\kappa$ as the numerical DB test & 1561 & \S\ref{sec:kappa-db} \\
+III.7 & gh-575, derived from the same algebra & 1595 & \S\ref{sec:gh575} \\
+III.8 & Code: \code{db\_reverses.py} and the gate & 1714 & \S\ref{sec:db-replacement}, \S\ref{sec:guard-pf} \\
+III.9 & Oracles & 1747 & \S\ref{sec:oracles-db} \\
+III.10 & The two $\kappa$ conventions & 1768 & \S\ref{sec:two-kappa} \\
+III.11 & Coulomb terms in NSE & 1784 & \S\ref{sec:nse-coulomb} \\
+III.12 & $Q(T)$, derived and measured & 1839 & \S\ref{sec:qoft} \\
+III.13 & Self-check for S3 & 1935 & \S\ref{sec:selfcheck-db}, \S\ref{sec:selfcheck-plasma}, \S\ref{sec:selfcheck-verification} \\
+--- & Part IV (S4) --- screening & 1964 & \S\ref{part:plasma} \\
+IV.1 & Why screening exists & 1970 & \S\ref{sec:whyscreening} \\
+IV.2 & Weak screening: Debye--Huckel & 1993 & \S\ref{sec:debye} \\
+IV.3 & The coupling parameter $\Gamma$ & 2057 & \S\ref{sec:gamma} \\
+--- & (unnumbered) The strong-screening limit & 2092 & \S\ref{sec:strongscreening} \\
+IV.4 & Where the box sits & 2141 & \S\ref{sec:boxgamma} \\
+IV.5 & \code{chugunov\_2007} term by term & 2181 & \S\ref{sec:chugunov}, \S\ref{sec:screening-code} \\
+IV.6 & Per-reaction pair construction & 2283 & \S\ref{sec:screening-pairs}, \S\ref{sec:screening-code} \\
+IV.7 & The screened-$\kappa$ offset, derived & 2316 & \S\ref{sec:screened-kappa} \\
+IV.8 & Code and oracle & 2366 & \S\ref{sec:oracle-screening} \\
+IV.9 & Screening of \emph{weak} rates & 2382 & \S\ref{sec:weak-screening} \\
+IV.10 & Self-check for S4 & 2442 & \S\ref{sec:selfcheck-plasma}, \S\ref{sec:selfcheck-verification} \\
+--- & Part V (S5) --- the weak sector & 2459 & \S\ref{part:weak} \\
+V.1 & Why weak reactions are different & 2471 & \S\ref{sec:weak-different} \\
+V.2 & From the golden rule to $ft$ values & 2512 & \S\ref{sec:goldenrule} \\
+V.3 & Gamow--Teller strength & 2559 & \S\ref{sec:gt} \\
+V.4 & EC in a degenerate plasma & 2593 & \S\ref{sec:ec-degenerate} \\
+V.4b & Pauli blocking --- the ratchet & 2672 & \S\ref{sec:pauli} \\
+V.5 & The $(T,\rho Y_e)$ table & 2721 & \S\ref{sec:weaktable}, \S\ref{sec:tabular-path} \\
+V.5b & Interpolation error, derived & 2775 & \S\ref{sec:interp-error} \\
+V.6 & The three channels and the ledger & 2843 & \S\ref{sec:ledger}, \S\ref{sec:ledger-enforcement} \\
+V.7 & Table families and precedence & 2872 & \S\ref{sec:tablefamilies}, \S\ref{sec:duplicate-links}, \S\ref{sec:guard-reconciled} \\
+V.8 & Neutrino losses & 2930 & \S\ref{sec:nulosses} \\
+V.9 & Code path summary & 2945 & \S\ref{sec:codepath} \\
+V.10 & The two networks differ & 2964 & \S\ref{sec:weak-asymmetry} \\
+V.11 & Self-check for S5 & 2992 & \S\ref{sec:selfcheck-weak}, \S\ref{sec:selfcheck-evaluator}, \S\ref{sec:selfcheck-verification} \\
+--- & Part VI (S6) --- reconciliation & 3022 & \S\ref{part:verification} \\
+VI.1 & Why this node exists at all & 3029 & \S\ref{sec:whyS6} \\
+VI.2 & The canonical key & 3049 & \S\ref{sec:canonicalkey} \\
+VI.3 & Membership vs values & 3089 & \S\ref{sec:membership} \\
+VI.4 & The disposition algebra & 3109 & \S\ref{sec:disposition} \\
+VI.5 & The measured value comparison & 3152 & \S\ref{sec:measured-values} \\
+VI.6 & Appendix-B as a measurement & 3206 & \S\ref{sec:appendixb} \\
+VI.7 & The screening determination & 3232 & \S\ref{sec:screening-determination} \\
+VI.8 & The Fortran probe & 3249 & \S\ref{sec:probe} \\
+VI.8b & The probe's five modes and the grid & 3267 & \S\ref{sec:probe-modes} \\
+VI.8c & Reading the statistics honestly & 3308 & \S\ref{sec:reading-stats} \\
+VI.9 & What the reconciliation licenses & 3332 & \S\ref{sec:licenses} \\
+VI.10 & Self-check for S6 & 3356 & \S\ref{sec:selfcheck-verification} \\
+--- & Part VII --- the guards & 3375 & \S\ref{part:guards}, \S\ref{sec:guard-code}, \S\ref{sec:guard-design} \\
+--- & Part VIII --- open prerequisites & 3415 & \S\ref{part:open} \\
+VIII.A & Deferred by design & 3422 & \S\ref{sec:deferred} \\
+VIII.B0 & Corrections to earlier revisions & 3435 & \S\ref{sec:errata} \\
+VIII.B & Closed in this revision & 3460 & \S\ref{sec:closed} \\
+VIII.C & Genuine gaps & 3492 & \S\ref{sec:gaps} \\
+VIII.C.1 & Rate-uncertainty $\to$ $Y_e$ sensitivity & 3496 & \S\ref{sec:gap-sensitivity} \\
+VIII.C.2 & Ground-state vs stellar forwards (SEF) & 3515 & \S\ref{sec:gap-sef} \\
+VIII.C.3 & The dropped NU column & 3538 & \S\ref{sec:gap-nu} \\
+VIII.C.4 & Imposed $(T,\rho)$ vs feedback & 3556 & \S\ref{sec:gap-feedback} \\
+VIII.C.5 & Mass and $Q$-value provenance & 3575 & \S\ref{sec:gap-masses} \\
+VIII.C.6 & $e^{\pm}$ pairs at the hot, thin corner & 3593 & \S\ref{sec:gap-pairs} \\
+VIII.C.7 & Network-reduction prior art & 3633 & \S\ref{sec:gap-reduction} \\
+VIII.C.8 & Isomers & 3649 & \S\ref{sec:gap-isomers} \\
+VIII.C.9 & Coulomb-corrected NSE in-box & 3663 & \S\ref{sec:gap-nse} \\
+VIII.C.10 & Gate-design statistics & 3681 & \S\ref{sec:gap-gatestats} \\
+VIII.D & Common-mode blindness & 3695 & \S\ref{sec:commonmode} \\
+VIII.E & Second-pass audit: a missing tier & 3719 & \S\ref{sec:tier4} \\
+VIII.E.1 & The model side has no study node & 3725 & \S\ref{sec:gap-modelside} \\
+VIII.E.2 & $Q(T)$ --- specified, unimplemented & 3786 & \S\ref{sec:gap-qoft} \\
+VIII.E.3 & Solver-independent ground truth & 3795 & \S\ref{sec:gap-thirdsolver} \\
+VIII.E.4 & Determinism; float32/float64 & 3810 & \S\ref{sec:gap-determinism} \\
+VIII.E.5 & Gradients through the conservation map & 3831 & \S\ref{sec:gap-gradients} \\
+VIII.E.6 & The deployment coupling contract & 3853 & \S\ref{sec:gap-coupling} \\
+VIII.E.7 & Residual sourcing gaps & 3867 & \S\ref{sec:gap-sourcing} \\
+VIII.F & Priority across both passes & 3890 & \S\ref{sec:priority} \\
+--- & Where Tier 1 hands off & 3939 & \S\ref{sec:handoff} \\
+--- & What Tier 1 upgraded & 3941 & \S\ref{sec:handoff} \\
+--- & Threads that carry forward & 3955 & \S\ref{sec:handoff} \\
+--- & The three ideas to carry & 3976 & \S\ref{sec:handoff} \\
+--- & And one habit, from Part VIII & 3993 & \S\ref{sec:handoff} \\
+--- & References & 4009 & \S\ref{sec:references} \\

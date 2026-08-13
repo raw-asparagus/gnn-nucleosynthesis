@@ -1,0 +1,244 @@
+% =====================================================================
+%  Front matter.
+%  Source: tier1.md:1-138 (title blurb, status, how-to-study, contents).
+%  The <details> "full section list" (tier1.md:73-136) is not dropped --
+%  it is reproduced verbatim as Appendix A.
+% =====================================================================
+
+\begin{titlepage}
+\centering
+\vspace*{3.5cm}
+
+{\Huge\bfseries Tier 1 --- Microphysics\par}
+
+\vspace{1.2em}
+{\Large Reaction-rate theory, detailed balance, plasma corrections,\\[0.3em]
+the weak sector, and the reconciliation of two rate sets\par}
+
+\vspace{0.8em}
+{\large\itshape A study report for the conservation-by-construction GNN\\
+emulator of silicon burning\par}
+
+\vspace{3em}
+\begin{minipage}{0.82\textwidth}
+\small
+Complete deep dive: where a single number $\lambda_j(T,\rho,\Ye)$ comes from.
+Thermonuclear reaction-rate theory from cross-sections up, the REACLIB fit
+library and its evaluation (\textbf{S2}), detailed balance and the
+partition-function gate (\textbf{S3}), plasma screening (\textbf{S4}), the weak
+sector (\textbf{S5}), and the MESA\,/\,pynucastro reconciliation that makes the
+whole rate set trustworthy (\textbf{S6}). Everything needed before Tier~2
+(stoichiometry, fluxes, and the conservation algebra), in one document.
+\end{minipage}
+
+\vfill
+{\small Literature audit 2026-08-13\par}
+\vspace{0.5em}
+{\small Source document: \code{study/tier1.md} \quad$\cdot$\quad
+Audit log: \code{study/tier1-audit.md}\par}
+\end{titlepage}
+
+% ---------------------------------------------------------------------
+\section*{Status of this document}
+\addcontentsline{toc}{section}{Status of this document}
+\label{sec:status}
+
+\begin{warn}
+\textbf{Personal study material, not project spec.} Deliberately written
+without reference to \code{docs/} --- everything is derived from first
+principles or read off the business code, configs, notebooks, and tests.
+\end{warn}
+
+\begin{itemize}
+\item Textbook physics and derivations here are \textbf{mine to check}, not
+      citable project output. Where I compute a number myself (Gamow peaks,
+      screening factors, Fermi energies, coefficient dissections) it is tagged
+      \derivedhere{} --- reproducible from the snippets given, but not a
+      \code{RESULTS.md} row.
+
+\item Measured project numbers quoted here originate in \code{RESULTS.md} with
+      script $+$ commit $+$ data provenance, tagged \resultsref{date}. This
+      document is \textbf{not} their source of truth; if a number here
+      disagrees with \code{RESULTS.md}, \code{RESULTS.md} wins.
+
+\item \textbf{Literature audit 2026-08-13.} Every scholarly claim, constant,
+      and derivation chain was verified against primary sources (arXiv \TeX{}
+      cached under \code{data/literature/}, the REACLIB format specification,
+      GitHub issues, the local MESA r23.05.1 tree, and pynucastro 2.12.0), with
+      all worked arithmetic recomputed in float64; errors found were corrected
+      in place. Inline author--year citations point to the References section
+      at the end; the claim-by-claim audit log is \code{study/tier1-audit.md}.
+\end{itemize}
+
+Notation follows the repo and Tier~0: \nuc{Co}{55} in prose, \code{co55} in
+code-adjacent contexts, \Ye{} / $\nu$ / $\varphi$ / $\kappa$ as in the codebase.
+Section references of the form \S0.x, \S I.x, \S V.x point back into
+\code{study/tier0.md} (and, where that material was itself re-architected, into
+the Tier~0 report).
+
+\paragraph{A note on this edition.} The source document is organised
+\emph{node by node}: Part~I rate theory, Part~II (S2) REACLIB, Part~III (S3)
+detailed balance, Part~IV (S4) screening, Part~V (S5) the weak sector, Part~VI
+(S6) reconciliation, Part~VII the guards, Part~VIII the open register. Each of
+those parts interleaves four different \emph{kinds} of statement --- a physics
+derivation, the code that implements it, the test that pins it, and the policy
+that refuses to run without it. That interleaving is the DERIVE\,/\,READ\,/\,%
+ORACLE\,/\,SEE study loop the source was written around.
+
+This report re-architects the same material into those four layers:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{1.5cm} L{3.5cm} Y@{}}
+\toprule
+\textbf{\S} & \textbf{Layer} & \textbf{Contains} \\
+\midrule
+\ref{part:ratetheory}--\ref{part:weak} & Theory and derivation &
+  the physics of $\lambda_j$: the bare rate, the fitting basis, the reverse
+  rate, the plasma corrections, the weak sector \\
+\ref{part:evaluator} & The compiled evaluator &
+  every code contract, gathered: data structures, the evaluation order, the
+  numerical range, the replacements, the tabular path \\
+\ref{part:verification} & Verification &
+  every oracle, plus the whole MESA\,$\leftrightarrow$\,pynucastro
+  reconciliation and how to read its statistics \\
+\ref{part:guards} & Executable policy &
+  the four guards that refuse to run \\
+\ref{part:open} & The open register &
+  both audit passes: the physics gaps and the missing Tier~4 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\emph{No content has been omitted.} The cost of layering is that a single
+source Part's argument is now split across two or three sections --- Part~III's
+algebra lands in \S\ref{part:db}, its spline code in \S\ref{part:evaluator},
+its oracles in \S\ref{part:verification}, and its gate in \S\ref{part:guards}.
+Three things hold that together: \S\ref{part:evaluator},
+\S\ref{part:verification} and \S\ref{part:guards} each open with a table naming
+the section that \emph{derived} what they implement, test, or enforce; every
+split carries cross-references in both directions; and
+Appendix~\ref{app:concordance} is a heading-by-heading concordance from the
+source's numbering to this one, including every self-check question that moved
+so that no question tests material the reader has not yet reached.
+Appendix~\ref{app:sectionmap} reproduces the source document's own section list
+verbatim.
+
+Three items were re-homed across parts rather than merely re-layered, because
+in the source each was stated somewhere other than where it is derived:
+
+\begin{itemize}
+\item \textbf{The two-$\kappa$ conventions rule} (source \S III.10) now sits
+      immediately after the screening derivation that produces it
+      (\S\ref{sec:two-kappa}).
+\item \textbf{Coulomb corrections to NSE} (source \S III.11) sit beside
+      screening as the equilibrium-side twin of the same ion-sphere physics
+      (\S\ref{sec:nse-coulomb}).
+\item \textbf{Screening of the weak sector} (source \S IV.9) moves into the
+      weak part (\S\ref{sec:weak-screening}), which removes its forward
+      reference to \muE{} entirely.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section*{How to study each node}
+\addcontentsline{toc}{section}{How to study each node}
+\label{sec:howtostudy}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  stepbox/.style={draw, rounded corners=2pt, line width=0.7pt,
+               minimum height=8mm, inner xsep=6pt, fill=resultrule!6},
+  num/.style={circle, draw, line width=0.7pt, inner sep=1.2pt,
+              minimum size=5.2mm, font=\footnotesize\bfseries,
+              fill=white}]
+
+\node[stepbox] (a) {\textbf{DERIVE}};
+\node[stepbox, below=5mm of a] (b) {\textbf{READ}};
+\node[stepbox, below=5mm of b] (c) {\textbf{ORACLE}};
+\node[stepbox, below=5mm of c] (d) {\textbf{SEE}};
+
+\begin{scope}[on background layer]
+\node[fit=(a)(b)(c)(d), inner sep=0pt] (grp) {};
+\end{scope}
+
+\node[num] at ([xshift=-9mm]a.west) {1};
+\node[num] at ([xshift=-9mm]b.west) {2};
+\node[num] at ([xshift=-9mm]c.west) {3};
+\node[num] at ([xshift=-9mm]d.west) {4};
+
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]a.east)
+  {pen-and-paper: get the equation from physics before reading code};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]b.east)
+  {the module, top-to-bottom; its docstring states the contract};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]c.east)
+  {the test file --- it encodes what ``correct'' means, numerically};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]d.east)
+  {the notebook figure --- the measured behaviour on real data};
+
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (a) -- (b);
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (b) -- (c);
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (c) -- (d);
+\end{tikzpicture}
+\caption{The four-step study loop for each node of the curriculum. In this
+report step~1 lives in \S\ref{part:ratetheory}--\S\ref{part:weak}, step~2 in
+\S\ref{part:evaluator}, and step~3 in \S\ref{part:verification}.}
+\label{fig:studyloop}
+\end{figure}
+
+Tier~1 is the tier where step~1 is heaviest and step~3 is subtlest. Two of its
+five nodes (\textbf{S3}, \textbf{S6}) exist \emph{only} because a measurement
+contradicted an assumption; their tests encode the contradiction, not a
+textbook identity.
+
+% ---------------------------------------------------------------------
+\section*{Reading map}
+\addcontentsline{toc}{section}{Reading map}
+\label{sec:readingmap}
+
+\begin{tabularx}{\textwidth}{@{}L{1.1cm} L{3.7cm} Y@{}}
+\toprule
+\textbf{\S} & \textbf{Theme} & \textbf{Covers} \\
+\midrule
+\ref{part:ratetheory} & Rate theory &
+  \sigv{} from cross-sections, Coulomb barrier \& Gamow peak, resonances \&
+  Hauser--Feshbach, photodisintegration, what the rates \emph{do} in Si
+  burning \\
+\ref{part:reaclib} & REACLIB (S2) &
+  the seven-coefficient form derived, sets\,/\,chapters\,/\,labels, one rate
+  dissected, multiple sets and fit validity, a fit library and not a theory \\
+\ref{part:db} & Detailed balance (S3) &
+  the reverse\,/\,forward ratio derived in full, the phase-space factor per
+  $|\Delta N|$, partition functions, the v-flag dissection, $\kappa$ as the DB
+  test, gh-575, $Q(T)$ \\
+\ref{part:plasma} & Plasma corrections (S4) &
+  Debye--H\"uckel derived, $\Gamma$ regimes, \code{chugunov\_2007} term by term,
+  the per-reaction pairing and its $\kappa$ consequence, the two-$\kappa$ rule,
+  Coulomb terms in NSE \\
+\ref{part:weak} & The weak sector (S5) &
+  Fermi golden rule $\to$ $ft$ $\to$ allowed rates, Gamow--Teller, EC in a
+  degenerate plasma, the $(T,\rhoye)$ tables, weak-sector screening, table
+  families, the network asymmetry \\
+\ref{part:evaluator} & The compiled evaluator &
+  the code contract, the coefficient tensor, the numerical range of $\lambda$,
+  the v-flag replacement, the tabular path, the ledger enforcement \\
+\ref{part:verification} & Verification (S6) &
+  the oracles, canonical keys, membership vs values, dispositions, the measured
+  comparison, the Fortran probe, what it licenses \\
+\ref{part:guards} & Executable policy &
+  \code{fluxes/guards.py}: the four Tier-1 gates as code that refuses to run \\
+\ref{part:open} & Open prerequisites &
+  standing cross-tier register; two audit passes: the physics the code
+  implements (ten gaps) and the project's own spec documents vs the study map
+  (an entire missing \textbf{Tier 4}) \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1em}
+{\small The source document's own contents table and full section list --- its
+original Part~I--VIII architecture --- are reproduced verbatim in
+Appendix~\ref{app:sectionmap}.}
+
+\clearpage
+\tableofcontents
+\clearpage

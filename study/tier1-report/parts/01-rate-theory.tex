@@ -1,0 +1,957 @@
+% =====================================================================
+%  LAYER A -- Theory and derivation.
+%  Section 1: the theory of a thermonuclear reaction rate.
+%
+%  Source: tier1.md Part I -- intro (140-155), 1.1.1-1.1.3 (156-301),
+%          1.2 (330-552), 1.3 (554-736), 1.4 (738-855), 1.5 (857-878),
+%          1.6 self-check (880-895).
+%  Excluded and re-homed: 1.1.4 "The code contract" (302-329) and the
+%  prefactor / ye_weighted code snippets -> section 6 (the compiled
+%  evaluator).  Self-check item 4 -> section 6.
+% =====================================================================
+
+\section{The theory of a thermonuclear reaction rate}
+\label{part:ratetheory}
+
+Tier~0 treated $\lambda_j$ as a black box: a number that arrives from somewhere
+and multiplies abundances. This section opens the box. The target is to be able
+to answer, for any column $j$ of $\nu$, \emph{what physical quantity is being
+evaluated, what approximations are inside it, and how well is it known} ---
+because every downstream gate in this project is a statement about agreement
+between two evaluations of that quantity.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{1.2cm} L{4.2cm} Y@{}}
+\toprule
+\textbf{\S} & \textbf{Area} & \textbf{Why it is prerequisite, not optional} \\
+\midrule
+\ref{sec:sigmav} & \sigv{} and its conventions &
+  The molar\,/\,double-counting bookkeeping is where sign-and-factor bugs
+  live; the code contract in \code{compile.py} is unreadable without it \\
+\ref{sec:gamow} & Coulomb barrier, Gamow peak &
+  Explains the \emph{functional form} of the REACLIB fit --- three of the
+  seven coefficients are the Gamow integral \\
+\ref{sec:hf} & Resonances, Hauser--Feshbach &
+  Explains where the rates come from and hence the irreducible uncertainty
+  floor (\S0.3.3) \\
+\ref{sec:photodis} & Photodisintegration &
+  Explains why QSE turns on at ${\sim}3$\,GK and why reverse rates are the
+  whole story here \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\subsection{From cross-section to \texorpdfstring{\sigv}{<sigma v>}}
+\label{sec:sigmav}
+
+\subsubsection{The reaction rate per unit volume}
+\label{sec:rate-per-volume}
+
+Two species 1 and 2 with number densities $n_1$, $n_2$ and relative velocity
+$v$. In time $\dd t$ a particle of species 1 sweeps a volume
+$\sigma(v)\cdot v\cdot \dd t$; the number of reactions per unit volume per unit
+time is
+%
+\begin{equation*}
+r_{12} = n_1 n_2 \,\sigma(v)\,v
+\end{equation*}
+%
+In a plasma $v$ is distributed. Non-relativistically and in the absence of
+degeneracy for the \emph{ions} (which holds throughout the box --- \S0.1.3
+established that the electrons are degenerate but the ions are not), the
+relative velocity of an uncorrelated pair is Maxwell--Boltzmann with the
+\textbf{reduced mass} \citep[eq.~4]{adelberger2011}
+%
+\begin{equation*}
+\mu = \frac{m_1 m_2}{m_1+m_2}
+\end{equation*}
+%
+so that
+%
+\begin{equation*}
+\phi(v)\,\dd v = 4\pi v^2 \left(\frac{\mu}{2\pi kT}\right)^{3/2}
+              e^{-\mu v^2/2kT}\,\dd v
+\end{equation*}
+%
+and the thermally averaged rate coefficient is
+\citep{rauscher2000,adelberger2011}
+%
+\begin{equation*}
+\sigv = \int_0^\infty \sigma(v)\,v\,\phi(v)\,\dd v
+\end{equation*}
+%
+Changing variable to the centre-of-mass kinetic energy $E = \tfrac12\mu v^2$,
+%
+\begin{equation}
+\boxed{\;
+\sigv
+= \left(\frac{8}{\pi\mu}\right)^{1/2}\!\!(kT)^{-3/2}
+  \int_0^\infty \sigma(E)\,E\,e^{-E/kT}\,\dd E
+\;}
+\label{eq:sigmav}
+\end{equation}
+
+\textbf{Everything in this section is an evaluation of the integral in
+\eqref{eq:sigmav}.} The three regimes (non-resonant barrier penetration,
+isolated resonance, statistical continuum) are three different $\sigma(E)$, and
+the REACLIB seven-coefficient form is a fitting basis wide enough to hold all
+three.
+
+\begin{aside}
+\textbf{Note the assumption you just made:} that the two colliding nuclei are in
+their \textbf{ground states} and that their relative motion is thermal and
+uncorrelated. The first fails at these temperatures --- $kT = 0.34$\,MeV at
+$\Tn = 4$ and the level spacings are ${\sim}1$\,MeV --- which is exactly what
+partition functions repair (\S0.2.2, and quantitatively
+\S\ref{sec:pf-in-ratio}). The second fails once the plasma is strongly coupled,
+which is what screening repairs (\S\ref{part:plasma}).
+\end{aside}
+
+\subsubsection{Double counting: the identical-particle factor}
+\label{sec:double-counting}
+
+The number of \emph{distinct pairs} per unit volume is $n_1n_2$ for distinct
+species but $n^2/2$ for identical ones \citep[eq.~2]{adelberger2011} --- writing
+$n_1n_2$ would count every pair twice. In general, for a reaction with reactant
+multiset $\{\dots\}$, the rate per unit volume carries
+%
+\begin{equation*}
+\frac{1}{\prod_s (c_s!)}
+\qquad c_s = \text{multiplicity of species } s \text{ among the reactants}
+\end{equation*}
+%
+For $3\alpha \to \nuc{C}{12}$, that is $1/3! = 1/6$.
+
+\begin{repopointer}
+\textbf{In the code:} this is exactly \code{Rate.prefactor}, built in
+pynucastro as $\text{prefactor}_j = 1/\prod_s c_s!$ with $c_s$ the multiplicity
+of species $s$ among $\text{reactants}(j)$, and carried through the compile step
+as the \code{prefactor} array. It is a \emph{pure combinatorial factor} with no
+temperature dependence --- which is why it lives outside the coefficient tensor
+(\S\ref{sec:code-contract}).
+\end{repopointer}
+
+There is a second, independent place the same factorial appears: the
+\textbf{detailed-balance ratio}, where the forward and reverse multiplicities do
+not cancel. pynucastro handles that separately in
+\code{DerivedRate.counter\_factors()} (\S\ref{sec:db-ratio}). Do not conflate the
+two; a reaction can have prefactor 1 and still carry a nontrivial
+counter-factor ratio.
+
+\subsubsection{Why the molar convention, and what \texorpdfstring{\Nasigv}{NA<sigma v>} means}
+\label{sec:molar}
+
+Networks integrate molar abundances $Y = X/A$ (\S II.3 of Tier~0), so it is
+convenient to express rates per mole rather than per particle. Writing
+$n_i = \rho N_A Y_i$, the two-body rate per unit volume becomes
+%
+\begin{equation*}
+r_{12} = \rho N_A Y_1 \cdot \rho N_A Y_2 \cdot \sigv
+\end{equation*}
+%
+and the corresponding change in molar abundance per unit time (dividing by
+$\rho N_A$, since $\dot Y = \dot n/\rho N_A$) is
+%
+\begin{equation*}
+\dot Y \sim \rho\,Y_1 Y_2 \cdot \bigl(\Nasigv\bigr)
+\end{equation*}
+%
+So the natural tabulated quantity is \textbf{\Nasigv} in
+cm$^3$\,mol$^{-1}$\,s$^{-1}$ \citep{cyburt2010}, and each additional reactant
+beyond the first brings one power of $\rho$. That is the entire content of
+%
+\begin{equation}
+\boxed{\;
+R_j = \frac{1}{\prod_s c_s!}\;\rho^{\,n_j-1}\;
+\Bigl(\textstyle\prod_{r\in\text{reactants}(j)} Y_r\Bigr)\;\lambda_j(T,\rho,Y)
+\;}
+\label{eq:grossflux}
+\end{equation}
+%
+with $n_j$ the number of reactants. $R_j$ is the \textbf{gross flux} of column
+$j$ in mol\,g$^{-1}$\,s$^{-1}$ --- the same units as $\dot Y$, which is what
+makes $\dot y = \nu R$ dimensionally clean \citep[eq.~2]{cyburt2010}.
+
+\paragraph{Special cases you must not fumble.}
+
+\begin{itemize}
+\item \textbf{$n_j = 1$} (photodisintegration, $\beta$ decay): $\rho^0 = 1$, and
+      $\lambda$ is a plain frequency in s$^{-1}$. Photodisintegration rates are
+      \emph{density-independent} --- worth internalising, because it is half of
+      why the reverse of a capture behaves so differently from the capture
+      itself (\S\ref{sec:photodis}).
+
+\item \textbf{\Ye-weighted REACLIB electron captures.} A handful of REACLIB fits
+      (the \code{ec} label; in \msn{80} there are \textbf{two}:
+      $\nuc{Be}{7}(e^-,\nu)\nuc{Li}{7}$ and the pep reaction
+      $p(p\,e^-,\nu)d$) tabulate the rate \emph{per electron}, so the physical
+      rate carries an extra factor \rhoye. pynucastro sets
+      \code{use\_ye\_weighting}, increments \code{dens\_exp} by one, and
+      multiplies by \Ye{} at evaluation; the compiled engine mirrors both halves
+      (\S\ref{sec:code-contract}). If you ever see a factor-of-\rhoye{}
+      discrepancy on exactly one channel, this is the first thing to check.
+\end{itemize}
+
+% =====================================================================
+\subsection{The Coulomb barrier and the Gamow peak}
+\label{sec:gamow}
+
+\subsubsection{The problem}
+\label{sec:barrier}
+
+Two positively charged nuclei must reach ${\sim}$nuclear-force range against
+Coulomb repulsion. The barrier height at contact is
+%
+\begin{equation*}
+E_C = \frac{Z_1 Z_2 e^2}{R}, \qquad
+R \approx 1.2\,\bigl(A_1^{1/3}+A_2^{1/3}\bigr)\ \text{fm}
+\end{equation*}
+%
+with $e^2 = 1.44$\,MeV$\cdot$fm. \derivedhere
+
+\begin{center}
+\begin{tabular}{@{}lr@{}}
+\toprule
+\textbf{Pair} & \textbf{$E_C$} \\
+\midrule
+\nuc{Si}{28} $+\ \alpha$ & 7.27 MeV \\
+\nuc{Si}{28} $+\ p$      & 4.16 MeV \\
+\nuc{Ni}{56} $+\ \alpha$ & 12.41 MeV \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+against $kT = 0.26\,/\,0.34\,/\,0.43$\,MeV at $\Tn = 3\,/\,4\,/\,5$. The barrier
+is \textbf{one to two orders of magnitude above $kT$ everywhere in the box.}
+Classically nothing happens. Reactions proceed by tunnelling in the far tail of
+the Maxwell distribution, and the interplay of those two exponentials is the
+whole story.
+
+\subsubsection{The Gamow factor and the S-factor}
+\label{sec:sfactor}
+
+The WKB transmission through a pure Coulomb barrier at $E \ll E_C$ gives the
+\textbf{Gamow factor}
+%
+\begin{equation}
+P(E) \propto \exp\!\left(-\frac{2\pi Z_1Z_2 e^2}{\hbar v}\right)
+      = \exp\!\left(-\sqrt{\frac{E_G}{E}}\right),
+\qquad
+E_G = 2\mu c^2 (\pi \alpha Z_1 Z_2)^2
+\label{eq:gamowfactor}
+\end{equation}
+%
+$E_G$ is the \textbf{Gamow energy} (a constant of the pair, not of $T$;
+\citealp{adelberger2011}: $\sigma = (S/E)\,e^{-2\pi\eta}$ with Sommerfeld
+parameter $\eta = Z_1Z_2\alpha/v$). Since the cross-section also carries the
+geometric factor $\sigma \propto \pi\lbar^2 \propto 1/E$, it is
+conventional to strip both known energy dependences and define the
+\textbf{astrophysical S-factor}
+%
+\begin{equation}
+\sigma(E) = \frac{S(E)}{E}\,e^{-\sqrt{E_G/E}}
+\label{eq:sfactor}
+\end{equation}
+%
+$S(E)$ is smooth and slowly varying for non-resonant reactions
+\citep{adelberger2011} --- that is the entire point of the definition: it
+isolates the \emph{nuclear} physics from the \emph{Coulomb} physics, so that
+experimental data taken at MeV energies can be extrapolated down to the
+astrophysically relevant tens-to-hundreds of keV without extrapolating an
+exponential.
+
+\subsubsection{The saddle point: \texorpdfstring{$E_0$ and $\Delta$}{E0 and Delta}}
+\label{sec:saddle}
+
+Substituting \eqref{eq:sfactor} into \eqref{eq:sigmav} and pulling $S$ out as
+approximately constant:
+%
+\begin{equation*}
+\sigv \propto \int_0^\infty
+\exp\!\left[-\frac{E}{kT} - \sqrt{\frac{E_G}{E}}\right] \dd E
+\end{equation*}
+%
+The integrand is a product of a falling exponential and a rising tunnelling
+probability: sharply peaked. Setting the derivative of the exponent to zero,
+%
+\begin{equation}
+-\frac{1}{kT} + \frac{1}{2}\frac{\sqrt{E_G}}{E^{3/2}} = 0
+\;\Longrightarrow\;
+\boxed{\;E_0 = \left(\frac{\sqrt{E_G}\,kT}{2}\right)^{2/3}
+        = \left(\frac{E_G (kT)^2}{4}\right)^{1/3}\;}
+\label{eq:gamowpeak}
+\end{equation}
+%
+--- the \textbf{Gamow peak} \citep{adelberger2011,chugunov2007}, the latter
+writing $E_{\rm pk} = k_BT\tau/3$. Expanding the exponent to second order about
+$E_0$ gives a Gaussian of width \citep[$\Delta E_0/kT = 4\sqrt{E_0/3kT}$]{adelberger2011}
+%
+\begin{equation}
+\Delta = \frac{4}{\sqrt{3}}\sqrt{E_0\,kT}
+\label{eq:gamowwidth}
+\end{equation}
+%
+and evaluating the exponent at the peak \citep[their equation for
+$\tau$]{chugunov2007},
+%
+\begin{equation}
+\frac{E_0}{kT} + \sqrt{\frac{E_G}{E_0}} = 3\frac{E_0}{kT} \equiv \tau,
+\qquad
+\tau = 3\left(\frac{E_G}{4kT}\right)^{1/3} \propto T^{-1/3}
+\label{eq:tau}
+\end{equation}
+%
+so that, with the Gaussian integral supplying a factor
+$\Delta \propto T^{2/3}\cdot T^{-1/3}$\ldots{} collecting the powers carefully:
+%
+\begin{equation}
+\boxed{\;
+\Nasigv \;\propto\;
+\frac{S(E_0)}{\mu\,Z_1Z_2}\;\tau^2 e^{-\tau}
+\;\propto\; T^{-2/3}\exp\!\left(-\,a\,T^{-1/3}\right)
+\;}
+\label{eq:nonresonant}
+\end{equation}
+%
+(the $T$ dependence is the whole point: $\tau \propto T^{-1/3}$ from
+\eqref{eq:tau}, so $\tau^2$ supplies exactly the $T^{-2/3}$ prefactor.)
+
+\textbf{This is the single most important equation in Tier~1}, because it is
+literally the shape of the REACLIB fit \citep[the expression for
+\sigv]{adelberger2011}; \citep[Table~1]{cyburt2010}. In practical units (the
+constant recomputed here from CODATA 2018, \citealp{codata};
+\citealp{cyburt2010}, Table~1 prints the truncated 4.2486),
+%
+\begin{equation}
+\tau = 4.2487\,\bigl(Z_1^2 Z_2^2\,\mu_{\rm amu}\,/\,\Tn\bigr)^{1/3}
+\label{eq:taupractical}
+\end{equation}
+
+\subsubsection{The numbers in this box}
+\label{sec:gamow-numbers}
+
+Evaluating \eqref{eq:gamowpeak}--\eqref{eq:gamowwidth} at box temperatures
+\derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{Pair} & \textbf{\Tn} & \textbf{$E_0$ (MeV)} & \textbf{$\Delta$ (MeV)}
+  & \textbf{$kT$ (MeV)} \\
+\midrule
+\nuc{Si}{28} $+\ \alpha$ & 3.0 & 3.55 & 2.21 & 0.259 \\
+                         & 4.0 & 4.30 & 2.81 & 0.345 \\
+                         & 5.0 & 4.99 & 3.39 & 0.431 \\
+\nuc{Si}{28} $+\ p$      & 4.0 & 1.77 & 1.80 & 0.345 \\
+\nuc{Ni}{56} $+\ \alpha$ & 4.0 & 6.98 & 3.58 & 0.345 \\
+\nuc{Fe}{54} $+\ p$      & 4.0 & 2.68 & 2.22 & 0.345 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Three things to take from this table.
+
+\begin{enumerate}
+\item \textbf{$E_0 \gg kT$ by an order of magnitude.} Reactions are powered by
+      particles in the far Maxwell tail; the effective energy is set by the
+      \emph{barrier}, not the temperature.
+
+\item \textbf{$\Delta$ is comparable to $E_0$ here --- but so it is
+      everywhere.} Combining \eqref{eq:gamowpeak}--\eqref{eq:tau} gives the
+      exact identity $\Delta/E_0 = 4/\sqrt\tau$, so the \emph{relative} width is
+      set by $\tau$ alone. At $\Tn = 4$ for \nuc{Si}{28}$+\alpha$, $\tau = 37.5
+      \Rightarrow \Delta/E_0 = 0.65$; at hydrogen-burning temperatures it is not
+      dramatically smaller (\nuc{C}{12}$(p,\gamma)$ at $\Tn = 0.02$: $\tau =
+      50.3 \Rightarrow 0.56$; $p+p$ at $\Tn = 0.015$: $\tau = 13.7 \Rightarrow
+      1.08$). \derivedhere{} The ``narrow Gamow window'' is never narrow in the
+      $\Delta/E_0$ sense --- $\Delta/E_0 = 0.1$ would need $\tau \approx 1600$,
+      which no astrophysical pair reaches. What actually changes between the two
+      regimes is the \emph{absolute} width against the level spacing: $\Delta
+      \approx 3$\,MeV here versus a few keV in hydrogen burning. That is the
+      formal reason the \emph{statistical} (Hauser--Feshbach) treatment is the
+      right one in this box --- the window spans hundreds of levels --- and it
+      is a statement about $\Delta$, not about $\Delta/E_0$.
+
+\item \textbf{$E_0$ is still below $E_C$} (4.3 vs 7.27\,MeV for
+      Si$+\alpha$): tunnelling, not over-the-barrier. But $E_C/E_0 \approx 1.7$
+      here, not the factor of 10--100 that low-temperature nucleosynthesis
+      enjoys ($E_C/E_0 \approx 12$ for \nuc{C}{12}$+\alpha$ at $\Tn = 0.2$,
+      $\approx 76$ for \nuc{C}{12}$+p$ at $\Tn = 0.02$, $\approx 100$ for
+      $p+p$) --- silicon burning sits in an awkward middle where neither the
+      deep-tunnelling nor the classical limit is clean.
+\end{enumerate}
+
+A useful sanity identity: $\tau$ from \eqref{eq:taupractical} at $\Tn = 1$ for
+\nuc{Si}{28}$+\alpha$ gives $\tau = \mathbf{59.48}$, and $E_0 = \tau kT/3$
+reproduces the table exactly. Hold that number --- it reappears to 0.01\% in
+\S\ref{sec:onerate} as a REACLIB coefficient.
+
+\subsubsection{Neutrons have no Gamow peak}
+\label{sec:no-gamow}
+
+$Z_2 = 0$ kills $E_G$, so \eqref{eq:gamowfactor}--\eqref{eq:nonresonant}
+collapse. For neutron capture, $\sigma \propto 1/v$ at low energy (the $1/v$
+law, from phase space alone), so $\sigv \to$ constant, and the temperature
+dependence of an $(n,\gamma)$ rate is weak and non-exponential.
+
+This has a structural consequence that matters far beyond S2:
+\textbf{$(n,\gamma)/(\gamma,n)$ pairs are the fastest in the network and set the
+stiffness ceiling} (\S0.5's channel table said so; now you know why). They
+equilibrate first, they dominate the QSE cluster interior, and they are the
+pairs whose $\kappa$ collapses earliest.
+
+\subsubsection{The 1/v law, derived --- and the reciprocity theorem}
+\label{sec:reciprocity}
+
+Both deserve doing properly, because \S\ref{sec:no-gamow} asserted the first and
+\S\ref{part:db} leans on the second.
+
+\paragraph{The 1/v law.} For an exothermic reaction with no barrier, the
+cross-section at low energy is dominated by the entrance-channel phase space.
+Write $\sigma = \pi\lbar^2\cdot T(E)\cdot(\text{branching})$, with
+$\lbar = \hbar/p \propto 1/\sqrt E$. For s-wave neutrons the transmission
+through the (absent) barrier tends to a constant times $k \propto \sqrt E$ as
+$E \to 0$ (the standard threshold law $T_\ell \propto k^{2\ell+1}$;
+\citealp{wigner1948}; \citealp{blatt1952}), so
+%
+\begin{equation*}
+\sigma \propto \frac{1}{E}\cdot\sqrt{E} = \frac{1}{\sqrt E} \propto \frac{1}{v}
+\;\Longrightarrow\; \sigma v = \text{const}
+\end{equation*}
+%
+Hence \sigv{} is temperature-independent at low energy, and $(n,\gamma)$ rates
+in REACLIB are nearly flat in $T$ \citep[Table~1: $a_6 = \ell$ for $n$-induced
+non-resonant]{cyburt2010}. Contrast the charged-particle case, where the barrier
+transmission \eqref{eq:gamowfactor} overwhelms everything.
+
+\paragraph{The reciprocity theorem} is the \emph{microscopic} statement,
+independent of any equilibrium assumption. Time-reversal invariance of the
+strong interaction gives $|\langle b|T|a\rangle|^2 = |\langle a|T|b\rangle|^2$,
+and converting matrix elements to cross-sections by dividing out incident flux
+and multiplying by final-state density gives
+%
+\begin{equation}
+\boxed{\;
+(2J_1+1)(2J_2+1)\,k_{12}^2\,\sigma_{12\to34}
+= (2J_3+1)(2J_4+1)\,k_{34}^2\,\sigma_{34\to12}
+\;}
+\label{eq:reciprocity}
+\end{equation}
+%
+with $k$ the centre-of-mass wavenumbers \citep[cf.][p.~30]{blatt1952,cyburt2010}.
+\textbf{This is a relation between cross-sections at the same total energy,
+valid reaction-by-reaction, with no reference to a thermal bath.} Thermally
+averaging \eqref{eq:reciprocity} with \eqref{eq:sigmav} reproduces the ratio
+\eqref{eq:dbratio} --- spins, masses, the phase-space power, and $e^{-Q/kT}$ all
+fall out \citep{rauscher2000}.
+
+Why have both routes? Because they justify different things:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.6cm} L{4.4cm} Y@{}}
+\toprule
+\textbf{Route} & \textbf{Says} & \textbf{Used for} \\
+\midrule
+Reciprocity \eqref{eq:reciprocity} & the \emph{rates} are related, always &
+  licenses computing a reverse from a forward at any composition \\
+Chemical equilibrium (0.1) & the \emph{fluxes} balance at NSE &
+  licenses $\kappa \to 0$ as an equilibrium test \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+If you only had the second, you could not justify using detailed-balance
+reverse rates \emph{out} of equilibrium --- which is exactly what the network
+does at every timestep. The first is what makes \code{DerivedRate} legitimate at
+$\kappa = 0.9998$.
+
+% =====================================================================
+\subsection{Resonances and the Hauser--Feshbach regime}
+\label{sec:hf}
+
+\subsubsection{The isolated narrow resonance}
+\label{sec:narrowres}
+
+If the compound nucleus has a level at $E_r$ in the Gamow window, $\sigma(E)$ is
+Breit--Wigner:
+%
+\begin{equation*}
+\sigma_{BW}(E) = \pi\lbar^2\,\omega\,
+\frac{\Gamma_a \Gamma_b}{(E-E_r)^2 + \Gamma^2/4}
+\end{equation*}
+%
+For $\Gamma \ll kT$ the Lorentzian acts as a delta function inside
+\eqref{eq:sigmav}, giving
+%
+\begin{equation}
+\Nasigv
+= 1.54\times10^{11}\,(\mu_{\rm amu} \Tn)^{-3/2}\,(\omega\gamma)_{\rm MeV}\,
+  \exp\!\left(-\frac{11.605\,E_r[\text{MeV}]}{\Tn}\right)
+\label{eq:narrowres}
+\end{equation}
+%
+i.e.\ $\lambda \propto T^{-3/2}\exp(-E_r/kT)$ \citep{longland2010}. Note the
+constant $11.605 = 1/(k\cdot10^9\,\text{K in MeV}) = 1/0.0861733$ --- the
+conversion you will meet again in every $Q/kT$ term in this document.
+
+Compare \eqref{eq:nonresonant} and \eqref{eq:narrowres}:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4cm} Y@{}}
+\toprule
+\textbf{Regime} & \textbf{$T$ dependence of $\ln\lambda$} \\
+\midrule
+non-resonant & $a_2 \Tn^{-1/3} + a_6\ln\Tn$ with $a_6 = -2/3$ \\
+narrow resonance & $a_1 \Tn^{-1} + a_6\ln\Tn$ with $a_6 = -3/2$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Two different basis functions.} A fit library that has to hold both
+needs \emph{both} $\Tn^{-1}$ and $\Tn^{-1/3}$ terms and a free $\ln\Tn$
+coefficient. That is three of REACLIB's seven, and \S\ref{sec:sevencoeff} gets
+the remaining four.
+
+\subsubsection{Why Hauser--Feshbach dominates here}
+\label{sec:hf-dominates}
+
+Once the level density in the compound nucleus is high enough that many
+resonances overlap within the Gamow window, individual levels are neither
+resolvable nor relevant. The \textbf{statistical model} (Hauser--Feshbach;
+\citealp{rauscher2000}) replaces them with averaged transmission coefficients:
+%
+\begin{equation*}
+\sigma_{ab}(E) = \frac{\pi\lbar^2}{(2J_1+1)(2J_2+1)}
+\sum_J (2J+1)\frac{T_a^J\,T_b^J}{\sum_c T_c^J}
+\end{equation*}
+%
+The inputs are (i) an optical model for the entrance\,/\,exit transmissions,
+(ii) a level-density prescription, (iii) $\gamma$-ray strength functions. All
+three are \emph{models}, calibrated where data exist.
+
+\textbf{Validity condition:} enough levels in the window
+\citep{rauscher1997}. In the Fe-peak, $\alpha$-capture Gamow peaks sit at
+$E_0 \approx 4$--$7$\,MeV (compound-nucleus excitation $E^* = Q + E_0 \approx
+11$--$17$\,MeV) with $\Delta \approx 3$\,MeV; this is comfortably satisfied for
+mid-shell nuclei --- and marginal exactly at shell closures, where level
+densities plunge. Note which nuclei those are: \nuc{Ni}{56} ($Z = N = 28$) and
+\nuc{Ca}{40} ($Z = N = 20$), both doubly magic, and \nuc{Si}{28} ($Z = N = 14$),
+which is not magic but sits at the $d_{5/2}$ \emph{sub}-shell closure and is
+correspondingly level-poor. \textbf{The most abundant species in this problem
+are the ones where the statistical model is weakest.}
+
+That is not quite the coincidence it looks like, though the mechanism differs by
+species. \nuc{Ni}{56} and \nuc{Ca}{40} are abundant because they are tightly
+bound \emph{and} their binding comes from the same shell closure that suppresses
+their level density --- one cause, two effects. \nuc{Si}{28}'s abundance has a
+different origin: it is the last member of the $\alpha$ ladder to
+photodisintegrate, because its $\alpha$ separation energy is 9.98\,MeV against
+6.95\,MeV for \nuc{S}{32} (\S\ref{sec:why3gk}). Its low level density is a
+consequence of the sub-shell closure, not of the bottleneck.
+
+\subsubsection{Where the uncertainty actually is}
+\label{sec:uncertainty}
+
+Tier~0 \S0.3.3 gave the summary table; the mechanism is now visible:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.9cm} L{2.4cm} R{1.2} R{0.8}@{}}
+\toprule
+\textbf{Source} & \textbf{Coverage} & \textbf{Uncertainty} & \textbf{Why} \\
+\midrule
+Direct experiment & light nuclei &
+  a few \% (best channels) to a few tens of \% &
+  measured, extrapolated via $S(E)$ \\
+Hauser--Feshbach & most $(n,\gamma)$, $(p,\gamma)$, $(\alpha,\gamma)$
+  mid\,/\,heavy &
+  factor ${\sim}2$ \citep{rauscher2000} &
+  level density $+$ optical model $+$ $\gamma$SF \\
+Shell-model weak (LMP) & Fe-peak EC\,/\,$\beta$ &
+  no blanket figure; GT-strength dependent --- the LMP revision moved key FFN
+  EC rates by factors ${\sim}10$--$350$ \citep{langanke2000} &
+  Gamow--Teller strength (\S\ref{sec:gt}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The practical consequence, which you should be able to state without hedging:
+
+\begin{warn}
+\textbf{An emulator that reproduces MESA to $10^{-6}$ reproduces MESA, not
+nature.} The project's gates are therefore fidelity-to-labels gates, and every
+physics claim built on them inherits a factor-${\sim}2$ rate uncertainty that no
+amount of ML accuracy touches.
+\end{warn}
+
+This is also why \textbf{S6} exists. If the underlying rates carry factor-2
+uncertainty, then a 0.05\,dex (12\%) disagreement between two
+\emph{implementations} is a bookkeeping question, not a physics question --- and
+bookkeeping questions have right answers. S6 is the node that separates the two.
+
+\subsubsection{When are resonances ``overlapping''? The \texorpdfstring{$\Gamma/D$}{Gamma/D} criterion}
+\label{sec:gammaD}
+
+The statistical model requires many contributing levels. The quantitative
+condition compares the average total width $\Gamma$ to the average level
+spacing $D$ at the relevant excitation energy:
+
+\begin{itemize}
+\item \textbf{$\Gamma/D \ll 1$} --- isolated resonances; the rate is a sum of
+      terms like \eqref{eq:narrowres} and is sensitive to individual level
+      positions.
+\item \textbf{$\Gamma/D \gtrsim 1$} --- overlapping; individual levels are
+      unresolvable and Hauser--Feshbach averaging is appropriate.
+\end{itemize}
+
+Level densities follow a back-shifted Fermi-gas form \citep{rauscher1997},
+$\rho(E) \propto \exp(2\sqrt{aU})/U^{5/4}$ with $a \approx A/8$\,MeV$^{-1}$ and
+$U$ the shifted excitation. Two features matter here:
+
+\begin{enumerate}
+\item \textbf{$\rho$ rises steeply with excitation.} The compound nucleus is
+      formed at $E^* = Q + E_0$, which for
+      $\nuc{Si}{28}(\alpha,\gamma)\nuc{S}{32}$ is $6.95 + 4.30 \approx 11$\,MeV.
+      At $A \approx 32$ and 11\,MeV excitation the level density is high --- HF
+      is comfortable.
+\item \textbf{$\rho$ is suppressed at shell closures} by the pairing\,/\,shell
+      correction in the back-shift. This is the mechanism behind
+      \S\ref{sec:hf-dominates}'s warning: \nuc{Ni}{56}, \nuc{Ca}{40},
+      \nuc{Si}{28} sit exactly where the denominator of $\Gamma/D$ is largest.
+\end{enumerate}
+
+There is also a hard ceiling on any single resonance's strength --- the
+\textbf{Wigner limit}: the reduced width obeys
+$\gamma^2 \le \gamma_W^2 = 3\hbar^2/(2\mu R^2)$, so the observable width
+$\Gamma_\ell = 2P_\ell\gamma^2 \le 3\hbar^2 P_\ell/(\mu R^2)$ with $P_\ell$ the
+penetrability \citep{teichmann1952,descouvemont2010} --- i.e.\ a level cannot be
+more strongly coupled to a channel than a single-particle state. Useful as a
+sanity check when a tabulated rate looks impossibly large.
+
+\subsubsection{Ground-state versus stellar rates --- a partly-settled convention}
+\label{sec:sef}
+
+\begin{warn}
+\warnglyph{}~A subtlety that Tier~0 \S0.2.2 gestured at and \S\ref{part:db}
+makes operational, but which deserves naming as a distinct concept.
+\end{warn}
+
+A \textbf{laboratory} (ground-state) rate assumes the target nucleus is in its
+ground state. A \textbf{stellar} rate averages over the thermal population of
+target excited states:
+%
+\begin{equation*}
+\sigv^{*}
+= \frac{\sum_s (2J_s+1)e^{-E_s/kT}\,\sigv_s}
+       {\sum_s (2J_s+1)e^{-E_s/kT}}
+\end{equation*}
+%
+and the \textbf{stellar enhancement factor} is
+$\mathrm{SEF} = \sigv^*/\sigv_{\rm gs}$. For most capture reactions
+$\mathrm{SEF} > 1$, because excited target states have larger phase space and
+often larger cross-sections.
+
+Now the part to be careful about, and the part where the algebra already
+constrains the answer more than it first appears.
+
+\begin{exercise}
+\textbf{Do the REACLIB forward fits in this network represent ground-state rates
+or stellar rates?} And if ground-state, does either MESA or pynucastro apply a
+separate SEF to the forward before use?
+\end{exercise}
+
+Neither code exposes anything named \code{sef} / \code{stellar\_enhancement}; the
+pf machinery in both is confined to the DB ratio. But note what
+\eqref{eq:dbratio} \emph{is}: the partition-function ratio
+$\prod G_{\Rset}/\prod G_{\Pset}$ appears there because the thermal average over
+excited \textbf{target} states has already been taken on both sides. The
+Rauscher--Thielemann reverse-ratio relation holds between \textbf{stellar} rates
+\citep{rauscher2000}; it is not the relation between two ground-state rates. So
+a pipeline that derives every reverse through \eqref{eq:dbratio} --- which is
+exactly what the pf gate mandates --- has already committed to its forwards
+being stellar. The two branches are therefore not symmetric:
+
+\begin{itemize}
+\item \textbf{The \code{ths8r} (NON-SMOKER statistical-model) fits are stellar
+      rates} \citep{cyburt2010,rauscher2000}. This is the branch
+      \eqref{eq:dbratio} presupposes, the pf ratio is then the correct and
+      complete treatment, and there is nothing to add. Anything else would make
+      \code{DerivedRate(use\_pf=True)} --- the project's mandated construction
+      --- the wrong relation, which the $\kappa$-at-NSE collapse to
+      $2.6\times10^{-12}$ argues strongly against.
+
+\item \textbf{The genuinely open subset is the experimentally-fitted channels}
+      (\code{nac2}, \code{ks03} and similar labels), which are laboratory
+      ground-state rates by construction, and for which no SEF is visibly
+      applied anywhere. Those carry an unapplied $O(1)$ enhancement at these
+      temperatures --- a \emph{common-mode} effect cancelling in the
+      forward\,/\,reverse ratio (so $\kappa$ and the equilibrium diagnostics are
+      untouched) but \textbf{not} cancelling in the absolute flux magnitudes
+      that feed $\Delta Y$ and \enuc.
+\end{itemize}
+
+So the question to actually answer is narrower than ``are REACLIB forwards
+stellar'': it is \textbf{which label classes in these two networks are
+experimental fits, how much flux do they carry in the Si-burning box, and what
+is their SEF there?} Given that the $\alpha$ ladder and the Fe-peak
+$\alpha$-captures are \code{ths8r} throughout except
+$\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$ (label \code{chw0}, a resonance-based
+re-evaluation) --- a handful of Fe-peak $n/p$ captures (\code{ks03},
+\code{si13n}, \code{nfisn}) are themselves experimental fits --- the exposure is
+probably small --- but ``probably small'' on a systematic multiplier is not a
+measurement. \textbf{Recorded in \S\ref{part:open} as an open prerequisite, with
+that narrower scope} (\S\ref{sec:gap-sef}).
+
+% =====================================================================
+\subsection{Photodisintegration: the reverse rates that run this regime}
+\label{sec:photodis}
+
+\subsubsection{A rate with a thermal photon bath}
+\label{sec:photonbath}
+
+A $(\gamma,\alpha)$ reaction is driven by the Planck tail: the photon must
+supply the separation energy $Q$. The rate per target nucleus is
+%
+\begin{equation*}
+\lambda_\gamma(T) = \int_{Q}^\infty c\, n_\gamma(E,T)\,
+\sigma_{\gamma\alpha}(E)\,\dd E
+\end{equation*}
+%
+and since $n_\gamma \propto E^2/(e^{E/kT} - 1) \approx E^2e^{-E/kT}$ for
+$E \gg kT$, the rate carries the factor \textbf{$e^{-Q/kT}$} --- steeply
+increasing in $T$, and completely density-independent
+(\S\ref{sec:molar}; \citealp{hix1999b}).
+
+You do not, in practice, evaluate this integral. \textbf{Detailed balance gives
+$\lambda_\gamma$ from the capture rate exactly} (that is \S\ref{part:db}). But
+it is worth understanding the physical statement independently, because it
+explains the whole shape of silicon burning: the light-particle liberation that
+drives the $\alpha$ ladder is a \emph{thermal} process with an exponential
+threshold, so it switches on over a narrow temperature range.
+
+\subsubsection{Worked crossover --- \texorpdfstring{$\nuc{Si}{28}(\alpha,\gamma)\nuc{S}{32} \rightleftharpoons \nuc{S}{32}(\gamma,\alpha)\nuc{Si}{28}$}{Si28(a,g)S32 <-> S32(g,a)Si28}}
+\label{sec:crossover}
+
+Compare the forward rate per \nuc{Si}{28} nucleus, $\rho Y_\alpha \Nasigv$,
+against the reverse rate per \nuc{S}{32} nucleus, $\lambda_\gamma$, at
+$\rho = 10^8$\,g\,cm$^{-3}$ \derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{\Tn} & \textbf{forward (s$^{-1}$), $Y_\alpha = 10^{-3}$}
+  & \textbf{reverse $\lambda_\gamma$ (s$^{-1}$)} & \textbf{reverse\,/\,forward} \\
+\midrule
+2.0 & $1.4\times10^{4}$ & $8.2\times10^{-8}$ & $5.7\times10^{-12}$ \\
+2.5 & $1.1\times10^{5}$ & $2.9\times10^{-3}$ & $2.5\times10^{-8}$ \\
+3.0 & $4.5\times10^{5}$ & $3.2$              & $7.2\times10^{-6}$ \\
+3.3 & $8.1\times10^{5}$ & $78$               & $9.6\times10^{-5}$ \\
+4.0 & $2.2\times10^{6}$ & $2.0\times10^{4}$  & $9.3\times10^{-3}$ \\
+5.0 & $5.0\times10^{6}$ & $3.7\times10^{6}$  & $\mathbf{0.75}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Read this table carefully --- several project facts fall out of it at
+once.}
+
+\begin{enumerate}
+\item \textbf{The reverse rate climbs 14 orders of magnitude between $\Tn = 2$
+      and 5.} The forward climbs by a factor of ${\sim}350$. Everything about
+      the temperature structure of this regime is the reverse rate.
+
+\item \textbf{The pair reaches balance at $\Tn = 5.10$} for
+      $Y_\alpha = 10^{-3}$. Solving rev/fwd $= 1$ from the same coefficients
+      \derivedhere{}, the balance point moves by $\approx +0.5$ in \Tn{} per
+      decade of $Y_\alpha$ on average (steepening from $\approx +0.4$/decade at
+      $Y_\alpha = 10^{-7}$--$10^{-4}$ to $\approx +0.8$/decade at
+      $10^{-3}$--$10^{-2}$): $3.31\,/\,4.50\,/\,5.10\,/\,5.87$ at
+      $Y_\alpha = 10^{-7}\,/\,10^{-4}\,/\,10^{-3}\,/\,10^{-2}$. \textbf{QSE
+      onset is composition-dependent, not a fixed temperature} --- and the
+      numbers land exactly where the project's band does:
+      \textbf{$Y_\alpha \approx 10^{-7}$, which is the $\alpha$ abundance early
+      in Si burning, puts this pair's balance at $\Tn = 3.31$.} That is the
+      quantitative content of ``QSE onset ${\sim}3$--$3.3$\,GK'' being a band,
+      and of the kill-test priority window being 3.3--5\,GK rather than a point:
+      it is the same pair, walked across four decades of $Y_\alpha$.
+
+\item \textbf{$\kappa$ is directly readable off the last column.}
+      $\kappa = |f^+-f^-|/(f^++f^-)$, so ratio $9.6\times10^{-5} \Rightarrow
+      \kappa \approx 0.9998$ (nowhere near equilibrium) and ratio $0.75
+      \Rightarrow \kappa \approx 0.14$ (approaching it). The active-set
+      threshold $\kappa > 0.1$ sits precisely in the transition this table walks
+      through.
+
+\item \textbf{The rate that must be \emph{right} is the reverse --- but be
+      careful about why.} $\kappa$ depends only on the \emph{ratio}
+      $f^-/f^+$, so it is exactly as sensitive to a 20\% error in the forward as
+      to one in the reverse; ``$f^+ - f^-$ is a small difference of large
+      numbers'' is true but symmetric, and is not on its own an argument for
+      privileging the reverse. The asymmetry comes from \emph{how the two are
+      built}: the reverse is constructed \textbf{from} the forward through
+      \eqref{eq:dbratio}, so an error in the forward propagates into the reverse
+      and \textbf{cancels exactly} in the ratio --- it is common-mode
+      (\S\ref{sec:commonmode}). Only an error in the detailed-balance factor
+      itself --- a missing partition-function ratio, a missing power of
+      $\fac\cdot\Tn^{3/2}$ --- survives into $\kappa$, and it survives at full
+      strength because $\kappa$ is a condition number (\S V.1 of Tier~0).
+      \textbf{That is the physical reason S3 is the load-bearing node and why
+      the pf gate is blocking:} the gate protects the one factor that has no
+      common-mode partner.
+\end{enumerate}
+
+\subsubsection{Why \texorpdfstring{${\sim}3$}{~3} GK}
+\label{sec:why3gk}
+
+Set the reverse rate of the \emph{weakest-bound} abundant species equal to its
+destruction rate. The $\alpha$ separation energy of \nuc{Si}{28} is 9.98\,MeV,
+of \nuc{S}{32} 6.95\,MeV, and the exponential $e^{-Q/kT}$ at $Q \approx 7$\,MeV
+alone contributes
+%
+\begin{equation*}
+\frac{\dd\ln\lambda_\gamma}{\dd\ln T} \approx \frac{Q}{kT} \approx 27
+\ \text{at } \Tn=3
+\end{equation*}
+%
+(the full fitted slope, including the capture rate's Gamow term inherited
+through detailed balance, is $\approx 35$). A 10\% temperature rise multiplies
+the $e^{-Q/kT}$ factor alone by $e^{2.7} \approx 15$, and the full rate by
+${\times}{\sim}30$ (cf.\ \citealp{hix1999b}: $T \approx Q/30k_B$ switch-on
+rule). That extreme sensitivity is what makes the QSE transition sharp in
+temperature and what makes the label distribution so structured (\S IV.2 of
+Tier~0 --- the reachable manifold).
+
+\subsubsection{Two assumptions inside the photon rate}
+\label{sec:photon-assumptions}
+
+\paragraph{Is the photon field Planckian?} Photodisintegration assumes an
+equilibrium blackbody spectrum at the matter temperature. That requires the
+photon mean free path to be short compared with the temperature scale height and
+the photon--matter coupling time short compared with the burning time. At
+$\rho \ge 10^7$\,g\,cm$^{-3}$ the Thomson mean free path is
+${\sim}5\times10^{-7}$\,cm ($\lambda = 1/(n_e\sigma_T)$, with
+$n_e = \rho N_A\Ye \approx 3\times10^{30}$\,cm$^{-3}$) against structure scales
+of $10^7$--$10^8$\,cm, so the medium is optically thick by ${\sim}13$--14 orders
+of magnitude. \textbf{LTE for photons is safe here} --- which is worth stating
+once, because it is the assumption that fails for the neutrinos (\S0.4.2) and
+the contrast is the whole reason \Ye{} is a one-way variable.
+
+\paragraph{Triple-\texorpdfstring{$\alpha$}{alpha}, and why it is chapter 8.}
+The reaction $3\alpha \to \nuc{C}{12}$ is not a genuine three-body collision. It
+proceeds sequentially \citep{salpeter1952,jose2011}: $\alpha + \alpha
+\rightleftharpoons \nuc{Be}{8}$ (unbound, lifetime ${\sim}10^{-16}$\,s, held at
+a small equilibrium abundance), then $\nuc{Be}{8} + \alpha \to \nuc{C}{12}^*$
+through the \textbf{Hoyle state} at 7.65\,MeV \citep{freer2014}, which then
+$\gamma$-decays. REACLIB folds the \nuc{Be}{8} equilibrium abundance into an
+effective three-body rate --- hence chapter 8 ($3 \to 1$) and the $\rho^2$
+density dependence, and hence \code{prefactor} $= 1/3! = 1/6$.
+
+Two consequences:
+
+\begin{enumerate}
+\item Its reverse $\nuc{C}{12} \to 3\alpha$ is a \textbf{chapter-8 inverse with
+      $\dNs = -2$}, requiring two powers of the phase-space factor --- which is
+      exactly the class stock MESA gets wrong by ${\sim}10$\,dex
+      (\S\ref{sec:gh575}), and it is the flagship member of the
+      \code{photo\_of\_multibody} class in
+      \code{configs/appendixb\_excluded\_channels.yaml}.
+\item The ``effective rate'' construction embeds an equilibrium assumption
+      (\nuc{Be}{8} in equilibrium with $\alpha$) \emph{inside a rate
+      coefficient}. That is a QSE approximation hiding one level down from the
+      QSE machinery this project builds --- worth noticing, because it means the
+      network is already, quietly, a reduced model.
+\end{enumerate}
+
+% =====================================================================
+\subsection{What the rates do --- mapping the theory onto the Tier-0 topology}
+\label{sec:whatratesdo}
+
+Tier~0 \S0.6 gave the $\alpha$ ladder and the two-cluster structure; you can now
+annotate it with mechanism.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  nucbox/.style={draw, rounded corners=2pt, line width=0.7pt,
+                 minimum height=7mm, inner xsep=4pt, fill=resultrule!6},
+  fwd/.style={-{Latex[length=1.8mm]}, line width=0.6pt},
+  rev/.style={-{Latex[length=1.8mm]}, line width=0.6pt, densely dashed}]
+
+\node[nucbox] (si) {\nuc{Si}{28}};
+\node[nucbox, right=13mm of si] (s)  {\nuc{S}{32}};
+\node[nucbox, right=13mm of s]  (ar) {\nuc{Ar}{36}};
+\node[nucbox, right=13mm of ar] (ca) {\nuc{Ca}{40}};
+\node[nucbox, right=13mm of ca] (ti) {\nuc{Ti}{44}};
+\node[right=6mm of ti] (dots) {$\cdots$};
+\node[nucbox, right=6mm of dots] (ni) {\nuc{Ni}{56}};
+
+\foreach \a/\b in {si/s, s/ar, ar/ca, ca/ti}{
+  \draw[fwd] ([yshift=1.6mm]\a.east) -- node[above,font=\scriptsize,inner sep=1pt]
+    {$(\alpha,\gamma)$} ([yshift=1.6mm]\b.west);
+  \draw[rev] ([yshift=-1.6mm]\b.west) -- node[below,font=\scriptsize,inner sep=1pt]
+    {$(\gamma,\alpha)$} ([yshift=-1.6mm]\a.east);}
+\draw[fwd] (ti.east) -- (dots.west);
+\draw[fwd] (dots.east) -- (ni.west);
+
+\node[anchor=north west, text width=0.44\textwidth, font=\footnotesize]
+  at ([yshift=-11mm]si.south west)
+  {\textbf{forward:} Gamow-peak tunnelling, $E_0 \approx 4.3$\,MeV, weakly
+   $T$-dependent.\\
+   \textbf{reverse:} $e^{-Q/kT}$, 14 decades over the box.};
+\node[anchor=north east, text width=0.40\textwidth, font=\footnotesize]
+  at ([yshift=-11mm]ni.south east)
+  {\raggedright same mechanism at the Fe peak, but $E_0$ larger
+   (6.98\,MeV for Ni$+\alpha$).};
+\draw[line width=0.5pt, gray] ([yshift=-2mm]si.south) -- ([yshift=-10mm]si.south);
+\draw[line width=0.5pt, gray] ([yshift=-2mm]ni.south) -- ([yshift=-10mm]ni.south);
+\end{tikzpicture}
+\caption{The $\alpha$ ladder of \S0.6, annotated with mechanism. Solid arrows
+are captures, dashed arrows photodisintegrations.}
+\label{fig:alphaladder}
+\end{figure}
+
+\begin{itemize}
+\item \textbf{The forward rates set the \emph{scale}; the reverse rates set the
+      \emph{structure}.} Every $\kappa$, every equilibrium mask, every QSE
+      cluster boundary is a statement about a reverse rate.
+\item \textbf{$(n,\gamma)/(\gamma,n)$ pairs equilibrate first} (no barrier,
+      \S\ref{sec:no-gamow}), then $(p,\gamma)/(\gamma,p)$, then
+      $(\alpha,\gamma)/(\gamma,\alpha)$ --- the ordering of cluster formation.
+\item \textbf{The weak reactions are outside all of this.} No barrier, no photon
+      bath, no detailed-balance partner in the network
+      (\S\ref{sec:weak-different}). They set \Ye, they are slow, and they are
+      the reason the composition is a \emph{constrained} optimum (\S0.3.2).
+\end{itemize}
+
+% =====================================================================
+\subsection*{Self-check --- rate theory}
+\addcontentsline{toc}{subsection}{Self-check --- rate theory}
+\label{sec:selfcheck-ratetheory}
+
+\begin{selfcheck}
+\item Derive \eqref{eq:sigmav} from $r_{12} = n_1n_2\sigma v$ by changing
+      variables from $v$ to $E$. Where does the $(8/\pi\mu)^{1/2}$ come from?
+\item Compute $E_0$ and $\Delta$ for
+      $\nuc{S}{32}(\alpha,\gamma)\nuc{Ar}{36}$ at $\Tn = 3.5$ from
+      \eqref{eq:gamowpeak}--\eqref{eq:gamowwidth}. Is $\Delta/E_0$ larger or
+      smaller than for \nuc{Si}{28}$+\alpha$, and why?
+\item Explain in one sentence why an $(n,\gamma)$ rate is nearly
+      temperature-independent while its $(\gamma,n)$ reverse spans 14 decades
+      over the same range.
+\item Estimate the temperature at which $\nuc{S}{32}(\gamma,\alpha)$ balances
+      \nuc{S}{32} production at $\rho = 10^9$, $Y_\alpha = 10^{-2}$. Which
+      direction does raising $\rho$ move it, and why does that follow from
+      \S\ref{sec:molar} rather than from any nuclear physics?
+\item Given factor-2 Hauser--Feshbach uncertainties, write the strongest
+      defensible accuracy claim for this emulator in one sentence. (Compare with
+      your answer to the Tier-0 \S0.3.4 version --- it should not have changed.)
+\end{selfcheck}
+
+\begin{aside}
+The fourth question of this block in the source (``a reaction has prefactor
+$1/2$ and \code{dens\_exp} 1 --- what is its arity?'') tests the compiled data
+structures rather than the physics, and has moved with them to
+\S\ref{sec:selfcheck-evaluator}. Appendix~\ref{app:concordance} records every
+such relocation.
+\end{aside}

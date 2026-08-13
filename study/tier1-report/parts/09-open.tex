@@ -1,0 +1,788 @@
+% =====================================================================
+%  LAYER E -- The open register.
+%  Section 9: open prerequisites, both audit passes.
+%
+%  Source: tier1.md Part VIII (3415-3936) in full and in order:
+%          VIII.A (3422-3433), VIII.B0 (3435-3458), VIII.B (3460-3490),
+%          VIII.C.1-C.10 (3492-3693), VIII.D (3695-3717),
+%          VIII.E.1-E.7 (3719-3888), VIII.F (3890-3936).
+%  The Tier-4 ASCII sketch (3746-3772) is redrawn as a TikZ figure.
+% =====================================================================
+
+\section{Open prerequisites: what is still not covered}
+\label{part:open}
+
+An honest audit of the whole study plan (Tier~0 $+$ Tier~1 $+$ the S7--S16
+map), asking: \emph{what does this project rest on that nothing in the plan
+explains?}
+
+Three categories. Only the third is a gap.
+
+% =====================================================================
+\subsection{Deferred by design --- covered later, correctly}
+\label{sec:deferred}
+
+Not gaps; listed so they are not mistaken for gaps.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{4.6cm}@{}}
+\toprule
+\textbf{Topic} & \textbf{Where it lands} \\
+\midrule
+Saha solved as a two\,/\,three-unknown root find; cluster chemical potentials
+  $u_G$ & S9 (\code{qse/}) \\
+Jacobian sparsity, BDF, the augmented $[Y, \Phi]$ system &
+  S10 (\code{fluxes/integrate.py}) \\
+Reaction-flow decomposition, active sets, $\cond(S_{\rm active})$ & S14 \\
+Null-space projector $P$, the linear-output-space theorem & S7\,/\,S15 \\
+bbq operation, inlists, the rerun campaign & S11 \\
+The label pathology (gh-575 \emph{in the shipped labels}) & S13 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\subsection{Corrections to earlier revisions of the source document}
+\label{sec:errata}
+
+\begin{warn}
+\warnglyph{}~An audit pass caught errors in the previous revision. Listed
+because study material gets memorised, and a wrong number carried forward is
+worse than one never written. If you learned any of these, relearn them.
+\end{warn}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{1.6cm} L{4.6cm} Y@{}}
+\toprule
+\textbf{Source \S} & \textbf{Was} & \textbf{Is} \\
+\midrule
+V.4 & free-proton EC threshold $W_{\rm thr} = 1.804$\,MeV &
+  \textbf{1.293\,MeV} --- the $n$--$p$ mass difference \emph{is} the threshold
+  total energy; adding $m_ec^2$ double-counts it. Crossing at
+  $\rho \approx 2.4\times10^7$, inside the box (\S\ref{sec:ec-degenerate}) \\
+IV.3 & $h_{\rm strong} \simeq 0.624\,\Gamma_e[\Delta Z^{5/3}]$ &
+  \textbf{9/10} $\Gamma_e[\Delta Z^{5/3}]$ --- the same 9/10 as the ion-sphere
+  energy two lines above. Cross-checks: Salpeter's 0.205 in cgs, and
+  $h/\Gamma_{12} = 1.057$ against Chugunov's 1.0346
+  (\S\ref{sec:strongscreening}) \\
+III.7 & gh-575 displaces the reverse by $|\dNs|$ powers &
+  \textbf{$|\dNs - e|$} powers, $e = 1$ iff the tabulated direction has one
+  product. Chapter 8 is off by one power (${\sim}10$\,dex), not two
+  (${\sim}21.8$\,dex). The source branch is \code{No == 1}, not ``three or more
+  participants on a side'' (\S\ref{sec:gh575}) \\
+1.4.2 & ${\times}10$ in $Y_\alpha$ moves the Si\,$\rightleftharpoons$\,S balance
+  to $\Tn \approx 5.3$ &
+  \textbf{5.87}; the sensitivity is $\approx +0.5$--0.8 in \Tn{} per decade of
+  $Y_\alpha$ (steepening toward high $Y_\alpha$) (\S\ref{sec:crossover}) \\
+1.4.2 & a forward-rate error ``moves the balance point negligibly'' &
+  symmetric in the ratio; the real asymmetry is that forward errors are
+  \textbf{common-mode} through the DB construction and cancel \\
+1.2.4 & $\Delta/E_0 \sim 0.1$ in hydrogen burning &
+  $\Delta/E_0 = 4/\sqrt\tau$ exactly, so $\approx 0.5$--1 there. 0.1 needs
+  $\tau \approx 1600$, which nothing reaches (\S\ref{sec:gamow-numbers}) \\
+III.5 & $\varepsilon = 0.5$--1 gives $\kappa \approx 0.25$--0.5 &
+  $\kappa = \varepsilon/(2+\varepsilon) = \mathbf{0.20}$--$\mathbf{0.33}$; the
+  linearised $\varepsilon/2$ is out of validity at these $\varepsilon$
+  (\S\ref{sec:vflag}) \\
+V.4 & $\lambda_{\rm EC}$ integrand ${\sim}W^5$ &
+  integrand ${\sim}W^4$; the \textbf{integral} ${\sim}\muE^5$ \\
+VIII.C.6 & pair density ``probably fine'' &
+  $n_+ = 1.8\,n_{\rm net}$ at the hot\,/\,thin corner, and the electrons there
+  are \textbf{not degenerate} (\S\ref{sec:gap-pairs}) \\
+VIII.C.9 & $\Gamma \approx \Gamma_e\cdot26^{5/3}$ of order $10^2$ &
+  order \textbf{10} ($\approx 26$ at the cold corner) (\S\ref{sec:gap-nse}) \\
+1.3.2 & \nuc{Si}{28} listed as a closed shell &
+  $d_{5/2}$ \emph{sub}-shell closure; and its abundance comes from the
+  $\alpha$-separation bottleneck, not from magicity
+  (\S\ref{sec:hf-dominates}) \\
+1.3.5 & ``is REACLIB stellar or ground-state?'' fully open &
+  \eqref{eq:dbratio} is a relation between \emph{stellar} rates, so
+  \code{ths8r} must be stellar; only the experimentally-fitted labels remain
+  open (\S\ref{sec:sef}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Two of these (III.7, IV.3) were caught by the same move: \textbf{re-deriving a
+coefficient the text had already derived one line earlier and not propagated.}
+Worth internalising as a proofreading habit for anything in this document.
+
+% =====================================================================
+\subsection{Closed in this revision}
+\label{sec:closed}
+
+Gaps that existed after the first pass and are now covered:
+
+\begin{itemize}
+\item \textbf{Reciprocity theorem} as a route to detailed balance independent of
+      equilibrium (\S\ref{sec:reciprocity}) --- without it, using DB reverses at
+      $\kappa = 0.9998$ is unjustified.
+\item \textbf{The $1/v$ law}, derived rather than asserted
+      (\S\ref{sec:reciprocity}).
+\item \textbf{$\Gamma/D$ and level-density criteria} for when Hauser--Feshbach
+      is valid (\S\ref{sec:gammaD}).
+\item \textbf{LTE for the photon field} --- the assumption inside every
+      photodisintegration rate (\S\ref{sec:photon-assumptions}).
+\item \textbf{Triple-$\alpha$ as a sequential process through the Hoyle state},
+      and the hidden equilibrium assumption inside its ``three-body'' rate
+      (\S\ref{sec:photon-assumptions}).
+\item \textbf{Numerical range of $\lambda$}; why nothing overflows and why 43
+      sets correctly underflow to zero (\S\ref{sec:lambda-range}).
+\item \textbf{Partition-function normalisation} ($G$ vs $(2J+1)G$) and the free
+      low-$T$ diagnostic (\S\ref{sec:pf-normalisation}).
+\item \textbf{pf spline extrapolation} (\code{ext='const'}) and the
+      rate-side\,/\,Saha-side consistency requirement (\S\ref{sec:pf-spline}).
+\item \textbf{Coulomb corrections to NSE} (Chabrier--Potekhin), why the $\kappa$
+      screen sets them off, and the matched-pair rule
+      (\S\ref{sec:nse-coulomb}).
+\item \textbf{Strong-screening as a free-energy difference}, and why
+      weak\,/\,strong limits have different powers of $\Gamma$
+      (\S\ref{sec:strongscreening}).
+\item \textbf{Screening of the weak sector} --- the MU\,/\,DQ\,/\,VS columns,
+      and what ``screening off'' does and does not mean
+      (\S\ref{sec:weak-screening}).
+\item \textbf{Pauli blocking of $\beta^-$ decay} as the microphysical cause of
+      the \Ye{} ratchet, measured as a negative power-law index in the tables
+      (\S\ref{sec:pauli}).
+\item \textbf{Interpolation-error theory} for the weak tables, predicting both
+      the scale and the membership of the measured tail
+      (\S\ref{sec:interp-error}).
+\item \textbf{The probe's modes, the grid rationale, and the comparison
+      statistics} (\S\ref{sec:probe-modes}, \S\ref{sec:reading-stats}).
+\end{itemize}
+
+% =====================================================================
+\subsection{Genuine gaps --- nothing in the plan covers these}
+\label{sec:gaps}
+
+\begin{warn}
+\warnglyph{}~Ordered by how much they could change a project conclusion.
+\end{warn}
+
+\subsubsection{Rate-uncertainty \texorpdfstring{$\to$}{->} \texorpdfstring{\Ye}{Ye} sensitivity propagation}
+\label{sec:gap-sensitivity}
+
+\textbf{The gap.} \S\ref{sec:uncertainty} establishes factor-${\sim}2$
+Hauser--Feshbach uncertainties and GT-placement-dependent shell-model weak ones
+(no blanket figure; key FFN$\to$LMP EC revisions were factors
+${\sim}10$--350). The project has a \Ye{} \emph{physics floor}
+($5\times10^{-3}$--$1.5\times10^{-2}$ per trajectory) anchored on the
+FFN$\to$LMP difference. But there is no node that computes
+\textbf{$\delta\Ye/\delta\ln\lambda_r$} --- the sensitivity of the target
+observable to each rate.
+
+\textbf{Why it matters.} It is the missing denominator for every gate.
+``Reaction $r$ carries 40\% of \dYe'' and ``$\lambda_r$ is known to a factor 2''
+together determine whether $r$ deserves emulator accuracy at all. It would also
+give the kill-test a second, independent importance measure to cross-check the
+flux-based active set --- one that is about \emph{physical} importance rather
+than \emph{numerical} magnitude.
+
+\textbf{Cost.} Cheap: the compiled engine already evaluates all rates in batch,
+so a one-at-a-time log-perturbation over 607 columns on the trajectory set is a
+straightforward run. Nothing new needs building.
+
+\subsubsection{Ground-state vs stellar forward rates (the SEF question)}
+\label{sec:gap-sef}
+
+\textbf{The gap.} \S\ref{sec:sef}, at the narrower scope established there. The
+\code{ths8r} statistical-model forwards must be stellar rates ---
+\eqref{eq:dbratio} is a relation between stellar rates, so the project's
+mandated \code{DerivedRate(use\_pf=True)} construction already presupposes it.
+What is genuinely open is the \textbf{experimentally-fitted subset}
+(\code{nac2}, \code{ks03} and similar), which are laboratory ground-state rates
+by construction and to which no SEF is visibly applied anywhere.
+
+\textbf{Why it matters.} Those channels carry an unapplied $O(1)$
+temperature-dependent multiplier. It cancels in forward\,/\,reverse ratios ---
+so $\kappa$, the equilibrium mask, and the kill-test verdict are all safe ---
+but it does \textbf{not} cancel in $\Delta Y$ magnitudes or \enuc. It is
+precisely the class of error that passes every consistency test in the
+repository.
+
+\textbf{Cost.} Now mostly mechanical rather than a literature question: tally
+the label classes over both networks, weight by flux carried in the box, and
+check Rauscher's SEF tables \citep{rauscher2000} for whatever survives that
+filter. Hours, not days --- and the expected answer is ``negligible exposure'',
+since the $\alpha$ ladder and the Fe-peak $\alpha$-captures are \code{ths8r}
+throughout, with the single exception of
+$\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$ (label \code{chw0}, a resonance-based
+re-evaluation --- one named channel for the tally to check;
+\S\ref{sec:sef}).
+
+\subsubsection{Neutrino losses in the flux route (the dropped NU column)}
+\label{sec:gap-nu}
+
+\textbf{The gap.} \S\ref{sec:weak-screening}. \code{compile.py} builds only
+\code{TableIndex.RATE}; the tabulated neutrino energy-loss rate (column 6) is
+discarded, though pynucastro exposes it as \code{get\_nu\_loss}.
+
+\textbf{Why it matters.} Invariant \#5 requires flux-route vs
+composition-route \enuc{} agreement to $\le1\%$, and the trajectory-file
+\code{eps\_nuc} is \emph{net of neutrino losses}. (Status: the 2026-07-10
+UNRESOLVED flux-route-vs-bbq row was retired by the 2026-07-11 \code{eps\_nuc}
+convention pin --- a units\,/\,convention mismatch, not an engine error
+\resultsref{2026-07-11}; invariant-\#5 proper passed 2026-07-12 with the
+constant-$Q$ caveat of \S\ref{sec:qoft} \resultsref{2026-07-12}.) The gap itself
+stands: the engine still cannot compute $\nu$ losses --- the pin leaned on the
+labels' own \code{eps\_neu} column --- so a missing loss term remains something
+nobody can test flux-route-side, because the quantity is not compiled.
+
+\textbf{Cost.} Small: one more \code{tab\_*} array and a second bilinear pass.
+
+\subsubsection{Imposed \texorpdfstring{$(T, \rho)$}{(T, rho)} versus thermodynamic feedback}
+\label{sec:gap-feedback}
+
+\textbf{The gap.} bbq runs one-zone at fixed $(T, \rho)$; the labels are
+$\Delta$-composition at imposed thermodynamic state. Tier~0 \S IV.2 analyses the
+\textbf{compositional} reachable manifold beautifully. Nothing analyses the
+\textbf{thermal} one.
+
+\textbf{Why it matters.} In a real star $\varepsilon_{\rm nuc}$ heats the zone,
+$T$ rises, photodisintegration rates rise steeply (\S\ref{sec:why3gk}:
+$Q/kT \approx 27$ from the $e^{-Q/kT}$ factor alone; the full fitted slope
+$\dd\ln\lambda_\gamma/\dd\ln T \approx 35$ at $\Tn = 3$), and the composition
+responds. Deployment couples the emulator into exactly that loop. Two specific
+questions: (i) does the operator-splitting error analysis (\S IV.1) still bound
+the error when $T$ is \emph{changing} over the step rather than fixed? (ii) is
+the Sobol box's $(T, \rho)$ coverage adequate for the trajectories a coupled run
+actually traverses, given that self-heating makes $T$ a fast variable near
+ignition?
+
+\textbf{Cost.} Analysis, not a new measurement. But it deserves a written
+section, because it is the assumption that most directly limits the
+deliverable.
+
+\subsubsection{Nuclear mass and Q-value provenance}
+\label{sec:gap-masses}
+
+\textbf{The gap.} The DB-inverse band (0.05\,dex) is justified partly by
+``mass\,/\,$Q$-table provenance'' differing between MESA's \code{winvn} and
+pynucastro's tables. No node explains what those tables are, how they differ, or
+how large the induced $Q$ differences actually are.
+
+\textbf{Why it matters.} $Q$ enters the DB ratio as $e^{-Q/kT}$ with $Q/kT$ up
+to several hundred (\S\ref{sec:oracle-compile}). A $\Delta Q$ of 10\,keV at
+$kT = 0.26$\,MeV is a 4\% rate difference; a 100\,keV difference is 47\%.
+\textbf{The band's justification is currently qualitative for a quantity with
+exponential leverage.} I measured one instance in \S\ref{sec:db-ratio} ---
+pynucastro's internal $Q$ vs the library $Q$ differ by
+${\sim}1.6\times10^{-4}$\,MeV --- which is harmless, but that is one channel,
+not a survey.
+
+\textbf{Cost.} Cheap and mechanical: dump $Q$ per reaction from both sides (the
+probe's \code{dump\_net} already returns \code{q}), histogram the difference,
+convert to dex at box temperatures.
+
+\subsubsection{Electron--positron pairs at the hot, low-density corner}
+\label{sec:gap-pairs}
+
+\textbf{The gap --- and it is not the small one it looks like.} The screening
+module computes $n_e = \rho\Ye/m_u$, the \textbf{net} electron density. At
+$\Tn = 7.9$, $kT = 0.68$\,MeV against $2m_ec^2 = 1.02$\,MeV, so thermal pair
+production is not negligible. I did the estimate this item used to defer.
+Solving finite-temperature charge neutrality
+$n_-(\muE) - n_+(\muE) = \rho\Ye/m_u$ over the box \derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}lllrrr@{}}
+\toprule
+\textbf{$\rho$} & \textbf{\Ye} & \textbf{\Tn} & \textbf{\muE{} (MeV)}
+  & \textbf{$n_+/n_{\rm net}$} & \textbf{$(n_-+n_+)/n_{\rm net}$} \\
+\midrule
+$10^7$ & 0.498 & 7.9 & 0.161 & \textbf{1.81} & \textbf{4.62} \\
+$10^7$ & 0.498 & 5.0 & 0.412 & 0.20 & 1.40 \\
+$10^8$ & 0.500 & 7.9 & 1.210 & 0.041 & 1.08 \\
+$10^9$ & 0.450 & 7.9 & 3.598 & $1.4\times10^{-4}$ & 1.000 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{At the hot, thin corner the positrons outnumber the net electrons}, and
+the total charged-lepton density is $4.6\times$ the number the code uses. It is
+nowhere near ``below a percent''.
+
+\textbf{Why it matters.} Two things, and the second is larger than the one this
+item was originally about:
+
+\begin{enumerate}
+\item Pairs add to the \emph{polarisable} lepton density while leaving \Ye{}
+      unchanged, so $\Gamma_e$ keyed on net $n_e$ is low by
+      $4.62^{1/3} \approx 1.66\times$ there. Bounded in consequence:
+      $\Gamma$(Si--Si) at that corner is only 0.40, and for the $\alpha/p$
+      captures the network actually carries ($\Gamma_{12} \le 0.21$) the
+      enhancement is ${\sim}1.03$--$1.16\times$ either way. The rate error is
+      real but not large.
+\item \textbf{$\muE = 0.16$\,MeV $< m_ec^2$ means the electrons there are not
+      degenerate at all.} That undercuts more than the screening call:
+      \S\ref{sec:ec-degenerate}'s cold-degenerate $E_F$ table, the $\muE^5$
+      scaling, and \code{chugunov\_2007}'s rigid-background premise all assume
+      degeneracy. The corner is outside the design regime of three separate
+      pieces of machinery at once, and \S\ref{sec:ec-degenerate} now says so.
+\end{enumerate}
+
+\textbf{Status.} Estimate done; the item is no longer ``probably fine, go
+check''. What remains is a \emph{decision}: either state the hot-thin corner as
+an explicit validity boundary on the screening and weak prescriptions, or
+exclude it from the sampling box. It also bears on the EOS and on the neutrino
+losses. This is the cleanest illustration in the whole list of why ``probably
+fine'' at a box corner deserves the ten minutes.
+
+\subsubsection{Network-reduction and reaction-importance prior art}
+\label{sec:gap-reduction}
+
+\textbf{The gap.} Tier~0 \S VI.5 surveys prior art in \emph{ML} acceleration.
+The kill-test is not an ML method --- it is a reaction-importance\,/\,%
+network-reduction study, a field with decades of literature (integrated reaction
+flows, principal-component and directed-relation-graph reduction in combustion,
+adaptive networks in astrophysics). None of it is surveyed.
+
+\textbf{Why it matters.} Two risks. First, novelty: the \code{novelty-checker}
+sweeps arXiv for ML-emulator work; a reduction-methods claim could be
+anticipated in a literature nobody is sweeping. Second, method: combustion
+chemistry solved ``which reactions matter, adaptively'' long ago, and their
+importance measures (DRG, \citealp{lu2005}; DRGEP,
+\citealp{pepiot2008}; computational singular perturbation,
+\citealp{lam1994}) are directly analogous to the $\kappa$\,/\,active-set
+machinery. Reinventing them is a waste; citing them is free.
+
+\subsubsection{Isomers, and what a ground-state-only network omits}
+\label{sec:gap-isomers}
+
+\textbf{The gap.} \code{canonical.py} deliberately does not map \code{al26-1} /
+\code{al26-2}, on the grounds that they are absent from both networks. True, but
+the \emph{physics} consequence is unstated: a ground-state-only treatment
+assumes isomeric states are either in thermal equilibrium with the ground state
+or irrelevant.
+
+\textbf{Why it matters.} Probably genuinely irrelevant here (\nuc{Al}{26}
+matters for galactic $\gamma$-ray astronomy, not Si-burning \Ye, and at
+$kT \approx 0.3$\,MeV thermal coupling is fast). But it is an assumption,
+currently unwritten, and the fail-loud whitelist means an isomer appearing in a
+future network raises rather than silently mis-maps --- so the code is safe and
+only the \emph{documentation} is missing.
+
+\subsubsection{Coulomb-corrected NSE, quantified in-box}
+\label{sec:gap-nse}
+
+\textbf{The gap.} \S\ref{sec:nse-coulomb} explains \emph{why}
+\code{use\_coulomb\_corr=False} is right for the $\kappa$ screen. Nobody has
+measured \textbf{how different the Coulomb-corrected NSE composition is} at box
+conditions, where $\Gamma_e Z^{5/3}$ is large for Fe-peak $Z$.
+
+\textbf{Why it matters.} The $\kappa$ screen's choice is correct regardless. But
+S9's QSE work, and any comparison of a computed NSE state against a MESA/bbq
+attractor, needs to know whether the ideal-gas NSE is the right reference ---
+and at $\rho = 10^9$ with $Z \approx 26$,
+$\Gamma = \Gamma_e\cdot26^{5/3} \approx 0.045 \times 228 \approx \mathbf{10}$ at
+$\Tn = 4$, rising to $\approx 26$ at the box's cold corner \derivedhere{}. Order
+10, not $10^2$ --- and consistent with \S\ref{sec:boxgamma}'s 0.4--25 range
+rather than in tension with it. Still firmly out of the weak-coupling regime, so
+the item stands; it is the \emph{magnitude} of the claim that needed correcting,
+not the conclusion.
+
+\textbf{Cost.} Two calls to \code{get\_comp\_nse} with the flag flipped, at a
+few box corners. Minutes.
+
+\subsubsection{Gate-design statistics}
+\label{sec:gap-gatestats}
+
+\textbf{The gap.} Gates are stated as point thresholds on medians\,/\,p90s over
+63-state grids or 30k subsamples, with no statement of sampling uncertainty.
+\S\ref{sec:reading-stats} covers how to \emph{read} the comparison statistics;
+nothing covers how to \emph{choose} the sample size or express confidence.
+
+\textbf{Why it matters.} Lowest priority of the ten: most gates here are
+separated from their floors by many orders of magnitude ($\kappa$
+$2.6\times10^{-12}$ against a 0.1 threshold), so sampling noise is irrelevant.
+It matters only for the near-run gates --- the $2\times$ size-transfer falsifier
+and the $3\times$ Sobol trigger, both of which compare two measured
+distributions and could plausibly land near their thresholds.
+
+% =====================================================================
+\subsection{The habit that finds these: common-mode blindness}
+\label{sec:commonmode}
+
+Every consistency test in this tier is a test of \textbf{mutual} consistency ---
+forward against reverse, pynucastro against MESA, vectorised against scalar,
+rate side against equilibrium side. That is enormously powerful: it is how the
+v-flag $\kappa$ floor and gh-575 were both caught with no ground truth at all.
+
+It is also, by construction, blind to \textbf{common-mode} error: anything
+identical on both sides of the comparison.
+
+Look at what that predicts, then check it against the list:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{5.4cm} Y@{}}
+\toprule
+\textbf{Gap} & \textbf{The quantity that is identical on both sides} \\
+\midrule
+\S\ref{sec:gap-sef} (SEF) &
+  an unapplied stellar enhancement cancels in every ratio \\
+\S\ref{sec:gap-nu} (NU column) & never appears in any rate comparison \\
+\S\ref{sec:gap-feedback} (imposed $T$, $\rho$) &
+  identical on both sides of every handshake \\
+\S\ref{sec:gap-qoft} ($Q(T)$) &
+  the \emph{same constant $Q$} on both sides of the $\le1\%$ gate \\
+\S\ref{sec:gap-thirdsolver} (no third solver) & both sides read REACLIB \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Five of the highest-priority items, one generating principle.
+
+\begin{invariant}
+\textbf{Ask of any green test: what would still be wrong if it passed?}
+\end{invariant}
+
+% =====================================================================
+\subsection{Second-pass audit: an entire missing tier}
+\label{sec:tier4}
+
+\begin{warn}
+\warnglyph{}\warnglyph{}~The \S\ref{sec:gaps} audit searched the \emph{physics}
+the code implements. A second pass searching the \textbf{project's own
+specification documents} against the study map turns up something larger than
+any individual gap.
+\end{warn}
+
+\subsubsection{The model side has no study node at all}
+\label{sec:gap-modelside}
+
+\code{docs/reports/consolidated-gnn-architecture.md} specifies the emulator as
+\textbf{Components A--D}. Cross-referencing against the study map (S0--S16):
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.3cm} Y L{2.0cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Specified content} & \textbf{Study node} \\
+\midrule
+\textbf{A} --- backbone &
+  heterogeneous bipartite graph with \textbf{three} edge types
+  (I$\to$R, R$\to$I signed, I$\to$I); per-reaction-type message functions; GATv2
+  attention; latent width $h = 128$; encode--process--decode;
+  \textbf{continuous $(Z,N)$ embedding} as the size-transfer mechanism; depth
+  $K \approx \lceil\text{radius}\rceil+2 = 5$; hypergraph convolution rejected
+  with a switch rule; the \textbf{four added physics channels}; signed-log with
+  NuGNN's shift trick $C \approx 17$ \citep{kim2026}; learned flux preprocessor &
+  \textbf{none} \\
+\textbf{B} --- heads &
+  Target A/B $\cdot$ \textbf{S15} \yes; \textbf{hybrid equilibrium mask $=$
+  Guidry prior $+$ learned L0 hard-concrete gate}; energy head
+  $\enuc = \sum Q_j(T)\varphi_j$; \textbf{neutrino head
+  $\varepsilon_\nu = \sum\langle E_\nu\rangle_j\varphi_j$} &
+  \textbf{partial} (S15 covers the target choice only) \\
+\textbf{C} --- temporal head &
+  \textbf{$\Delta t$ as global conditioning on a stiffness-aware log grid, ONE
+  model spanning $10^{-6}$--$10^{2}$\,s} (vs the NNN's nine);
+  \textbf{\citet{ono2026} timescale-rescaled update} as rollout governor; its
+  \textbf{commutation with the conservation map is an open interaction} &
+  \textbf{none} \\
+\textbf{D} --- training &
+  \textbf{pushforward\,/\,unrolled loss through $K \ge 2$ steps} as the primary
+  stability lever; \textbf{GNS noise injection restricted to non-equilibrated
+  channels}; \textbf{worst-case tail term (p90/p99 or CVaR)}; Fe-peak
+  up-weighting; \textbf{deep ensembles $\to$ OOD flag $\to$ fallback-to-solver
+  gate} &
+  \textbf{none} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{And \code{docs/architecture/} --- which \code{docs/CLAUDE.md} names as
+the living spec --- is empty} (only \code{.gitkeep}). The four reports in
+\code{docs/reports/} are read-only audit artifacts by Rule~5. So the model side
+is specified only in documents that must not be edited, and studied nowhere.
+
+This is consistent with Phase~0 being pre-training, and it is not a defect in
+the \emph{project}. But the question asked was what is prerequisite and
+unexplored, and the answer is: \textbf{roughly a whole tier.} Sketching it in
+the map's own idiom:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  node/.style={draw, rounded corners=2pt, line width=0.7pt, align=left,
+               inner sep=5pt, text width=0.42\textwidth, fill=rulerule!6},
+  arr/.style={-{Latex[length=2mm]}, line width=0.6pt}]
+
+\node[font=\small\bfseries] (title) {TIER 4 --- THE EMULATOR};
+\node[font=\scriptsize\itshape, below=0.5mm of title]
+  (sub) {``the model, its conditioning, its training''};
+\draw[line width=0.9pt] ([yshift=2mm]title.north west) -- ([yshift=2mm]title.north east);
+
+\node[node, below left=7mm and 2mm of sub.south] (s17)
+  {\textbf{S17 HETEROGENEOUS BACKBONE}\\
+   3 edge types, per-type msg fns, GATv2, $K = $ radius $+$ 2,
+   $(Z,N)$ embedding $=$ transfer, the 4 physics channels};
+\node[node, below right=7mm and 2mm of sub.south] (s18)
+  {\textbf{S18 THE MASK AS A LEARNED GATE}\\
+   L0 / hard-concrete, conditional computation, why the Guidry prior is a
+   prior};
+
+\node[node, below=6mm of s17] (s19)
+  {\textbf{S19 TIME CONDITIONING}\\
+   one model over 8 decades of $\Delta t$, log-$\Delta t$ grid, latent-ODE
+   alternative};
+\node[node, below=6mm of s18] (s20)
+  {\textbf{S20 ROLLOUT STABILITY}\\
+   pushforward vs noise injection in a STIFF system;
+   governor $\leftrightarrow$ conservation map};
+
+\node[node, below=6mm of s19] (s21)
+  {\textbf{S21 LOSSES UNDER TAIL RISK}\\
+   CVaR / p99, multi-objective, Fe-peak weighting};
+\node[node, below=6mm of s20] (s22)
+  {\textbf{S22 UQ, OOD, AND THE FALLBACK GATE}\\
+   deep ensembles, calibration, hand-back-to-solver};
+
+\draw[arr] (s17) -- (s19);
+\draw[arr] (s18) -- (s20);
+\draw[arr] (s19) -- (s21);
+\draw[arr] (s20) -- (s22);
+\end{tikzpicture}
+\caption{The missing Tier~4, sketched in the study map's own idiom. Six nodes,
+none of which has a study node today.}
+\label{fig:tier4}
+\end{figure}
+
+Six nodes. Note that \textbf{four of the eight open Phase-0 checklist rows (2,
+3, 4, 15) are Tier-4 measurements}, including row 15's governor design --- whose
+stated premise (``a separated fast sector'') was \textbf{retired by measurement
+on 2026-07-12}. A design whose premise is now known false, with no study node,
+is the highest-leverage gap in this list.
+
+Also note row 12 --- \emph{``the pass/fail gate --- biggest single lever''} (the
+\Ye-residual accumulation slope). Tier~0 \S IV.3 derives the accumulation
+\emph{trichotomy}, so the theory is covered; what is not covered is the
+\textbf{measurement design} --- how many steps, on which trajectories, with what
+estimator, to distinguish slope 1 from slope 0.5 with confidence. A
+two-orders-of-magnitude gate hinges on it.
+
+\subsubsection{\texorpdfstring{$Q(T)$}{Q(T)} --- specified, unimplemented, unmeasurable by the current gate}
+\label{sec:gap-qoft}
+
+Fully worked in \S\ref{sec:qoft}. Summary: the energy head is specified with
+$Q_j(T)$; it is not implemented; the $\le1\%$ invariant-\#5 gate uses identical
+constant $Q$ on both sides and therefore cannot detect its absence; and the
+per-channel correction reaches \textbf{$-19.2\%$ on
+$\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$ at $\Tn = 7.9$} and $-8.4\%$ in the
+QSE window. Needs one convention decision (does MESA/bbq's EOS carry nuclear
+excitation energy?) and a three-line implementation using splines that already
+exist (\S\ref{sec:pf-spline}).
+
+\subsubsection{Solver-independent ground truth (SkyNet, WinNet)}
+\label{sec:gap-thirdsolver}
+
+The PhD-plan report calls for bbq\,/\,MESA as primary ``cross-checked against
+SkyNet and WinNet for solver-independent validation''. Nothing in the study map,
+the code, or \code{RESULTS.md} touches either.
+
+\textbf{Why it matters, sharply.} \S\ref{sec:uncertainty} and
+\S\ref{sec:gap-sef} establish that this project can only make
+\emph{fidelity-to-MESA} claims. S6 verified MESA against pynucastro --- but
+pynucastro is a \emph{rate library}, not an independent integrator, and both
+sides read REACLIB. \textbf{There is currently no independent check of the
+integrated dynamics at all.} That matters most where MESA is known to be wrong:
+the gh-575-displaced label attractors (S13). A third solver is the only
+instrument that distinguishes ``the labels are pathological'' from ``our reading
+of the labels is pathological''.
+
+\subsubsection{Determinism, and the float32/float64 boundary}
+\label{sec:gap-determinism}
+
+Two connected items, both absent.
+
+\textbf{Determinism.} The conservation gate asserts column drifts of
+\emph{exactly} 0.0 and bounds at $10^{-12}$--$10^{-13}$. Floating-point
+reductions are not associative, so a threaded or GPU reduction's result depends
+on thread count and scheduling. The repo already carries BLAS thread-pinning
+(commit \code{1cb6f47}), which suggests the issue has been felt. Nothing states
+the contract: \textbf{is the conservation gate reproducible bit-for-bit across
+thread counts and devices, and if not, what is the guaranteed bound?}
+
+\textbf{Precision boundary.} The spec says inference in float32 with a float64
+cast for the $X_{t+\Delta t}$ update, and separately flags as load-bearing that
+``whether even $\asinh$ of a genuinely tiny post-cancellation net flux loses
+precision --- is unproven''. Tier~0 \S V.4 covers floating point generically;
+\S\ref{sec:lambda-range} here measures 75 decades of $\lambda$. Nobody has put
+the two together: \textbf{float32 has ${\sim}7$ decimal digits and a
+${\sim}10^{-38}$ normal floor; a post-cancellation net flux at
+$\kappa = 10^{-6}$ of a gross flux is exactly the quantity that boundary
+destroys.} This is a computable, decidable question and it gates the
+architecture's precision plan.
+
+\subsubsection{Gradients through the conservation map}
+\label{sec:gap-gradients}
+
+Target A decodes $\varphi$ then applies fixed $\nu$; Target B applies the
+projector $P = I - C\Tr(CC\Tr)^{-1}C$. Both are fixed linear maps, so the
+backward pass is multiplication by $\nu\Tr$ and $P\Tr = P$ respectively.
+Consequences nobody has written down:
+
+\begin{itemize}
+\item \textbf{$P$ annihilates gradient in the constrained directions exactly.}
+      Any loss component that depends on the violating part of $\dd Y$ produces
+      \emph{zero} gradient --- which is the point, but it means the network
+      receives no signal about three directions of its output space, and
+      $\cond(CC\Tr) = 3.9\times10^4 / 1.0\times10^5$ (measured,
+      \code{RESULTS.md} 2026-07-08) says those directions are not equally
+      conditioned.
+\item \textbf{$\nu$ has nullity 1} (measured, same row). So for Target A there
+      is a one-dimensional family of $\varphi$ producing identical $\dd Y$: the
+      flux head is \emph{unidentifiable} along it, and nothing in the loss
+      selects a member. Whether that harms training, or merely leaves a harmless
+      gauge freedom, is unexamined --- and it interacts with the flux-magnitude
+      regularisation the mask implies.
+\end{itemize}
+
+Neither is exotic ML; both are two-line linear algebra on matrices already
+exported. Genuinely prerequisite, genuinely absent.
+
+\subsubsection{The deployment coupling contract}
+\label{sec:gap-coupling}
+
+\S\ref{sec:gap-feedback} raised imposed $(T, \rho)$. The PhD-plan report is
+broader, listing ``coupling-specific gates added by audit'': energy-generation
+error feeding back into the structure solve, behaviour across the NSE
+transition, composition coupling in convective zones, and Sobol$\to$real-track
+transfer. Only the last has a node (S1\,/\,\S III.9, and checklist row 13).
+
+\textbf{The one to name specifically is the NSE transition.} MESA switches to an
+NSE solver above some temperature; the emulator would have to either reproduce
+that switch or be handed off across it. There is no node for the handoff
+contract, and S13's finding --- that the labels sit at bug-displaced
+pseudo-equilibria at $\Tn \gtrsim 5$ --- is precisely a statement about what
+happens near that switch.
+
+\subsubsection{Residual sourcing gaps in the motivation chain}
+\label{sec:gap-sourcing}
+
+Three open checklist items are \emph{sourcing} rather than measurement, and all
+three sit in the chain Tier~0 Part~I uses to justify the project:
+
+\begin{itemize}
+\item \textbf{Farmer 2016's ``30\%/10\%''} --- is it $\eta = 1-2\Ye$ or relative
+      \Ye? The numbers themselves are now located verbatim in the paper's
+      abstract (``$\approx$30\% variations in the central electron fraction
+      \ldots\ a minimum of $\approx$127 isotopes is needed to attain convergence
+      of these values at the $\approx$10\% level''; \citealp{farmer2016}) ---
+      but the \emph{metric} the percentages refer to is still not defined
+      anywhere in the paper. The paper's own tables constrain the reading: the
+      $\eta = 1-2\Ye$ interpretation is quantitatively consistent ($\eta$
+      spreads cluster around $\approx$30\%) while relative \Ye{} is not
+      (6--11\%) --- so the interpretation half of the gap stands. It is an
+      interpretation of the \emph{observational} leverage of \Ye, i.e.\ the
+      number that says why the project matters.
+\item \textbf{$\langle E_\nu\rangle$ per reaction} for the neutrino head.
+      Distinct from \S\ref{sec:gap-nu}'s dropped NU column: that is a tabulated
+      \emph{loss rate}, this is a \emph{mean energy per capture} needed for
+      $\varepsilon_\nu = \sum\langle E_\nu\rangle_j\varphi_j$. Open since
+      Tier~0 \S0.4.3.
+\item \textbf{Which \Ye-controllers each network contains}, specifically the
+      neutron-rich $\beta$-decay partners \nuc{Fe}{61} and \nuc{Co}{61,63}.
+      \S\ref{sec:weak-asymmetry} gives the census by count; the per-nuclide
+      membership question for those three is still open in the checklist.
+\end{itemize}
+
+% =====================================================================
+\subsection{Summary: priority across both audit passes}
+\label{sec:priority}
+
+Sixteen open items across \S\ref{sec:gaps} and \S\ref{sec:tier4}. Ranked by
+(leverage on a project conclusion) $\div$ (cost to close).
+
+\paragraph{Close now --- hours each, machinery already exists}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{0.6cm} L{4.4cm} Y@{}}
+\toprule
+\textbf{\#} & \textbf{Item} & \textbf{Why first} \\
+\midrule
+1 & \textbf{\S\ref{sec:gap-qoft} $\cdot$ $Q(T)$} &
+  Specified, unimplemented, and the $\le1\%$ gate structurally cannot see it
+  while a core $\alpha$-ladder channel carries $-19\%$.
+  \code{spline.derivative()} plus the existing \code{pf\_matrix}. \\
+2 & \textbf{\S\ref{sec:gap-sensitivity} $\cdot$ rate-uncertainty $\to$ \Ye{}
+  sensitivity} &
+  Supplies the missing \emph{physical}-importance axis for the kill-test; the
+  batch engine already evaluates every rate. \\
+3 & \textbf{\S\ref{sec:gap-determinism} $\cdot$ float32 vs post-cancellation
+  flux} &
+  Decidable arithmetic, and it gates the architecture's stated precision
+  plan. \\
+4 & \textbf{\S\ref{sec:gap-gradients} $\cdot$ gradients through $\nu$ and $P$} &
+  Two-line linear algebra on already-exported matrices; $\nu$'s nullity-1 gauge
+  freedom is an unexamined identifiability question in the primary target. \\
+5 & \textbf{\S\ref{sec:gap-sef} $\cdot$ the SEF question, at its narrowed
+  scope} &
+  \code{ths8r} forwards must be stellar (\eqref{eq:dbratio} presupposes it);
+  only the experimentally-fitted label classes are exposed. Tally them, weight
+  by flux, check Rauscher's tables for the survivors. Closes a common-mode
+  hazard invisible to every existing test. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Design work with no premise --- highest leverage, needs thought not
+compute}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{0.6cm} L{4.4cm} Y@{}}
+\toprule
+\textbf{\#} & \textbf{Item} & \textbf{Why} \\
+\midrule
+6 & \textbf{\S\ref{sec:gap-modelside} $\cdot$ the Tier-4 gap, and row 15 first} &
+  The rollout governor's premise (a separated fast sector) was retired by
+  measurement on 2026-07-12. A design with a falsified premise and no study
+  node. \\
+7 & \textbf{\S\ref{sec:gap-modelside} $\cdot$ row 12 measurement design} &
+  The accumulation slope moves the operative gate by $100\times$; the theory is
+  covered, the estimator design is not. \\
+8 & \textbf{\S\ref{sec:gap-feedback} $+$ \S\ref{sec:gap-coupling} $\cdot$ the
+  coupling contract} &
+  Bounds what the finished emulator can claim; the NSE-transition handoff is
+  unspecified and is exactly where S13 found the labels pathological. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{Standing verification debt}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{1.2cm} Y@{}}
+\toprule
+\textbf{\#} & \textbf{Item} \\
+\midrule
+9 & \S\ref{sec:gap-thirdsolver} $\cdot$ solver-independent ground truth
+  (SkyNet/WinNet) --- currently \textbf{no} independent check of the integrated
+  dynamics exists \\
+10 & \S\ref{sec:gap-determinism} $\cdot$ determinism contract across thread
+  counts\,/\,devices \\
+11 & \S\ref{sec:gap-masses} $\cdot$ mass\,/\,$Q$-table provenance survey \\
+12 & \S\ref{sec:gap-sourcing} $\cdot$ Farmer 2016 interpretation $\cdot$
+  $\langle E_\nu\rangle$ $\cdot$ the \nuc{Fe}{61}\,/\,\nuc{Co}{61,63} membership
+  question \\
+13--16 & \S\ref{sec:gap-reduction} reduction prior art $\cdot$
+  \S\ref{sec:gap-isomers} isomers $\cdot$ \S\ref{sec:gap-nse} Coulomb-NSE
+  in-box $\cdot$ \S\ref{sec:gap-gatestats} gate statistics \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Promoted out of that bucket: \S\ref{sec:gap-pairs} ($e^\pm$ pairs).} It
+was filed as a probably-fine corner check. The estimate is now done and it is
+not fine: at $\Tn = 7.9$, $\rho = 10^7$ the positrons outnumber the net
+electrons and the electrons are non-degenerate, so three separate prescriptions
+--- \code{chugunov\_2007}'s rigid background, \S\ref{sec:ec-degenerate}'s
+cold-degenerate $E_F$, and the $\muE^5$ scaling --- are all outside their design
+regime at that corner simultaneously. What remains is a \emph{decision} (declare
+a validity boundary, or trim the box), not a measurement, so it belongs with
+items 6--8 rather than here.
+
+\textbf{The pattern worth naming.} Items 1, 3, 5 and 9 are all the same shape: a
+quantity or convention that is \emph{identical on both sides} of every check the
+project runs. \S\ref{sec:commonmode}'s habit --- \emph{ask of any green test what
+would still be wrong if it passed} --- is what surfaced all four.

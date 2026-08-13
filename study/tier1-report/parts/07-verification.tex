@@ -1,0 +1,734 @@
+% =====================================================================
+%  LAYER C -- Verification.
+%  Section 7: the oracles, and the rate reconciliation (S6).
+%
+%  Source: tier1.md II.6 (1089-1114); III.9 (1747-1766); IV.8 (2366-2380);
+%          V.5b (2775-2841); Part VI header (3022-3027), VI.1 (3029-3047),
+%          VI.2 (3049-3087), VI.3 (3089-3107), VI.4 (3109-3150),
+%          VI.5 (3152-3204), VI.6 (3206-3230), VI.7 (3232-3247),
+%          VI.8 (3249-3265), VI.8b (3267-3306), VI.8c (3308-3330),
+%          VI.9 (3332-3354), VI.10 self-check (3356-3372).
+%  Self-check: VI.10's six questions plus the items relocated from the
+%          Part-III (2), Part-IV (1) and Part-V (1) blocks.
+% =====================================================================
+
+\section{Verification: the oracles and the reconciliation (S6)}
+\label{part:verification}
+
+Every claim in \S\ref{part:ratetheory}--\S\ref{part:evaluator} is pinned
+somewhere. This section gathers the pins: first the unit-level oracles that make
+each layer of the evaluator independently falsifiable, then the node that
+verifies the \emph{whole rate set} against the code that produced the training
+labels.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.6cm} L{2.0cm} Y@{}}
+\toprule
+\textbf{What is pinned} & \textbf{Derived in} & \textbf{Here} \\
+\midrule
+Compiled path $\equiv$ \code{rate.eval} &
+  \S\ref{sec:lambda-to-R} & \S\ref{sec:oracle-compile} \\
+No v-flag reverse survives; $\kappa \to 0$ at NSE &
+  \S\ref{sec:vflag} & \S\ref{sec:oracles-db} \\
+Vectorised screening $\equiv$ scalar &
+  \S\ref{sec:chugunov} & \S\ref{sec:oracle-screening} \\
+The weak-table interpolation residual &
+  \S\ref{sec:weaktable} & \S\ref{sec:interp-error} \\
+Two independent rate sets are the same object &
+  \S\ref{sec:fitnottheory} & \S\ref{sec:whyS6}--\S\ref{sec:licenses} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\subsection{Oracle: \texorpdfstring{\code{tests/test\_flux\_compile.py}}{test flux compile.py} and the \texorpdfstring{$5\times10^{-12}$}{5e-12} gate}
+\label{sec:oracle-compile}
+
+The test asserts the compiled path matches \code{rate.eval} per rate per state
+to $|\text{rel}| \le 5\times10^{-12}$. \textbf{Why not $10^{-15}$?} The
+docstring answers it, and the answer is pure \S\ref{part:ratetheory} physics:
+
+\begin{aside}
+the compiled path bakes the DB correction into the set coefficients
+(pynucastro's own \code{derived\_sets} construction) while \code{rate.eval} adds
+the identical terms at runtime --- with $|Q/kT| \sim O(500)$ in the exponent,
+association differences reach ${\sim}10^{-12}$ rel.
+\end{aside}
+
+Check the magnitude yourself: at $\Tn = 1.6$, $Q/kT$ for a 7\,MeV channel is
+$80.6/1.6 \approx 50$; for the largest $Q$-values in the network it approaches
+two hundred ($\max|Q| = 23.85$\,MeV in both nets $\Rightarrow |Q|/kT \approx
+173$ at $\Tn = 1.6$); other exponent terms do reach $O(500)$ (e.g.\
+\code{c12(a,g)o16}'s $a_3\Tn^{1/3} \approx -492$ at $\Tn = 1.6$). Adding two
+numbers of order 500 and exponentiating amplifies a 1-ulp
+(${\approx}10^{-16}$) association difference to $500\times10^{-16} =
+5\times10^{-14}$ relative --- and summing several sets, plus the pf and
+screening terms, gets you to the measured $1.3\times10^{-12}$ floor
+\resultsref{2026-07-10}.
+
+\begin{result}
+\textbf{The gate is set just above a measured floor, not at an arbitrary round
+number.} That is the pattern to look for in every gate in this repo.
+\end{result}
+
+The same file also pins the compile-time pf gate
+(\code{test\_no\_vflag\_sets\_survive},
+\code{test\_replacement\_covered\_every\_vflag\_column}) and column identity
+(\code{test\_column\_identity\_preserved}) --- S3's business, tested here because
+compile is where it is enforced.
+
+% =====================================================================
+\subsection{Oracles for detailed balance}
+\label{sec:oracles-db}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{5.9cm} Y@{}}
+\toprule
+\textbf{Test} & \textbf{What it pins} \\
+\midrule
+\code{test\_no\_vflag\_sets\_survive} &
+  zero \code{labelprops[5] == 'v'} in the compiled tensor \\
+\code{test\_replacement\_covered\_every\_vflag\_column} &
+  \code{n\_replaced == derived\_from\_inverse.sum()}, \code{failed == ()} \\
+\code{test\_column\_identity\_preserved} &
+  replaced columns are \code{DerivedRate} with the same fname stem \\
+\code{test\_exported\_npz\_trips\_the\_gate} &
+  the \emph{raw} $\nu$ export still trips \code{PfGateError} --- a deliberate
+  negative control \\
+\code{test\_kappa\_vanishes\_at\_nse\_unscreened} &
+  median $\kappa < 10^{-9}$, max $< 10^{-6}$ on flux-carrying strong pairs at
+  $\Tn \ge 5$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+That fourth one deserves attention: it asserts that the as-exported npz
+\textbf{fails} the gate, with a comment saying ``if the builder now derives
+pf-corrected reverses, retire this test deliberately''. It is a test that the
+safety net is still load-bearing --- the sort of test that stops a gate from
+quietly becoming a no-op.
+
+And the fifth is the physics oracle proper. It recompiles with
+\code{screening=None}, evaluates at NSE, and requires $\kappa$ to collapse. Note
+the restriction to \emph{flux-carrying} pairs
+(\code{f > median(f[f>0])}): $\kappa$ on a pair carrying no flux is a ratio of
+two denormal numbers and means nothing.
+
+The same file carries \code{test\_weak\_columns\_have\_zero\_reverse\_and\_kappa\_one}
+--- the structural half of invariant \#2 (\S\ref{sec:weak-different}) --- and
+\code{test\_dye\_weak\_nonzero}, which pins invariant \#3: the \Ye{} signal at
+the end of the code path in \S\ref{sec:codepath} must not be zero. A design that
+zeroed it to make the drift residuals vanish would pass every conservation check
+and be wrong, which is why the oracle asserts a \emph{nonzero}.
+
+% =====================================================================
+\subsection{Oracle: screening, state \texorpdfstring{$\to$}{->} function \texorpdfstring{$\to$}{->} integration}
+\label{sec:oracle-screening}
+
+\code{TestScreeningVectorized::test\_matches\_pyna\_scalar} checks three things in
+sequence, and the ordering is deliberate:
+
+\begin{enumerate}
+\item \code{n\_e} and \code{gamma\_e\_fac} against \code{make\_plasma\_state}
+      ($\le 10^{-12}$ rel) --- \emph{the plasma state} first,
+\item then \code{chugunov\_2007\_vec} against the scalar \code{chugunov\_2007} for
+      \textbf{every pair at every state} ($\le 10^{-12}$ abs) --- \emph{the
+      function},
+\item and separately, \code{test\_screened\_lambda\_matches\_scalar\_eval} checks the
+      \emph{integration} into $\lambda$ via
+      \code{rate.eval(..., screen\_func=chugunov\_2007)}.
+\end{enumerate}
+
+State $\to$ function $\to$ integration. Each layer is pinned independently, so a
+failure localises. Worth copying as a pattern for any
+reimplementation-of-a-reference work.
+
+% =====================================================================
+\subsection{Interpolation error, derived --- and why it lands where it does}
+\label{sec:interp-error}
+
+The cross-check reported weak-tabular medians of 0.03--0.18\,dex off-node with a
+$\beta^-$ tail to 0.8\,dex, and attributed it to ``MESA bilinear vs pynucastro
+interpolant'' \resultsref{2026-07-10}. That attribution can be \emph{predicted}
+rather than asserted, and doing so is a good exercise in reading an error
+budget. (In the source this derivation sits in the weak part; it belongs here,
+beside the measurement it explains --- \S\ref{sec:measured-values}'s
+weak-tabular row.)
+
+\paragraph{The theory.} Bilinear interpolation of a function $f$ on a cell of
+width $h$ has error bounded by the second derivative:
+%
+\begin{equation*}
+|f_{\rm interp} - f| \;\le\; \frac{h^2}{8}\max|f''|
+\;=\; \frac{1}{8}\max\bigl|\Delta^2 f\bigr|
+\quad\text{(midpoint, } h = \text{one grid step)}
+\end{equation*}
+%
+Here $f = \log_{10}\lambda$ and the grid step is one full decade in
+$\log\rhoye$, so $\Delta^2 f$ is just the \textbf{second difference of the
+tabulated log-rates}. And the key structural fact:
+
+\begin{result}
+\textbf{Bilinear interpolation in log--log is exact for a power law.} If
+$\lambda \propto (\rhoye)^p$ with constant $p$, the second difference is zero
+and the error vanishes identically. All interpolation error therefore lives
+where the \emph{power-law index changes} --- i.e.\ at thresholds and saturation
+knees.
+\end{result}
+
+\paragraph{The measurement.} Second differences of the real tables, on the table
+nodes spanning the box (see note below) \derivedhere{}:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.5cm} L{2.4cm} R{0.95} R{1.0} R{0.95} R{1.1}@{}}
+\toprule
+\textbf{Channel} & \textbf{class} & \textbf{max$|\Delta^2|$ \rhoye{} dir}
+  & \textbf{predicted err} & \textbf{max$|\Delta^2|$ $T$ dir}
+  & \textbf{predicted err} \\
+\midrule
+$\nuc{Ni}{56} \to \nuc{Co}{56}$ & EC controller & 0.80 dex & \textbf{0.100}
+  & 0.90 & 0.113 \\
+$\nuc{Co}{55} \to \nuc{Fe}{55}$ & EC controller & 0.93 & \textbf{0.116}
+  & 1.01 & 0.126 \\
+$\nuc{Sc}{44} \to \nuc{Ca}{44}$ & EC & 0.68 & \textbf{0.085} & 0.87 & 0.109 \\
+$\nuc{Fe}{54} \to \nuc{Mn}{54}$ & EC, steep & 3.95 & \textbf{0.494}
+  & 1.10 & 0.137 \\
+$\nuc{Ca}{48} \to \nuc{Sc}{48}$ & $\beta^-$, steep & 1.73 & 0.216
+  & 3.92 & \textbf{0.490} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\emph{Note on windowing:} every value above is an exact second difference of the
+real tables, but several of the steep-channel maxima are centered on nodes just
+outside the strict in-box interpolation stencil (\nuc{Fe}{54} 3.95 and
+\nuc{Ca}{48} 1.73 both at $\log\rhoye = 7$, $\log T = 9.0$; the \nuc{Ca}{48}
+$T$-direction 3.92 centered at $\log\rhoye = 9$, $\log T = 9.176$). Restricted
+strictly to in-box stencils, those maxima shrink (\nuc{Fe}{54} \rhoye-dir
+$2.11 \to$ predicted 0.264; \nuc{Ca}{48} \rhoye-dir $0.94 \to 0.117$); the
+\nuc{Ni}{56} row and the controller-scale conclusion are unaffected.
+
+Compare with the measurement: off-node medians 0.03--0.18\,dex,
+$\beta^-$\,/\,steep tail $\le 0.8$\,dex, and the docs name
+\code{ca43/ca48/k40/sc44 wk-minus} as the tail channels. \textbf{The bound
+predicts both the scale and the membership.} The \Ye{} controllers sit at
+${\sim}0.1$\,dex, matching their measured at-node $\le0.012$ / off-node
+0.009--0.095\,dex; the steep channels sit at 0.2--0.5\,dex, matching the
+$\le 0.8$\,dex tail.
+
+Three things this buys you:
+
+\begin{enumerate}
+\item \textbf{The residual is fully explained} --- it is a grid-resolution
+      artifact of a \emph{shared} table, not a physics disagreement. The
+      0.1\,dex band was the right band, and it was justified before the
+      measurement rather than after.
+\item \textbf{The remedy is known and cheap}: evaluate weak $\lambda$ MESA-side
+      at off-node states (which is exactly the Step-5 rule), or refuse to
+      interpolate and restrict analyses to node temperatures --- $\Tn = 5.0$
+      being a node is why that state recurs throughout the project.
+\item \textbf{The error is largest exactly where $\lambda$ is smallest} (steep
+      $\beta^-$ channels sit at $\log\lambda \approx -15\ldots-9$ on the in-box
+      table nodes: $\nuc{Ca}{43}\to\nuc{Sc}{43}$ reaches $-15.3$,
+      $\nuc{Ca}{48}\to\nuc{Sc}{48}$ $-12.3$, $\nuc{Sc}{44}\to\nuc{Ti}{44}$
+      $-12.8$, $\nuc{K}{40}\to\nuc{Ca}{40}$ $-9.3$; \emph{interpolated} at the
+      cold-dense box corner the steepest reaches ${\approx}-24$). A 0.5\,dex
+      error on a rate 10--14 decades below the dominant one on the nodes (up to
+      ${\sim}25$ at that interpolated corner) is irrelevant to \dYe.
+      \textbf{The error budget and the importance budget are anti-correlated},
+      which is why a 0.8\,dex outlier in this sector was correctly classified as
+      benign rather than blocking.
+\end{enumerate}
+
+% =====================================================================
+\subsection{Why the reconciliation node exists at all}
+\label{sec:whyS6}
+
+\begin{repopointer}
+\textbf{Files:} the whole \code{crosscheck/} package, plus the Fortran probe in
+\code{src/mesa\_probes/}. \quad
+\textbf{Docs:} \code{docs/reaction-reconciliation.md},
+\code{docs/rate-crosscheck.md}. \quad
+\textbf{Configs:} \code{reactions\_mesa{80,151}\_mesa.yaml},
+\code{reaction\_disposition\_mesa{80,151}.yaml}, \code{rate\_outliers.yaml},
+\code{appendixb\_excluded\_channels.yaml}. \quad
+\textbf{Notebook:} 04.
+\end{repopointer}
+
+The project trains on labels produced by \textbf{MESA r23.05.1 $+$ bbq}, but
+computes fluxes, $\kappa$, and equilibrium diagnostics with \textbf{pynucastro
+2.12.0}. Those are two independent implementations of the same physics. Every
+downstream claim of the form ``reaction $r$ carries 40\% of \dYe'' is a
+statement about the \emph{label} dynamics, inferred from the \emph{pynucastro}
+rate set.
+
+That inference is only valid if the two rate sets are the same object. S6 is the
+node that establishes it --- and it decomposes into two questions that must not
+be conflated:
+
+\begin{enumerate}
+\item \textbf{Membership.} Do the two sides contain the same reactions?
+      (\S\ref{sec:canonicalkey}--\S\ref{sec:disposition})
+\item \textbf{Values.} Where they agree on membership, do they agree
+      numerically? (\S\ref{sec:measured-values}--\S\ref{sec:screening-determination})
+\end{enumerate}
+
+A failure of (1) is unfixable by tuning; a failure of (2) is a bounded error you
+can quantify and carry. Answering them separately is what makes the result
+actionable.
+
+% =====================================================================
+\subsection{The canonical key: making ``same reaction'' decidable}
+\label{sec:canonicalkey}
+
+Two codes name reactions differently (\code{r\_si28\_ag\_s32} vs
+\code{Si28 + He4 --> S32 + gamma}), so identity must be defined structurally.
+\code{crosscheck/canonical.py}:
+
+\begin{srclisting}
+directed key := "<lhs>=><rhs>",  each side = sorted multiset rendered "name*count"
+pair key     := unordered pair joined by "<=>", smaller side first
+\end{srclisting}
+
+e.g.\ \code{al25*1+neut*1=>al26*1}. Four design decisions inside that, each
+deliberate:
+
+\begin{enumerate}
+\item \textbf{Directed, not undirected.} Forward and reverse are \emph{distinct}
+      reactions on both sides --- MESA softwires them separately, pynucastro
+      builds separate \code{Rate} objects. Under this convention a
+      forward\,/\,reverse counting mismatch is \emph{impossible}, which removes
+      an entire class of spurious diff.
+\item \textbf{Multisets with counts}, so $3\alpha \to \nuc{C}{12}$ is
+      \code{he4*3=>c12*1} and cannot collide with anything else.
+\item \textbf{Electrons and neutrinos are not in the key.} Weak reactions are
+      identified by their nuclide transition; lepton bookkeeping lives in $C$,
+      not in reaction identity. This is the right call because the two
+      inventories describe leptons differently, and it costs exactly one
+      exception (below).
+\item \textbf{Species names are fail-loud.} \code{from\_pyna} / \code{from\_mesa}
+      map to project chem ids through explicit whitelists and \emph{raise} on
+      anything unrecognised --- no silent passthrough. Isomers
+      (\code{al26-1}) are deliberately unmapped, since they are absent from both
+      networks and a silent map would hide their appearance.
+\end{enumerate}
+
+\textbf{The one exception, and how it is handled.} Dropping leptons from the key
+makes pp and pep collide: both are \code{h1*2=>h2*1}, one $\beta^+$ and one EC.
+\code{tag\_weak\_channels} detects colliding keys, requires \emph{all} members of
+a colliding group to be weak (raising otherwise), and appends \code{;ec} /
+\code{;wk}. Both inventories resolve the same split identically, so
+cross-matching survives.
+
+\begin{aside}
+This is a small function that repays reading. It is what a decidable identity
+convention looks like when the world does not quite cooperate: state the rule,
+detect the exception, assert the exception is of the expected kind, tag it
+symmetrically on both sides, then assert no collision survives.
+\end{aside}
+
+% =====================================================================
+\subsection{Membership vs values}
+\label{sec:membership}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.1cm} R{1.15} R{0.85}@{}}
+\toprule
+ & \textbf{Instrument} & \textbf{Output} \\
+\midrule
+Membership & \code{mesa\_probe dump\_net} $\to$ \code{mesa\_dump.dump\_to\_records}
+  vs \code{reconcile.pyna\_inventory} & \code{reaction\_disposition\_*.yaml} \\
+Values & \code{mesa\_probe eval\_rates / eval\_weak / eval\_screen} vs
+  \code{rate.eval} &
+  \code{crosscheck\_{bare,weak,screen}\_*.csv}, \code{rate\_outliers.yaml} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Note that \code{pyna\_inventory} builds with \code{disposition=None}
+\textbf{on purpose}:
+
+\begin{srclisting}
+# the disposition file is defined as the diff between the raw pynucastro set and
+# MESA; building with the disposition applied here would make reconciliation
+# self-erasing.
+\end{srclisting}
+
+A subtle and important trap avoided: if the disposition were applied before
+diffing, the diff would be empty by construction and the file would validate
+itself. Circular-validation bugs are the hardest kind to notice, because
+everything passes.
+
+% =====================================================================
+\subsection{The disposition algebra}
+\label{sec:disposition}
+
+Exactly one of four labels per union key:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.4cm} Y L{3.0cm}@{}}
+\toprule
+\textbf{Disposition} & \textbf{Meaning} & \textbf{Fixable by filtering?} \\
+\midrule
+\code{MATCHED\_CLEAN} & same link, same construction class & --- \\
+\code{MATCHED\_DIFF\_PROVENANCE} & same link, different construction (rate source,
+  reverse method, weak table) & no --- carried to value comparison \\
+\code{PYNA\_ONLY} & phantom channel in the graph & \textbf{yes} --- drop it \\
+\code{MESA\_ONLY} & physics in the labels the graph lacks &
+  \textbf{no} --- must be \emph{added} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The asymmetry in that last column is the whole point, and the code encodes it:
+
+\begin{srclisting}
+if doc["tallies"].get("MESA_ONLY", 0) != 0:
+    raise ValueError("... the graph is missing MESA physics; re-run the "
+                     "reconciliation ... and resolve before building")
+\end{srclisting}
+
+\textbf{A disposition file with MESA\_ONLY entries cannot be used.} Dropping
+channels is a filter; adding them is not.
+
+Measured tallies \resultsref{2026-07-09}:
+
+\begin{center}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+\textbf{network} & \textbf{MESA} & \textbf{pyna} & \textbf{CLEAN}
+  & \textbf{DIFF\_PROV} & \textbf{MESA\_ONLY} & \textbf{PYNA\_ONLY} \\
+\midrule
+\msn{80}  & 607  & 610  & 579  & 28 & \textbf{0} & 3 \\
+\msn{151} & 1518 & 1522 & 1486 & 32 & \textbf{0} & 4 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{result}
+\textbf{MESA\_ONLY $= 0$ on both networks: the graphs were a strict superset.}
+The headline Step-4 risk did not materialise. Note this is a \emph{result}, not
+a design --- it was entirely possible for it to come out otherwise, and the code
+path for that outcome is a hard failure rather than a workaround.
+\end{result}
+
+The four dropped PYNA\_ONLY channels are all light-nuclide ($p+\nuc{Be}{9}$
+breakup, an $n+p+2\alpha \to \nuc{He}{3}+\nuc{Li}{7}$ direction MESA carries
+only one way, and \nuc{N}{16}'s $\beta^-$-delayed $\alpha$ in \msn{151}).
+Dropping them changes \msn{151}'s weak census $174 \to 173$.
+
+The 28/32 \code{MATCHED\_DIFF\_PROVENANCE} entries after the ordering fix are all
+\textbf{construction direction-swaps} (\S\ref{sec:threeways}, construction (a)):
+14/16 forward-reverse pairs where the two REACLIB snapshots disagree about which
+direction was fitted. Membership identical, values possibly not --- hence
+carried forward with a stated looser band.
+
+% =====================================================================
+\subsection{The measured value comparison}
+\label{sec:measured-values}
+
+Bands stated \emph{before} measuring, with justification (this ordering matters
+--- a band chosen after seeing the data measures nothing):
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.4cm} L{1.6cm} Y@{}}
+\toprule
+\textbf{Category} & \textbf{Band} & \textbf{Justification} \\
+\midrule
+REACLIB forward, matched clean & 0.004 dex &
+  same lineage; only a snapshot refit or harness bug can exceed it \\
+DB inverse & 0.05 dex &
+  pf provenance differs (MESA winvn ratios vs pyna pf-free v-flag fits) $+$
+  mass\,/\,$Q$ tables \\
+weak tabular & 0.1 dex & same tables post-ADR-0003, different interpolants \\
+weak reaclib & 0.05 dex & same lineage as forwards \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Results \resultsref{2026-07-10}:
+
+\begin{center}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Category (net)} & \textbf{channels} & \textbf{median $|\Delta\log_{10}|$}
+  & \textbf{p95} & \textbf{max} \\
+\midrule
+reaclib\_forward (80)  & 268 & $\mathbf{4.4\times10^{-16}}$ & 0.037
+  & 3.69 \\
+reaclib\_forward (151) & 658 & $\mathbf{8.9\times10^{-16}}$
+  & $2.0\times10^{-13}$ & 1.12 \\
+db\_inverse (80)  & 257 & 0.048 & 0.47 & 3.69 \\
+db\_inverse (151) & 645 & 0.095 & 0.57 & 1.39 \\
+construction swaps & 28/32 & 0.0004 / 0.0006 & --- & --- \\
+weak\_tabular (80/151) & 38/164 & 0.066 / 0.073 & 0.40/0.33 & 0.52/0.80 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{result}
+\textbf{Read the first two rows.} Median $10^{-16}$ is \emph{bit-identical} ---
+two independent codebases, two independent parsers, two independent evaluators,
+agreeing to the last bit of a float64. That is the strongest possible evidence
+that the evaluation pipeline is correct, and it is what licenses treating any
+\emph{other} disagreement as meaningful signal rather than noise.
+\end{result}
+
+Then read each remaining row as a diagnosis, not a defect:
+
+\begin{itemize}
+\item \textbf{The forward tail} (25 flagged channels, worst
+      $\nuc{N}{13}(p,\gamma)\nuc{O}{14}$ at $-3.7$\,dex) is REACLIB
+      \emph{snapshot refits}, travelling in forward\,/\,reverse pairs. All
+      pp\,/\,CNO sector --- no leverage on Si-burning \Ye.
+\item \textbf{DB inverses} show a signed median growing
+      \textbf{$+0.005 \to +0.013$\,dex over $\Tn\ 1.6 \to 7.9$}. A \emph{drift
+      with temperature} is the fingerprint of a partition-function handling
+      difference (\S\ref{sec:pf-in-ratio} --- pf grows with $T$), and it is
+      exactly what \S\ref{sec:vflag} predicted. The $\kappa$ screen then made
+      the attribution dispositive.
+\item \textbf{Construction swaps at 0.0004\,dex} prove the two snapshots'
+      fit\,/\,derived pairs are numerically consistent --- only the \emph{labels}
+      differ. Not a defect.
+\item \textbf{Weak tabular} collapses to 0.003\,dex at the $\Tn = 5$ node
+      (\S\ref{sec:weaktable}, and predicted by \S\ref{sec:interp-error}) ---
+      interpolation, not physics. With one operational consequence:
+      \emph{``the labels contain MESA's bilinear values --- Step-5 flux work
+      that needs weak $\lambda$ at off-node states should evaluate MESA-side.''}
+\item \textbf{\Ye{} controllers specifically}: median $|\Delta|$
+      0.009--0.095\,dex, at-node $\le 0.012$. The sector that matters most
+      agrees best. That is not luck --- LMP tables are matched exactly after
+      ADR 0003, so only interpolation remains.
+\end{itemize}
+
+The 135 severe outliers are enumerated in \code{rate\_outliers.yaml}, each either
+class-explained or carried as a named open flag. Note the policy line in that
+file: \emph{``every entry is either explained in docs/rate-crosscheck.md or
+carried as an open flag into Step 5''}. No entry is allowed to be merely
+tolerated.
+
+% =====================================================================
+\subsection{Appendix-B as a measurement}
+\label{sec:appendixb}
+
+Covered mechanistically in \S\ref{sec:gh575}. What belongs here is the
+\emph{method}, because it is the template for how this project handles a
+suspected upstream defect:
+
+\begin{enumerate}
+\item \textbf{Read the source.} Locate the defect statically:
+      \code{rates/private/reaclib\_support.f90::compute\_rev\_ratio} applies the
+      phase-space factor only in the single-product branch (MESA r23.05.1
+      source; cf.\ MESA issue \#575, \citealp{mesa575}; \citealp{grichener2025},
+      App.~B).
+\item \textbf{Derive the predicted signature.}
+      $|\Delta N|\cdot\log_{10}(\fac\cdot\Tn^{3/2})$ from
+      \eqref{eq:dbratio}--\eqref{eq:fac}.
+\item \textbf{Measure it.} 10.0--11.1\,dex ($|\Delta N|{=}1$), 20.6--22.7
+      ($|\Delta N|{=}2$), tracking the prediction within
+      ${\lesssim}0.35$\,dex.
+\item \textbf{Search for channels the prediction implies but the source paper
+      missed.} Found: chapter-8 photodisintegration reverses including
+      c12 $\to$ 3$\alpha$.
+\item \textbf{Verify against a fixed version.} Install MESA 24.08.1
+      side-by-side, rebuild the probe against it, confirm the channels collapse
+      to $\le 1.9$\,dex.
+\item \textbf{Name what does not fit.} \code{r\_h1\_h1\_he4\_to\_he3\_he3} sits at
+      2.7\,dex in \textbf{both} versions $\Rightarrow$ not a gh-575 channel;
+      recorded as an open flag rather than folded into the explained class.
+\item \textbf{Encode the conclusion as a routing rule}, not a note:
+      \code{assert\_appendixb\_routing} refuses stock-r23.05.1 values on the 9/11
+      excluded channels (\S\ref{sec:guard-appendixb}).
+\end{enumerate}
+
+Step 6 later found the same bug \emph{in the shipped training labels} at
+$\Tn \gtrsim 5$ --- but that is S13's story, and it is downstream of this node
+existing.
+
+% =====================================================================
+\subsection{The screening determination}
+\label{sec:screening-determination}
+
+A neat sub-result worth isolating: nobody documented which screening MESA's
+\code{'chugunov'} string selects. It was \textbf{determined by measurement} ---
+compare MESA's per-reaction \code{scor} against pynucastro's
+\code{chugunov\_2007} and \code{chugunov\_2009} on identical plasma states:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.0cm} L{3.4cm}@{}}
+\toprule
+ & \textbf{median ratio} & \textbf{max $|\Delta\log_{10}|$} \\
+\midrule
+MESA chugunov vs pyna \code{chugunov\_2007} & 0.99999 & \textbf{0.0021} \\
+MESA chugunov vs pyna \code{chugunov\_2009} & --- & 0.52 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\resultsref{2026-07-10}. Unambiguous. And the harness itself was validated by a
+second, independent identification (MESA \code{extended} $\equiv$ pyna
+\code{screen5} to ${\sim}10^{-4}$) --- so the method was shown to work on a case
+whose answer was already known before being trusted on the case that mattered.
+
+% =====================================================================
+\subsection{The Fortran probe: why an external oracle was necessary}
+\label{sec:probe}
+
+\code{src/mesa\_probes/} is a small Fortran driver linked against MESA itself,
+with five modes. It exists because \textbf{the only trustworthy statement about
+what MESA computes is what MESA computes.} Reimplementing MESA's rate path in
+Python to compare against pynucastro would compare two Python programs.
+
+Two operational details worth copying:
+
+\begin{itemize}
+\item \textbf{The upstream tree stays byte-identical.} \code{MESA\_CACHES\_DIR}
+      redirects rate cache writes into \code{data/mesa\_cache/}, so the verified
+      Zenodo installation is never modified. Reproducibility of the
+      \emph{reference} is itself a requirement.
+\item \textbf{Two MESA versions coexist.} \code{mesa\_probe} (r23.05.1) and
+      \code{mesa\_probe24} (24.08.1), the second built specifically to verify the
+      gh-575 fix. Having both is what turned ``we believe this is the bug'' into
+      ``the channels collapse when the fix is applied''.
+\end{itemize}
+
+\subsubsection{The probe's five modes, and the grid they run on}
+\label{sec:probe-modes}
+
+\begin{srclisting}
+dump_net      -> every reaction in the softwired net: participants, Q, qneu,
+                 is_weak, weaklib_id, reaclib_fwd_idx, reaclib_rev_idx
+dump_inverse  -> the inverse-rate construction metadata (the gh-575 screen)
+eval_rates    -> bare REACLIB lambda(T), screening off, T-only
+eval_weak     -> weaklib lambda and raw reaclib lambda over a (T9, rho, Ye) grid
+eval_screen   -> per-reaction screening factor scor over the same grid
+\end{srclisting}
+
+Note that \code{dump\_net} returns \emph{both} \code{reaclib\_fwd\_idx} and
+\code{reaclib\_rev\_idx}, so \code{mesa\_dump.attribute\_source} can classify a MESA
+reaction as \code{reaclib\_forward} / \code{reaclib\_reverse} / \code{weaklib} /
+\code{weak\_reaclib} / \code{other} \textbf{from MESA's own bookkeeping} rather
+than by inference. That is what makes the \code{MATCHED\_DIFF\_PROVENANCE}
+construction-swap detection possible at all: it compares MESA's declared
+construction class against pynucastro's, rather than guessing from names.
+
+The \code{other} bucket is designed to be visible: it is flagged and must be
+explained, which is how \code{r\_he4\_ap\_li7} (MESA evaluates it outside its
+REACLIB dictionaries, one per net) surfaced.
+
+\textbf{The grid} (\code{crosscheck/grids.py}) is a single source of truth
+reused by the cross-check, the $\kappa$ screen, and the kill-test:
+
+\begin{srclisting}
+T9_GRID  = (1.6, 2.5, 3.3, 4.0, 5.0, 6.3, 7.9)     # 7
+RHO_GRID = (1e7, 1e8, 1e9)                          # 3
+YE_GRID  = (0.45, 0.48, 0.498)                      # 3
+T9_NSE   = (5.0, 6.3, 7.9)                          # NSE-guaranteed subset
+\end{srclisting}
+
+Reading it as a design: the \Tn{} points are \textbf{not uniform}. They are the
+box edges (1.6, 7.9), the QSE onset band (2.5, 3.3), the kill-test window
+(4.0, 5.0), and 6.3 --- roughly log-spaced, and \textbf{5.0 is a weak-table
+node} (\S\ref{sec:weaktable}). The \Ye{} points bracket the box (0.45, 0.498)
+with one interior. Sixty-three states per network is small enough to run a
+Fortran probe over and large enough to expose temperature trends --- the
+DB-inverse signed-median drift of \S\ref{sec:measured-values} needs at least the
+seven $T$ points to be visible as a \emph{drift} rather than a scatter.
+
+\subsubsection{Reading the comparison statistics honestly}
+\label{sec:reading-stats}
+
+Small points, but they are where a cross-check quietly becomes meaningless.
+
+\begin{itemize}
+\item \textbf{Why dex.} Rates span 75 decades (\S\ref{sec:lambda-range}). A
+      relative error is unusable and an absolute one absurd; $\log_{10}$ ratio
+      is the only scale on which ``agreement'' means the same thing for a
+      $10^{16}$ rate and a $10^{-60}$ one.
+\item \textbf{Why signed \emph{and} unsigned.} The tables report median
+      $|\Delta\log_{10}|$ for size and a \textbf{signed} median for the DB
+      inverses. Only the signed statistic can reveal a systematic; $|\Delta|$
+      would show the pf drift as growth in spread, which is ambiguous between
+      ``systematic'' and ``noisier''. \S\ref{sec:measured-values}'s diagnosis
+      depends on the sign.
+\item \textbf{Channels vs evals.} \code{n\_channels} counts reactions;
+      \code{n\_evals} counts reaction$\times$state pairs. \code{n\_beyond\_band} is
+      reported over evals (e.g.\ ``169/1876''), so a single bad channel
+      contributes up to 7 evals. Never read a beyond-band eval count as a
+      channel count.
+\item \textbf{Why medians and p95 rather than means.} The distribution is
+      bimodal --- bit-identical bulk plus a snapshot-refit tail. A mean is a
+      number describing neither population.
+\item \textbf{The outlier census is complete, not sampled.} All 135 severe
+      channels are enumerated with a per-entry disposition. This matters because
+      the alternative --- ``we spot-checked and it looked fine'' --- cannot
+      support the claim in \S\ref{sec:licenses}(2) that later disagreements are
+      signal.
+\end{itemize}
+
+% =====================================================================
+\subsection{What the reconciliation licenses downstream}
+\label{sec:licenses}
+
+State this precisely, because it is the deliverable:
+
+\begin{enumerate}
+\item \textbf{Membership is identical} (MESA\_ONLY $= 0$, PYNA\_ONLY dropped)
+      $\Rightarrow$ a pynucastro-side flux decomposition of a label trajectory
+      is attributing flow to reactions that exist in the labels. Without this,
+      every kill-test statement would be unfounded.
+\item \textbf{Forward values are bit-identical} $\Rightarrow$ disagreements
+      found later are signal.
+\item \textbf{DB inverses differ systematically, and the mechanism is known}
+      $\Rightarrow$ the pf gate (\S\ref{part:db}), and the ``DB-reverse
+      pf-provenance class'' that later accounts for \textbf{69.4\% / 63.6\%} of
+      the Step-5 handshake's rate-level departures \resultsref{2026-07-10}. A
+      residual class you have already characterised is not a mystery.
+\item \textbf{Weak tables match exactly per pair; only interpolation differs}
+      $\Rightarrow$ the \Ye{} sector is trustworthy, with a stated rule for
+      off-node work.
+\item \textbf{Screening is pinned} $\Rightarrow$ \code{SCREENING\_ALLOWED}
+      (\S\ref{sec:guard-screening}).
+\item \textbf{135 outliers are enumerated, classified, and quarantined}
+      $\Rightarrow$ no flux derivation silently includes an unexplained channel.
+\end{enumerate}
+
+\code{provisional\_reaction\_set=False} plus \code{disposition\_sha256} in every
+npz is the machine-readable form of ``this build is the reconciled one'' --- and
+\code{assert\_reconciled\_build} refuses anything else
+(\S\ref{sec:guard-reconciled}).
+
+% =====================================================================
+\subsection*{Self-check --- verification and S6}
+\addcontentsline{toc}{subsection}{Self-check --- verification and S6}
+\label{sec:selfcheck-verification}
+
+\begin{selfcheck}
+\item Why is the directed-key convention (rather than pair keys) what makes a
+      forward\,/\,reverse counting mismatch impossible? Construct the diff that
+      would appear under the pair-key convention.
+\item \code{pyna\_inventory} builds with \code{disposition=None}. Describe the
+      exact bug that would result from using \code{disposition="auto"} there,
+      and why no test would catch it.
+\item Why is MESA\_ONLY $\ne 0$ a hard failure while PYNA\_ONLY $\ne 0$ is
+      routine?
+\item The DB-inverse signed median grows with \Tn{} but the forward median does
+      not. From \S\ref{sec:pf-in-ratio} alone, predict the sign of that drift and
+      check it against the measurement.
+\item The screening determination compared against a \emph{known} answer first.
+      Name the failure mode that guards against.
+\item Suppose a rerun found MESA\_ONLY $= 2$ on \msn{151}. Walk through what
+      would have to happen, in order, before any flux work could resume.
+\item Explain, in two sentences, why the $\kappa$-floor screen needs \emph{no}
+      ground-truth rate to reach a verdict.
+      \emph{(From the source's S3 block.)}
+\item \code{test\_exported\_npz\_trips\_the\_gate} asserts a failure. Argue for and
+      against this style of test. \emph{(From the source's S3 block.)}
+\item Why does the composite-intermediate rule for three-body screening not
+      matter for this project's verdicts? Name the measurement that bounds it.
+      \emph{(From the source's S4 block.)}
+\item A weak channel has $\max|\Delta^2\log_{10}\lambda| = 2.4$\,dex across a
+      grid cell. Bound its interpolation error, then decide whether it belongs
+      on the outlier list --- and say what else you need to know to decide.
+      \emph{(From the source's S5 block.)}
+\end{selfcheck}

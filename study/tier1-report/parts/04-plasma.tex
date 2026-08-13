@@ -1,0 +1,621 @@
+% =====================================================================
+%  LAYER A -- Theory and derivation.
+%  Section 4 (S4): plasma corrections -- rate side and equilibrium side.
+%
+%  Source: tier1.md Part IV -- header (1964-1968), IV.1 (1970-1991),
+%          IV.2 (1993-2055), IV.3 (2057-2139), IV.4 (2141-2179),
+%          IV.5 (2181-2281), IV.6 physics (2283-2314),
+%          IV.7 (2316-2364), IV.10 self-check (2442-2455).
+%  RE-HOMED IN (stated in the source where they are used, not where they
+%  are derived):  III.10 the two-kappa conventions (1768-1782) and
+%          III.11 Coulomb terms in NSE (1784-1837).
+%  Excluded and re-homed out: IV.6's screen_map code -> section 6;
+%          the SCREENING_ALLOWED pin -> section 8; IV.8 code+oracle
+%          (2366-2380) -> section 7; IV.9 weak-sector screening
+%          (2382-2440) -> section 5.  Self-check item 4 -> section 7;
+%          III.13 item 10 arrives here.
+% =====================================================================
+
+\section{Plasma corrections: the rate side and the equilibrium side (S4)}
+\label{part:plasma}
+
+\begin{repopointer}
+\textbf{Files:} \code{fluxes/screening.py}, applied in
+\code{fluxes/engine.py}, pinned by \code{fluxes/guards.py}. \quad
+\textbf{Oracle:}
+\code{tests/test\_flux\_compile.py::TestScreeningVectorized}
+(\S\ref{sec:oracle-screening}). \quad
+\textbf{Cross-check:} \code{crosscheck/rates\_compare.py::compare\_screening}.
+\end{repopointer}
+
+% =====================================================================
+\subsection{Why screening exists}
+\label{sec:whyscreening}
+
+Everything in \S\ref{sec:gamow} assumed two \emph{bare} nuclei approaching
+through vacuum. In a plasma each nucleus carries a polarisation cloud: electrons
+(and, at strong coupling, a correlated ion distribution) pile up around positive
+charge. A second nucleus approaching sees a \textbf{partially neutralised}
+target, so the Coulomb barrier is lower and the tunnelling probability higher.
+
+Because the rate depends exponentially on the barrier, a \emph{small} potential
+change is a \emph{large} rate change. Define the enhancement factor
+%
+\begin{equation*}
+f_{\rm scr} = \frac{\sigv_{\rm plasma}}{\sigv_{\rm bare}}
+= e^{h}, \qquad h \equiv \ln f_{\rm scr} \ge 0
+\end{equation*}
+
+\begin{warn}
+\textbf{Convention warning, stated once and enforced by the code:} pynucastro's
+screening functions return \textbf{$h = \ln(\text{factor})$}, MESA returns the
+\textbf{factor}. The cross-check module exponentiates before comparing, with a
+comment saying so, and the vectorised module's docstring states it in its first
+Conventions bullet. This is a genuine trap: both are dimensionless numbers near
+1 for weak screening, so a missing \code{exp} produces plausible-looking wrong
+answers.
+\end{warn}
+
+% =====================================================================
+\subsection{Weak screening: Debye--H\"uckel from scratch}
+\label{sec:debye}
+
+Linearise Poisson--Boltzmann around a test charge $Z_1e$. With ion densities
+$n_i \propto \exp(-Z_ie\phi/kT) \approx n_i(1 - Z_ie\phi/kT)$,
+%
+\begin{equation*}
+\nabla^2\phi = -4\pi\rho_{\rm ch}
+= \frac{4\pi e^2}{kT}\Bigl(\sum_i n_i Z_i^2 + n_e\Bigr)\phi
+\equiv \frac{\phi}{\lambda_D^2}
+\end{equation*}
+%
+giving the screened potential $\phi = (Z_1e/r)e^{-r/\lambda_D}$ with
+%
+\begin{equation*}
+\lambda_D = \left(\frac{kT}{4\pi e^2\bigl(\sum_i n_i Z_i^2 + n_e\bigr)}\right)^{1/2}
+\end{equation*}
+%
+The reacting pair must approach to $r \ll \lambda_D$, where
+%
+\begin{equation*}
+U(r) = \frac{Z_1Z_2e^2}{r}e^{-r/\lambda_D}
+\approx \frac{Z_1Z_2e^2}{r} - \frac{Z_1Z_2e^2}{\lambda_D}
+\end{equation*}
+%
+--- the barrier is \textbf{uniformly lowered by a constant}
+$Z_1Z_2e^2/\lambda_D$. Since the tunnelling integral responds to the barrier and
+the Boltzmann factor to the energy, the net effect is a constant multiplicative
+enhancement:
+%
+\begin{equation}
+\boxed{\;h_{\rm weak} = \frac{Z_1Z_2 e^2}{\lambda_D\,kT}\;}
+\label{eq:debye}
+\end{equation}
+%
+Salpeter's classic result \citep[eq.~21]{salpeter1954}. Two things to notice,
+both of which matter for what follows:
+
+\begin{itemize}
+\item \textbf{$h$ depends on $Z_1Z_2$, not on the reaction.} Screening is a
+      property of the \emph{entering pair}, not of the exit channel. This is the
+      seed of the \S\ref{sec:screened-kappa} asymmetry.
+\item \textbf{$h = 0$ whenever either charge is zero.} Neutron-induced reactions
+      are unscreened, exactly. So are photodisintegrations --- a single nucleus
+      and a photon have no pair to screen.
+\end{itemize}
+
+\begin{warn}
+\warnglyph{}~\textbf{The electron term is not innocent, and the code does not
+use it.} Writing the screening sum as $(\sum_i n_iZ_i^2 + n_e)$ treats the
+electrons as a \emph{classical} Boltzmann gas --- the same $1/kT$ linearisation
+applied to the ions. \S\ref{sec:ec-degenerate} will establish that over most of
+this box the electrons are \textbf{degenerate}, and a degenerate electron sea
+barely polarises: its contribution is set by $\dd n_e/\dd\muE$, not by $n_e/kT$,
+and it vanishes in the strongly degenerate limit. The correct weak-coupling
+limit for the regime the code targets is therefore the \textbf{ion-only} Debye
+length, i.e.\ a rigid neutralising electron background (the one-component
+plasma).
+\end{warn}
+
+This is not a quibble about a 7\% term: it is what makes
+\S\ref{sec:chugunov}'s check work. Dropping $n_e$ from the sum, \eqref{eq:debye}
+collapses \textbf{exactly} onto $\sqrt3\,\Gamma_{12}^{3/2}$, which is the
+asymptote \code{chugunov\_2007}'s $A_3$ is defined to reproduce. Keeping the
+classical electron term instead gives $\sqrt{(Z+1)/Z}\cdot\sqrt3\,\Gamma^{3/2}$
+(a 3.5\% excess for Si), and the boundary condition no longer closes.
+\derivedhere{} So read \eqref{eq:debye} as the pedagogical two-component result,
+and read \S\ref{sec:chugunov}'s $\sqrt3$ as the OCP one --- they are different
+limits, and the code implements the second.
+
+Validity: the linearisation requires the interaction energy between neighbours
+to be small compared with $kT$, i.e.\ weak coupling.
+
+% =====================================================================
+\subsection{The coupling parameter \texorpdfstring{$\Gamma$}{Gamma} and the strong-screening limit}
+\label{sec:gamma}
+
+Define the ion-sphere radius and the \textbf{Coulomb coupling parameter}
+%
+\begin{equation}
+a_e = \left(\frac{3}{4\pi n_e}\right)^{1/3},
+\qquad
+\Gamma_{12} = \frac{Z_1Z_2e^2}{\ztil\,a_e\,kT},
+\qquad
+\ztil = \tfrac{1}{2}\bigl(Z_1^{1/3}+Z_2^{1/3}\bigr)
+\label{eq:gammadef}
+\end{equation}
+%
+$\Gamma$ is the ratio of typical Coulomb energy to thermal energy.
+
+\begin{itemize}
+\item \textbf{$\Gamma \ll 1$}: weak coupling, Debye--H\"uckel \eqref{eq:debye}
+      valid.
+\item \textbf{$\Gamma \gg 1$}: the ion is inside a correlated ion sphere; the
+      enhancement grows only \textbf{linearly}, $h \propto \Gamma$ (ion-sphere /
+      Salpeter strong screening), rather than as $\Gamma^{3/2}$ --- what
+      saturates is the logarithmic slope, not $h$ itself --- and the physics is a
+      \emph{free-energy difference} between the separated ions and the fused
+      compound, not a potential shift.
+\item \textbf{$\Gamma \sim 1$}: neither asymptotic form is valid; you need a fit
+      to Monte-Carlo free energies of the one-component plasma. \textbf{This is
+      where the box lives.}
+\end{itemize}
+
+The code's $\Gamma$ is exactly \eqref{eq:gammadef}. Read
+\code{screening.py:47-49} and \code{:110}:
+
+\begin{srclisting}
+gamma_e_fac = constants.q_e**2 / constants.k * np.cbrt(4*np.pi/3) * np.cbrt(n_e)
+...
+Gamma = gamma_e_fac * z1 * z2 / (ztilde * T_norm * T_p)      # T_norm*T_p == T
+\end{srclisting}
+
+\code{gamma\_e\_fac} $= e^2(4\pi n_e/3)^{1/3}/k = e^2/(a_e k)$, so
+$\Gamma = \text{gamma\_e\_fac}\cdot Z_1Z_2/(\ztil T)$. That is
+\eqref{eq:gammadef} term for term.
+
+\subsubsection{The strong-screening limit, derived as a free-energy difference}
+\label{sec:strongscreening}
+
+Worth doing, because it is a \emph{different kind} of argument from
+\S\ref{sec:debye} and the difference is the whole reason a single formula has to
+interpolate.
+
+At $\Gamma \gg 1$ each ion sits in a neutralising sphere of radius
+$a_i = (3Z_i/4\pi n_e)^{1/3}$. The electrostatic energy of one such ion sphere
+is the classic \citep[eq.~28]{salpeter1954}
+%
+\begin{equation*}
+E_{\rm sphere}(Z) = -\frac{9}{10}\frac{Z^2e^2}{a_i} \;\propto\; -Z^{5/3}
+\end{equation*}
+%
+Screening enhancement is then the \textbf{change in Coulomb free energy on
+fusing} the two reactants into the compound nucleus, since the tunnelling
+happens at a separation small compared with $a_i$:
+%
+\begin{equation*}
+h_{\rm strong} = \frac{E(Z_1)+E(Z_2)-E(Z_1+Z_2)}{kT}
+\;\simeq\; \frac{9}{10}\,\Gamma_e\Bigl[(Z_1+Z_2)^{5/3}-Z_1^{5/3}-Z_2^{5/3}\Bigr],
+\qquad \Gamma_e = \frac{e^2}{a_e kT}
+\end{equation*}
+%
+--- note the $9/10$ is the \emph{same} $9/10$ as in $E_{\rm sphere}$; nothing
+else enters. Two cross-checks, both worth doing once \derivedhere{}:
+
+\begin{itemize}
+\item In cgs this is the classic Salpeter form \citep[eq.~29]{salpeter1954},
+      $h = 0.205\,(\rho/\mu_e)^{1/3}T_6^{-1}
+      [(Z_1+Z_2)^{5/3} - Z_1^{5/3} - Z_2^{5/3}]$, since
+      $\Gamma_e = 0.2274\,(\rho/\mu_e)^{1/3}/T_6$ and
+      $0.9 \times 0.2274 = 0.205$.
+\item For an equal-charge pair it gives
+      $h/\Gamma_{12} = 0.9(2^{5/3} - 2) = \mathbf{1.057}$, against
+      \code{chugunov\_2007}'s own $\gtil \to \infty$ asymptote
+      $A_1 + B_1 = \mathbf{1.0346}$ (\S\ref{sec:chugunov}). Two percent apart,
+      which is the right amount for an ion-sphere estimate versus a Monte-Carlo
+      fit. If you ever see a coefficient here that does \emph{not} land near
+      1.05 in these units, it is wrong.
+\end{itemize}
+
+--- \textbf{linear in $\Gamma_e$}, versus $\Gamma^{3/2}$ in the weak limit
+\eqref{eq:debye}. Two things follow:
+
+\begin{enumerate}
+\item The $Z^{5/3}$ scaling is the same one that appears in the NSE Coulomb
+      correction (\S\ref{sec:nse-coulomb}). It is not a coincidence: both are the
+      ion-sphere self-energy, once entering a rate and once entering a chemical
+      potential.
+\item \textbf{The weak and strong limits have different powers of $\Gamma$}, so
+      no simple formula covers both --- hence a fit anchored at both ends, which
+      is exactly what \S\ref{sec:chugunov} shows \code{chugunov\_2007} to be.
+\end{enumerate}
+
+The physical picture also changes: weak screening is a \emph{potential shift} at
+fixed configuration, strong screening is a \emph{thermodynamic} statement about
+rearranging a correlated fluid. At $\Gamma \sim 1$--10, where this box lives,
+neither picture is clean --- the reactants are neither free nor caged.
+
+% =====================================================================
+\subsection{Where the box sits --- and hence which prescription}
+\label{sec:boxgamma}
+
+Tier~0 \S0.1.4 established $\Gamma \approx 0.4$--25 across the regime box.
+Recomputing for a \nuc{Si}{28}--\nuc{Si}{28} pair \derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{\Tn} & \textbf{$\rho$} & \textbf{$\Gamma$(Si--Si)} \\
+\midrule
+1.6 & $10^9$ & 9.14 \\
+3.0 & $10^9$ & 4.87 \\
+3.0 & $10^7$ & 1.05 \\
+7.9 & $10^9$ & 1.85 \\
+7.9 & $10^7$ & 0.40 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Intermediate coupling, all of it.} Neither \eqref{eq:debye} nor the
+ion-sphere limit is quantitative here, which is precisely why the label
+configuration uses \code{chugunov\_2007} --- a fit valid across the whole
+$\Gamma$ range, with quantum corrections. This is a case where the config
+choice, which looks arbitrary in isolation, is forced by a number you can
+compute in three lines.
+
+And the size of the effect \derivedhere{}, at a representative Si-burning
+composition:
+
+\begin{center}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{\Tn, $\rho$} & \textbf{\nuc{Si}{28}$+\alpha$}
+  & \textbf{\nuc{Si}{28}$+p$} & \textbf{\nuc{Ni}{56}$+\alpha$}
+  & \textbf{\nuc{Fe}{54}$+p$} \\
+\midrule
+3.0, $10^8$ & 1.430 & 1.173 & 1.988 & 1.343 \\
+4.0, $10^9$ & 1.903 & 1.349 & \textbf{3.281} & 1.711 \\
+5.0, $10^9$ & 1.635 & 1.251 & 2.522 & 1.504 \\
+7.9, $10^9$ & 1.319 & 1.129 & 1.717 & 1.255 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Enhancements of $1.1\times$ to $3.3\times$. \textbf{Screening is not a
+correction here; it is a factor-of-three effect on the heaviest pairs.} Which is
+also why the project measured, rather than assumed, that removing it drops
+trajectory-level agreement from 0.76 to 0.53 \resultsref{2026-07-10} --- that
+measurement is how the labels were \emph{proved} to carry screening.
+
+Read the $\rho = 10^9$ rows alone ($\Tn = 4.0 \to 5.0 \to 7.9$:
+$1.903 \to 1.635 \to 1.319$): the enhancement falls monotonically with
+temperature, and rises with density --- which is exactly
+$\Gamma \propto n_e^{1/3}/T$ from \eqref{eq:gammadef}. Screening is strongest at
+the cold, dense corner of the box, which is also where the composition is
+furthest from NSE.
+
+% =====================================================================
+\subsection{\texorpdfstring{\code{chugunov\_2007}}{chugunov 2007} term by term}
+\label{sec:chugunov}
+
+\code{fluxes/screening.py} reimplements pynucastro's scalar jitclass over numpy
+state vectors (\S\ref{sec:screening-code}). Reading it as physics rather than
+code:
+
+\paragraph{1. The plasma state} (\code{plasma\_arrays}).
+%
+\begin{equation}
+n_e = \frac{\rho\sum_i Z_i Y_i}{m_u},
+\qquad
+\text{gamma\_e\_fac} = \frac{e^2}{k}\left(\frac{4\pi}{3}\right)^{1/3} n_e^{1/3}
+= \frac{e^2}{a_e k}
+\label{eq:plasmastate}
+\end{equation}
+%
+Note that $\sum_i Z_i Y_i = \Ye\cdot\sum_i A_i Y_i = \Ye$ for a normalised
+composition, so
+%
+\begin{equation*}
+n_e = \frac{\rho\,\Ye}{m_u}
+\end{equation*}
+%
+--- the same combination the weak tables index on (\S\ref{sec:weaktable}). Two
+different physics modules, one plasma variable.
+
+\paragraph{2. The ion plasma temperature} (the quantum correction).
+%
+\begin{equation}
+T_p = \frac{\hbar}{k}\,e\sqrt{\frac{4\pi Z_1Z_2\,n_i}{m_i}}
+= \frac{\hbar\omega_p}{k},
+\qquad
+\omega_p^2 = \frac{4\pi (Z_1Z_2) e^2 n_i}{m_i}
+\label{eq:plasmatemp}
+\end{equation}
+%
+$\omega_p$ is the plasma frequency of the reduced-mass ion pair --- the scale at
+which \textbf{zero-point ion motion} matters. (The single-species $T_p$ is
+\citealp{chugunov2007}, eq.~2; the $Z_1Z_2$, $2\mu_{12}$ pair form is
+pynucastro's generalization, attributed there to \citealp{yakovlev2006}.)
+$T_{\rm norm} = T/T_p$ is the classical-to-quantum ratio; for $T \ll T_p$ the
+ions are quantum oscillators, not a classical fluid.
+\code{smooth\_clip\_vec(T\_norm, 0.1, 0.2)} floors it with a half-cosine so the fit
+never extrapolates into a regime it was not built for. \derivedhere{}
+$T_p = 1.23\times10^7$\,K at $\rho = 10^7$ and $1.23\times10^8$\,K at
+$\rho = 10^9$ for Si--Si, so $T_{\rm norm}$ ranges ${\sim}13$--640 across the
+box: firmly classical, and the clip never engages. Good --- but the clip's
+presence is what makes the module safe to call outside the box.
+
+\paragraph{3. The quantum-corrected coupling.}
+%
+\begin{equation}
+\zeta = \left(\frac{4}{3\pi^2 T_{\rm norm}^2}\right)^{1/3},
+\qquad
+\gtil = \frac{\Gamma}
+        {\bigl[\,1 + \zeta\bigl(\alpha_1 + \zeta(\alpha_2 + \alpha_3\zeta)\bigr)\bigr]^{1/3}}
+\label{eq:gammatilde}
+\end{equation}
+%
+\begin{equation*}
+\alpha_1 = 0.022,\qquad
+\alpha_2 = 0.41 - \frac{0.6}{\Gamma},\qquad
+\alpha_3 = 0.06 + \frac{2.2}{\Gamma}
+\end{equation*}
+%
+$\zeta \propto T_{\rm norm}^{-2/3}$ is the quantum-diffraction parameter; the
+cubic in $\zeta$ is Chugunov's fit to the Monte-Carlo free energy
+\citep[eqs.~3, 21]{chugunov2007}, and \gtil{} is the \emph{effective} classical
+coupling that reproduces the quantum result.
+
+\paragraph{4. The enhancement} \citep[eq.~19]{chugunov2007}.
+%
+\begin{equation}
+\boxed{\;
+h = \gtil^{3/2}\left(\frac{A_1}{\sqrt{A_2+\gtil}} + \frac{A_3}{1+\gtil}\right)
++ \frac{B_1\gtil^{2}}{B_2+\gtil}
++ \frac{B_3\gtil^{2}}{B_4+\gtil^{2}}
+\;}
+\label{eq:chugunov}
+\end{equation}
+%
+\begin{gather*}
+A_1 = 2.7822,\qquad A_2 = 98.34,\qquad
+\boxed{A_3 = \sqrt3 - \frac{A_1}{\sqrt{A_2}}} \\[2pt]
+B_1 = -1.7476,\qquad B_2 = 66.07,\qquad B_3 = 1.12,\qquad B_4 = 65
+\end{gather*}
+%
+and the returned value is $\max(h, 0)$.
+
+\textbf{Check the asymptotics --- this is the payoff of \S\ref{sec:debye}.} As
+$\gtil \to 0$ the $B$-terms vanish as $\gtil^2$ and the first bracket tends to a
+constant, so
+%
+\begin{equation*}
+h \;\longrightarrow\; \gtil^{3/2}\left(\frac{A_1}{\sqrt{A_2}} + A_3\right)
+= \sqrt3\,\gtil^{3/2}
+\end{equation*}
+%
+\textbf{because $A_3$ is \emph{defined} as $\sqrt3 - A_1/\sqrt{A_2}$.} That is
+the weak-screening (Debye--H\"uckel) limit of the one-component plasma,
+recovered exactly \citep[\S IV.C]{chugunov2007}. As $\gtil \to \infty$ the $A_1$
+and $B_1$ terms both go linear and partially cancel, leaving
+$h \to (A_1+B_1)\gtil + O(\sqrt{\gtil})$ --- the strong-screening\,/\,ion-sphere
+limit of \S\ref{sec:strongscreening}. \textbf{One functional form, both
+asymptotics, fitted in between.} The $A_3$ line in the code is not a magic
+constant; it is a boundary condition, and you can read it as such.
+
+The final $\max(h,0)$ enforces that screening never \emph{suppresses} a rate.
+
+% =====================================================================
+\subsection{Per-reaction pair construction --- and the MESA difference}
+\label{sec:screening-pairs}
+
+A reaction with three reactants needs more than one pair. pynucastro walks the
+reactants building \code{screening\_pairs}, including \textbf{composite
+intermediates} (screen A against B, then the composite A$+$B against C). The
+compiled evaluator just records the multiplicities and sums $h$ over a
+reaction's pairs --- i.e.\ takes the \textbf{product} of factors, since $h$ is a
+log (\S\ref{sec:screening-code}).
+
+MESA's \code{net\_screen} uses a slightly different rule for $\ge3$ reactants (a
+neutron-swap two-stage construction, mirrored explicitly in
+\code{rates\_compare.compare\_screening} so the comparison is apples-to-apples).
+The Step-4 measurement bounded the per-factor difference at
+\textbf{$\le 0.0021$\,dex} \resultsref{2026-07-10}, and multi-body channels are
+pp-chain territory --- negligible in this box. The module docstring says exactly
+this, and it is a good example of a known, bounded, documented discrepancy that
+is \emph{not} a defect.
+
+The same measurement is what \textbf{determined} the label configuration: MESA
+\code{screening\_mode='chugunov'} $\equiv$ pynucastro \code{chugunov\_2007} to
+median ratio 0.99999, max 0.0021\,dex; \code{chugunov\_2009} does \textbf{not}
+match (max 0.52\,dex) \resultsref{2026-07-10}. That determination is pinned as
+executable policy in \code{SCREENING\_ALLOWED} (\S\ref{sec:guard-screening}) ---
+a pin derived from a measurement, not a preference.
+
+% =====================================================================
+\subsection{The screened-\texorpdfstring{$\kappa$}{kappa} offset, derived}
+\label{sec:screened-kappa}
+
+Here is the derivation \S\ref{sec:kappa-db} promised, and it is short enough to
+do in your head once you see it.
+
+Screening multiplies each \emph{reaction} by $\exp(h)$ built from \textbf{that
+reaction's own reactant pairs}. Consider a
+capture\,/\,photodisintegration pair at true equilibrium:
+
+\begin{itemize}
+\item forward $A + a \to B$: reactants are two charged nuclei, so $h^+ > 0$;
+\item reverse $B \to A + a$: a single reactant, \textbf{no pair at all}, so
+      $h^- = 0$.
+\end{itemize}
+
+Let $f^+_0 = f^-_0 = f_0$ be the (equal) unscreened equilibrium fluxes. Then
+%
+\begin{equation}
+\kappa
+= \frac{\bigl|f_0e^{h^+} - f_0e^{h^-}\bigr|}{f_0e^{h^+} + f_0e^{h^-}}
+= \left|\tanh\!\left(\frac{h^+-h^-}{2}\right)\right|
+\;\approx\; \frac{|\Delta h|}{2}\ \ \text{for } |\Delta h|\ll 1
+\label{eq:screenedkappa}
+\end{equation}
+
+\textbf{Verified numerically} on \msn{80} at $\Tn = 6.3$, $\rho = 10^9$, NSE
+composition: $\kappa_{\rm screened} = |\tanh(\Delta h/2)|$ holds to
+$1.4\times10^{-11}$ --- i.e.\ exactly, down to the unscreened $\kappa$ floor.
+Median $\kappa = \mathbf{7.361\times10^{-2}}$, reproducing the \code{RESULTS.md}
+$7.4\times10^{-2}$ row; median $|\Delta h| = 0.1475$. \derivedhere
+
+Three consequences:
+
+\begin{enumerate}
+\item \textbf{This is real, not a bug.} Both pynucastro and MESA
+      \code{net\_screen} screen per-reaction; a screened capture genuinely does
+      pair with an unscreened photodissociation in any code that does this. It
+      is a property of the \emph{rate configuration}, and the labels carry it.
+\item \textbf{It is bounded by the screening factor itself.}
+      $\kappa_{\rm screened} \le \tanh(h_{\max}/2)$, and with
+      $h \le \ln(3.3) \approx 1.2$ on the heaviest pairs,
+      $\kappa \lesssim 0.54$ in the worst case --- comparable to the v-flag
+      floor it replaced. Hence the two-$\kappa$ rule below.
+\item \textbf{Neutron pairs are exempt.} $h = 0$ on both sides for
+      $(n,\gamma)/(\gamma,n)$, so their screened $\kappa$ is clean. Since those
+      are the fastest-equilibrating pairs (\S\ref{sec:no-gamow}), the
+      \emph{most} equilibrated pairs are also the ones least affected --- which
+      softens the practical impact but does not remove the need for the rule.
+\end{enumerate}
+
+\begin{warn}
+\warnglyph{}~\textbf{A discrepancy to raise, not to paper over.}
+\code{docs/rate-crosscheck.md} and root \code{CLAUDE.md} characterise this as
+``$\kappa \approx |\Delta \ln \mathrm{scor}|$''. The exact relation
+\eqref{eq:screenedkappa} is $|\tanh(\Delta h/2)|$, i.e.\ \textbf{$|\Delta h|/2$}
+in the small-offset limit --- a factor of two. The measured numbers confirm the
+halved form: median $|\Delta h| = 0.1475$ gives $\kappa = 0.0736$, and 0.0736 is
+the number in \code{RESULTS.md}, not 0.1475. The \emph{measured} row is right;
+the \emph{characterisation} next to it is loose by a factor of two. Per the docs
+contract this is a docs question, not a code question --- flag it, do not
+silently edit.
+\end{warn}
+
+% =====================================================================
+\subsection{The two \texorpdfstring{$\kappa$}{kappa} conventions}
+\label{sec:two-kappa}
+
+\begin{invariant}
+\textbf{Equilibrium detection uses UNSCREENED $\kappa$. Screened $\kappa$ is for
+screening-offset diagnostics only. Never mix them in one analysis.}
+\end{invariant}
+
+The source document states this rule beside the pf gate, because that is where
+it is \emph{used}; it belongs here, immediately after \eqref{eq:screenedkappa},
+because that is where it is \emph{derived}.
+
+With \code{chugunov\_2007} on --- the label configuration --- the measured median
+$\kappa$ at NSE is \textbf{$7.4\times10^{-2}$} \resultsref{2026-07-10}, within a
+factor of a few of the spurious v-flag floor it replaced
+(\S\ref{sec:vflag}). Two effects of similar size and completely different
+natures; conflating them is exactly the failure the convention prevents. Every
+$\kappa$ threshold in the project (the 0.1 active-set gate above all) is
+evaluated on unscreened runs.
+
+% =====================================================================
+\subsection{The other equilibrium correction: Coulomb terms in NSE}
+\label{sec:nse-coulomb}
+
+There is a second place plasma physics enters --- not the rate side but the
+\emph{equilibrium} side --- and the $\kappa$ screen turns it \textbf{off}. Worth
+understanding, because ``off'' is a deliberate choice with a stated reason.
+
+The Saha relation \eqref{eq:saha} assumed an ideal gas of nuclei. In a
+strongly-coupled plasma each nucleus also carries a \textbf{Coulomb free
+energy} --- the interaction energy with its screening cloud --- which shifts its
+chemical potential by
+%
+\begin{equation*}
+\mu_i \to \mu_i + \mu^c_i(Z_i, \Gamma_e)
+\end{equation*}
+%
+pynucastro implements the \citet[eq.~28]{chabrier1998} fit:
+%
+\begin{equation*}
+\frac{\mu^c}{kT} =
+A_1\Bigl[\sqrt{\Gamma(A_2+\Gamma)}
+- A_2\ln\bigl(\sqrt{\Gamma/A_2}+\sqrt{1+\Gamma/A_2}\bigr)\Bigr]
++ 2A_3\bigl[\sqrt\Gamma - \arctan\sqrt\Gamma\,\bigr]
+\end{equation*}
+%
+with $A_1 = -0.9052$, $A_2 = 0.6322$,
+\textbf{$A_3 = -\sqrt3/2 - A_1/\sqrt{A_2}$}, and
+$\Gamma = \Gamma_e Z^{5/3}$.
+
+\begin{aside}
+\textbf{Notice the structure.} That $A_3$ definition is the \emph{same kind of
+object} as \code{chugunov\_2007}'s $A_3 = \sqrt3 - A_1/\sqrt{A_2}$
+(\S\ref{sec:chugunov}): a coefficient defined so the fit reproduces the
+Debye--H\"uckel $\sqrt{\Gamma^3}$ limit at weak coupling. Two different fits, two
+different sign conventions, one shared boundary condition. Once you have seen it
+in one, you can read it in the other --- and you know immediately that ``clean
+up $A_3$ to a literal'' is a bug in both.
+\end{aside}
+
+\textbf{The $Z^{5/3}$ scaling is the important physics.} $\mu^c$ grows much
+faster than linearly with charge, so the correction \emph{differentially}
+favours heavy nuclei in NSE --- it shifts the NSE composition toward the Fe peak
+at fixed $T$, $\rho$, \Ye. At the box's cold, dense corner ($\Gamma_e$ large)
+this is not a small effect \citep[screening factors in the equilibrium reach
+${\sim}10^6$ at $\Tn = 3.5$, $\rho = 10^9$\,\gcc]{hix1996}.
+
+\textbf{Why the $\kappa$ screen sets \code{use\_coulomb\_corr=False}.} The screen
+compares \emph{bare} (unscreened) rates on both sides
+(\S\ref{sec:kappa-db}). Detailed balance for bare rates balances at the
+\emph{ideal-gas} NSE composition; balancing them at a Coulomb-corrected
+composition would introduce a mismatch that looks exactly like a $\kappa$ floor.
+The choice is not ``Coulomb corrections are negligible'' --- it is
+\textbf{``the equilibrium condition must be the one the rates actually
+satisfy.''} Screening on the rate side and Coulomb corrections on the
+equilibrium side are the same physics entering two ways, and they must be
+switched on and off together.
+
+That is the same principle as the two-$\kappa$ conventions rule
+(\S\ref{sec:two-kappa}), stated for the equilibrium side instead of the rate
+side. It is worth extracting as a general rule, because it will recur in S9:
+
+\begin{invariant}
+\textbf{Rate-side and equilibrium-side plasma corrections are a matched pair.
+Any consistency test must use both or neither.}
+\end{invariant}
+
+% =====================================================================
+\subsection*{Self-check --- S4}
+\addcontentsline{toc}{subsection}{Self-check --- S4}
+\label{sec:selfcheck-plasma}
+
+\begin{selfcheck}
+\item Derive \eqref{eq:debye} from the linearised Poisson--Boltzmann equation.
+      Where does the assumption of weak coupling enter, and what does it mean
+      physically?
+\item Compute $\Gamma$ for a \nuc{Ni}{56}--$\alpha$ pair at $\Tn = 4$,
+      $\rho = 10^9$. Is \code{chugunov\_2007} the right prescription there? What
+      would \code{screen5} (Salpeter\,/\,Graboske) get wrong?
+\item Show that $A_3 = \sqrt3 - A_1/\sqrt{A_2}$ enforces the Debye--H\"uckel
+      limit. What would break if someone ``cleaned up'' $A_3$ to a rounded
+      literal?
+\item Derive \eqref{eq:screenedkappa}. Then predict $\kappa_{\rm screened}$ for
+      a pair whose forward enhancement is $1.9\times$ and whose reverse is
+      unscreened, and check it against \S\ref{sec:boxgamma}'s table.
+\item A colleague proposes evaluating the equilibrium mask on screened $\kappa$
+      ``because that is what the labels use''. Give the two-sentence rebuttal.
+\item \code{use\_coulomb\_corr=False} in the $\kappa$ screen. Construct the
+      spurious $\kappa$ floor you would measure if you set it True while keeping
+      the rates bare, and estimate its size at $\rho = 10^9$, $Z = 26$.
+      \emph{(This question arrives from the source's S3 block, following its
+      material to \S\ref{sec:nse-coulomb}.)}
+\end{selfcheck}
+
+\begin{aside}
+The source's fourth question in this block --- why the composite-intermediate
+rule for three-body screening does not matter for the project's verdicts, and
+which measurement bounds it --- tests the cross-check rather than the physics,
+and has moved to \S\ref{sec:selfcheck-verification}.
+Appendix~\ref{app:concordance} records every such relocation.
+\end{aside}

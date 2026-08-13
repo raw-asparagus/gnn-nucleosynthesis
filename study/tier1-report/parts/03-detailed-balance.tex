@@ -1,0 +1,793 @@
+% =====================================================================
+%  LAYER A -- Theory and derivation.
+%  Section 3 (S3): detailed balance -- the load-bearing node.
+%
+%  Source: tier1.md Part III -- header (1206-1218), III.1 (1220-1333),
+%          III.2 (1335-1366), III.3 (1368-1427, the spline block 1429-1472
+%          excluded), III.4 (1474-1492), III.5 (1494-1559),
+%          III.6 (1561-1593), III.7 (1595-1712), III.12 (1839-1933),
+%          III.13 self-check (1935-1960).
+%  Excluded and re-homed: III.3's pf-spline / pf_matrix code (1429-1472)
+%          and III.8 db_reverses.py (1714-1745) -> section 6;
+%          III.9 oracles (1747-1766) -> section 7;
+%          III.10 the two-kappa rule (1768-1782) and III.11 Coulomb terms
+%          in NSE (1784-1837) -> section 4, next to the derivation that
+%          produces them; the PfGateError class -> section 8.
+%          Self-check items 6, 7 -> section 7; item 10 -> section 4.
+% =====================================================================
+
+\section{Detailed balance: the load-bearing node (S3)}
+\label{part:db}
+
+\begin{repopointer}
+\textbf{Files:} \code{fluxes/db\_reverses.py}, \code{fluxes/guards.py},
+\code{crosscheck/kappa.py}. \quad
+\textbf{Oracles:} \code{tests/test\_flux\_compile.py} (pf gate),
+\code{tests/test\_flux\_engine.py} ($\kappa$ at NSE),
+\code{tests/test\_flux\_guards.py} (the gate as policy) ---
+\S\ref{sec:oracles-db}. \quad
+\textbf{Notebook:} 04.
+\end{repopointer}
+
+This is the node where a \emph{textbook identity} and a \emph{code defect} have
+the same algebra, and where the project's only blocking construction gate lives.
+Tier~0 said ``S3 is the load-bearing one''. Here is why:
+
+\begin{invariant}
+\textbf{Every equilibrium statement in this project --- QSE clusters, the Guidry
+mask, the active set, the kill-test verdict --- is a statement about the ratio
+of a forward rate to its reverse.} If that ratio is constructed wrongly, all of
+them are wrong in a way that looks like physics.
+\end{invariant}
+
+% =====================================================================
+\subsection{The reverse/forward ratio, derived in full}
+\label{sec:db-ratio}
+
+Start from chemical equilibrium (Tier~0, eq.~0.1): $\sum_i \nu_i\mu_i = 0$. For
+nuclei in a non-degenerate, non-relativistic gas the number density at chemical
+potential $\mu_i$ is \citep{hix1999b}
+%
+\begin{equation}
+n_i = g_i\,G_i(T)\left(\frac{m_i kT}{2\pi\hbar^2}\right)^{3/2}
+      \exp\!\left(\frac{\mu_i - m_i c^2}{kT}\right)
+\label{eq:saha}
+\end{equation}
+%
+with $g_i = 2J_i+1$ the ground-state degeneracy and $G_i(T)$ the internal
+partition function of (0.4). (Ions are non-degenerate everywhere in the box ---
+\S0.1.3. This is the step that would fail for the \emph{electrons}, and it is
+why the weak sector cannot be treated this way at all; see
+\S\ref{sec:ec-degenerate}.)
+
+Take a reaction with reactant multiset \Rset{} and product multiset \Pset.
+\textbf{Detailed} balance means the forward and reverse rates per unit volume
+are equal \emph{pairwise}, so
+%
+\begin{equation}
+\frac{1}{\prod_{\Rset} c!}\,\Bigl(\prod_{\Rset} n_i\Bigr)\,
+\tilde\lambda_{\rm fwd}
+=
+\frac{1}{\prod_{\Pset} c!}\,\Bigl(\prod_{\Pset} n_k\Bigr)\,
+\tilde\lambda_{\rm rev}
+\label{eq:dbbalance}
+\end{equation}
+%
+Substituting \eqref{eq:saha} and using
+$\sum_{\Rset}\mu = \sum_{\Pset}\mu$ (the equilibrium condition, which kills
+every chemical potential), the $\mu$'s cancel and the rest-mass exponentials
+combine into the $Q$-value:
+%
+\begin{equation}
+\frac{\prod_{\Rset} n_i}{\prod_{\Pset} n_k}
+=
+\frac{\prod_{\Rset} g_i G_i}{\prod_{\Pset} g_k G_k}
+\cdot
+\left(\frac{\prod_{\Rset} m_i}{\prod_{\Pset} m_k}\right)^{3/2}
+\cdot
+\left(\frac{kT}{2\pi\hbar^2}\right)^{\tfrac{3}{2}\dNs}
+\cdot e^{-Q/kT}
+\label{eq:dbdensities}
+\end{equation}
+%
+where
+%
+\begin{equation*}
+\dNs \equiv |\Rset| - |\Pset|,
+\qquad
+Q = \sum_{\Rset} m c^2 - \sum_{\Pset} m c^2
+\end{equation*}
+
+Now convert to the molar convention of \S\ref{sec:molar}
+($n_i = \rho N_A Y_i$, $\lambda = N_A^{\,n-1}\sigv$; each side of
+\eqref{eq:dbbalance} carries $\rho^{|\Rset|}$ and $\rho^{|\Pset|}$
+respectively). Writing masses as $m_i = A_i^{\rm mass} m_u$, everything collects
+into
+%
+\begin{equation}
+\boxed{\;
+\frac{\lambda_{\rm rev}}{\lambda_{\rm fwd}}
+=
+\underbrace{\frac{\prod_{\Pset} c!}{\prod_{\Rset} c!}}_{\text{multiplicity}}
+\cdot
+\underbrace{\frac{\prod_{\Rset} g_i}{\prod_{\Pset} g_k}}_{\text{spins}}
+\cdot
+\underbrace{\frac{\prod_{\Rset} G_i(T)}{\prod_{\Pset} G_k(T)}}_{\text{partition functions}}
+\cdot
+\underbrace{\left(\frac{\prod_{\Rset} A_i}{\prod_{\Pset} A_k}\right)^{3/2}}_{\text{mass phase space}}
+\cdot
+\underbrace{\bigl(\fac\cdot\Tn^{3/2}\bigr)^{\dNs}}_{\text{thermal phase space}}
+\cdot
+\underbrace{e^{-Q/kT}}_{\text{energetics}}
+\;}
+\label{eq:dbratio}
+\end{equation}
+%
+with the \textbf{molar phase-space constant}
+%
+\begin{equation}
+\fac \equiv \frac{1}{N_A}
+\left(\frac{m_u\,k\cdot 10^9\,\mathrm{K}}{2\pi\hbar^2}\right)^{3/2}
+= 9.8685\times10^{9},
+\qquad \log_{10}\fac = 9.9942
+\label{eq:fac}
+\end{equation}
+%
+\derivedhere{}, the same constant \citet{rauscher2000} print --- and this is
+precisely the constant MESA computes in
+\code{rates/private/reaclib\_support.f90} as
+%
+\begin{equation*}
+\fac = \frac{1}{N_A}\left(\frac{10^9\,\mathrm{K}\cdot k}{2\pi\hbar^2 N_A}\right)^{3/2}
+\end{equation*}
+%
+\resultsref{2026-07-09}, the two forms agreeing to nine digits because
+$1/N_A = m_u$ to one part in $10^9$ (CODATA 2022, \citealp{codata}:
+$m_u = 1.66053906892\times10^{-24}$\,g vs
+$1/N_A = 1.66053906717\times10^{-24}$\,g, relative difference
+$1.05\times10^{-9} = M_u - 1$\,g\,mol$^{-1}$; the equality was exact only
+pre-2019 SI).
+
+Six factors \citep{rauscher2000,smith2023}.
+
+\begin{warn}
+\textbf{Miss any one of them and the reverse rate is wrong by a multiplicative
+constant that looks completely plausible.} The rest of this section is a tour of
+which implementations miss which.
+\end{warn}
+
+\begin{exercise}
+\textbf{Sanity check to do once, by hand.} Verify \eqref{eq:dbratio} against
+pynucastro for $\nuc{Si}{28}(\alpha,\gamma)\nuc{S}{32}$: reproduce
+\code{rev.eval(T)} from \code{fwd.eval(T)} and the six factors. Using the
+literal six factors of \eqref{eq:dbratio} (masses $A^{\rm mass}$, library $Q$) I
+get agreement to $1.3\times10^{-3}$ relative at $\Tn = 3$, the residual
+splitting into two comparable parts: $6.4\times10^{-4}$ from pynucastro
+recomputing $Q$ from masses rather than taking the library's
+($\Delta Q = 1.6\times10^{-4}$\,MeV), and $7.0\times10^{-4}$ from
+\code{DerivedRate}'s exact-mass molar convention --- its prefactor carries
+$\prod(A^{\rm mass})^{5/2}/A$ and
+$m_u^{(5/2)\Delta N}(k\cdot10^9/2\pi\hbar^2)^{(3/2)\Delta N}$, which differs
+from \eqref{eq:dbratio}'s $(\prod A^{\rm mass})^{3/2}\cdot\fac^{\Delta N}$ by
+$\prod_{\Rset}(A^{\rm mass}/A)/\prod_{\Pset}(A^{\rm mass}/A)\cdot(m_u N_A)^{\Delta N}
+= 1.00070$ for this channel. \derivedhere
+\end{exercise}
+
+% =====================================================================
+\subsection{The thermal phase-space factor and why \texorpdfstring{$|\Delta N|$}{|dN|} is the index}
+\label{sec:phasespace}
+
+Read the factor $(\fac\cdot\Tn^{3/2})^{\dNs}$ dimensionally.
+$(m kT/2\pi\hbar^2)^{3/2}$ is a \textbf{number density} --- the quantum
+concentration, the density at which the thermal de Broglie volume holds one
+particle. Each \emph{net} particle destroyed in the forward direction has to be
+re-created from the thermal bath in the reverse, and the price of doing so is
+one quantum concentration.
+
+Hence (chapters per \citealp{cyburt2010}):
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.6cm} L{1.8cm} L{1.4cm} Y@{}}
+\toprule
+\textbf{Forward chapter} & \textbf{\Rset{} $\to$ \Pset} & \textbf{\dNs}
+  & \textbf{powers of $\fac\cdot\Tn^{3/2}$ in the reverse ratio} \\
+\midrule
+4 & $2 \to 1$ & $+1$ & 1 \\
+5 & $2 \to 2$ & $0$  & \textbf{none} \\
+2 & $1 \to 2$ & $-1$ & 1 (inverted) \\
+3 & $1 \to 3$ & $-2$ & 2 \\
+8 & $3 \to 1$ & $+2$ & 2 \\
+6 & $2 \to 3$ & $-1$ & 1 \\
+7 & $2 \to 4$ & $-2$ & 2 \\
+9 & $3 \to 2$ & $+1$ & 1 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Magnitudes \derivedhere{}: $\log_{10}(\fac\cdot\Tn^{3/2}) = 10.30\,/\,10.90\,/\,
+11.34$ at $\Tn = 1.6\,/\,4.0\,/\,7.9$. So \emph{one missing power is ten to
+eleven orders of magnitude}, and two is twenty-one to twenty-three. Hold those
+numbers --- \S\ref{sec:gh575} matches them against a measurement to within a
+third of a decade (and to three significant figures on the chapter-7 row).
+
+\textbf{Chapter 5 is the special case worth naming:} $2 \to 2$ rearrangements
+($(p,\alpha)$, $(n,\alpha)$, $(n,p)$) have $\dNs = 0$ and need no phase-space
+factor at all. Tier~0 \S0.5 flagged those as the \emph{bridge} reactions between
+QSE groups. They are therefore the reactions most immune to this entire class of
+error --- a small mercy, since they are the ones the group\,/\,bridge analysis
+depends on.
+
+% =====================================================================
+\subsection{Partition functions in the ratio}
+\label{sec:pf-in-ratio}
+
+The $G$-ratio in \eqref{eq:dbratio} is the \emph{only} temperature-dependent
+factor besides $\Tn^{3/2}$ and $e^{-Q/kT}$, and it is the one most easily
+dropped, because at low temperature it is 1.
+
+Measured pf values $\exp(\log_{\rm pf})$ from the Rauscher tables pynucastro
+ships \citep{rauscher1997,rauscher2003,smith2023} \derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+\textbf{Nucleus} & \textbf{$\Tn{=}3$} & \textbf{4} & \textbf{5} & \textbf{6.3}
+  & \textbf{7.9} \\
+\midrule
+\nuc{Si}{28} & 1.005 & 1.029 & 1.081 & 1.191 & 1.379 \\
+\nuc{S}{32}  & 1.001 & 1.008 & 1.029 & 1.090 & 1.233 \\
+\nuc{Ni}{56} & 1.000 & 1.002 & 1.011 & 1.046 & 1.168 \\
+\nuc{Co}{55} & 1.000 & 1.003 & 1.014 & 1.063 & 1.245 \\
+\nuc{Fe}{56} & 1.192 & 1.459 & 1.829 & 2.536 & \textbf{4.045} \\
+\nuc{Sc}{45} & 1.803 & 2.133 & 2.556 & 3.240 & \textbf{4.344} \\
+\nuc{Ti}{44} & 1.078 & 1.234 & 1.486 & 1.982 & 2.931 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Exactly the structure \S0.2.2 predicted: \textbf{doubly-magic and near-magic
+species stay near 1; odd-$A$ and mid-shell species reach 2--4.} The ratio in
+\eqref{eq:dbratio} therefore does \emph{not} cancel --- it is a ratio of
+dissimilar nuclei.
+
+Net pf corrections on complete channels \derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Channel} & \textbf{pf factor at $\Tn{=}3$} & \textbf{5} & \textbf{7.9} \\
+\midrule
+$\nuc{Si}{28}(\alpha,\gamma)\nuc{S}{32}$  & 1.004 & 1.050 & 1.119 \\
+$\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$ & 0.928 & 0.675 & \textbf{0.371} \\
+$\nuc{Fe}{54}(n,\gamma)\nuc{Fe}{55}$      & 0.877 & 0.774 & 0.830 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+So the correction ranges over roughly $0.37\times$ to $1.12\times$ on these
+three alone, and the project measured
+\textbf{$0.22\times$--$4.5\times$ across the network at NSE temperatures}
+\resultsref{2026-07-10}. A factor of 4.5 in a reverse rate is not a refinement.
+
+\subsubsection{The normalisation trap: \texorpdfstring{$G$ versus $(2J+1)G$}{G versus (2J+1)G}}
+\label{sec:pf-normalisation}
+
+\begin{warn}
+\warnglyph{}~\eqref{eq:dbratio} contains \textbf{two separate statistical
+factors} --- $\prod g/\prod g$ with $g = 2J_0+1$, and $\prod G/\prod G$. If $G$
+were defined as the \emph{unnormalised} sum $\sum(2J_s+1)e^{-E_s/kT}$, these
+would double-count the ground state.
+\end{warn}
+
+The tables are normalised, i.e.\ (0.4)'s form
+$G = \sum(2J_s+1)e^{-E_s/kT}/(2J_0+1)$, so $G \to 1$ as $T \to 0$
+\citep{rauscher2000,rauscher2003}. \textbf{Check it in the
+\S\ref{sec:pf-in-ratio} table:} every entry at $\Tn = 3$ is $\ge 1.000$ and the
+near-magic ones are 1.000--1.005. If the tables were unnormalised, \nuc{Ni}{56}
+($J_0 = 0$, $g = 1$) would still read ${\approx}1$ but \nuc{Sc}{45}
+($J_0 = 7/2$, $g = 8$) would read ${\approx}8$, not 1.803. \derivedhere
+
+So the code is right to carry both factors separately:
+
+\begin{srclisting}
+F *= math.prod(nucr.spin_states for nucr in ...)   # g = 2J0+1     (DerivedRate)
+...
+net_log_pf += nucr.partition_function.eval(T)      # ln G, normalised
+\end{srclisting}
+
+This is worth internalising because the failure mode is silent and
+species-selective: double-counting would multiply reverse rates by $g$-ratios of
+order 1--10, look like a ``pf problem'', and be indistinguishable from the
+v-flag defect without checking the low-$T$ limit. \textbf{The $T \to 1$ limit of
+a partition function is a free diagnostic; use it.}
+
+The mechanics of how the ratio is splined, extrapolated, and applied as a signed
+incidence matmul --- including the requirement that the rate-side and Saha-side
+rebuilds agree --- is \S\ref{sec:pf-spline}.
+
+% =====================================================================
+\subsection{Three ways to build a reverse, and what each omits}
+\label{sec:threeways}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.3cm} L{1.1cm} L{1.2cm} L{1.7cm} L{0.7cm} Y@{}}
+\toprule
+\textbf{Construction} & \textbf{spins} & \textbf{masses} & \textbf{$\fac^{\Delta N}$}
+  & \textbf{$Q$} & \textbf{partition functions} \\
+\midrule
+\textbf{(a)} Independent REACLIB fit of the reverse &
+  implicit & implicit & implicit & implicit &
+  implicit in the fit --- but \emph{only at the temperatures fitted} \\
+\textbf{(b)} REACLIB \textbf{v-flag} inverse fit \citep{cyburt2010} &
+  \yes & \yes & \yes & \yes & \no{} \textbf{omitted} \\
+\textbf{(c)} \code{DerivedRate(source\_rate=fwd, use\_pf=True)} &
+  \yes & \yes & \yes & \yes & \yes{} evaluated at runtime \\
+\textbf{(d)} MESA \code{compute\_rev\_ratio} &
+  \yes & \yes &
+  \textbf{exactly one power, and only when the tabulated direction has one
+  product} --- so zero powers where one or two are needed, and one where two are
+  needed (chapter 8) &
+  \yes & \yes{} (winvn pf ratios) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{itemize}
+\item \textbf{(a)} exists and causes a subtler problem: when MESA's REACLIB
+      snapshot and pynucastro's disagree about \emph{which direction was
+      fitted}, the two codes have independently-fitted pair members that need
+      not satisfy detailed balance exactly. That is the 14/16 ``construction
+      swap'' class in \S\ref{part:verification}, and it is why MESA 24.08.1
+      shows a subset of $(n,\alpha)/(p,\alpha)$ pairs sitting at
+      $\kappa \approx 0.75$ while stock is clean \resultsref{2026-07-10} --- a
+      \emph{newer snapshot} traded DB-linkage for fit quality.
+\item \textbf{(b)} is the project's blocking problem. Next subsection.
+\item \textbf{(c)} is the mandated construction.
+\item \textbf{(d)} is the gh-575 bug. \S\ref{sec:gh575}.
+\end{itemize}
+
+% =====================================================================
+\subsection{The v-flag dissected --- and why it is fatal above \texorpdfstring{$\Tn \approx 3$}{T9 ~ 3}}
+\label{sec:vflag}
+
+Return to the \S\ref{sec:onerate} table. The v-flag reverse of
+$\nuc{Si}{28}(\alpha,\gamma)\nuc{S}{32}$ is the forward's seven coefficients
+with exactly three changed \citep{rauscher2000,smith2023}:
+%
+\begin{equation*}
+a_0 \mathrel{+}= \ln F, \qquad
+a_1 \mathrel{+}= -\frac{Q}{k\cdot10^9}, \qquad
+a_6 \mathrel{+}= \tfrac{3}{2}\,\dNs
+\end{equation*}
+%
+Compare with \eqref{eq:dbratio}. The $a_1$ shift is $e^{-Q/kT}$. The $a_6$ shift
+is $\Tn^{(3/2)\dNs}$. The $a_0$ shift is $\fac^{\dNs}$ together with the spin,
+mass and multiplicity factors --- all temperature-independent, all correctly
+folded into a constant.
+
+\begin{result}
+\textbf{Everything in \eqref{eq:dbratio} is present except the
+partition-function ratio --- because the partition-function ratio is the one
+factor that is temperature-dependent and cannot be absorbed into a constant.}
+The v-flag construction is not sloppy; it is \emph{structurally incapable} of
+carrying pf within a seven-coefficient fit whose basis functions are fixed
+(\citealp{rauscher2000}: the fitted reverse ``has to be multiplied by the ratio
+of the partition functions'' at runtime).
+\end{result}
+
+The consequence is bounded and predictable: the v-flag reverse is wrong by
+exactly $\prod G_{\Rset}/\prod G_{\Pset}$, which is ${\approx}1$ below
+$\Tn \approx 2$ and reaches $0.22\times$--$4.5\times$ at NSE temperatures. Now
+recall \S\ref{sec:crossover}: \textbf{near equilibrium $f^+ \approx f^-$, so a
+systematic multiplicative error in $f^-$ appears at full strength in $\kappa$.}
+From $f^- = f^-_{\rm true}\cdot(1+\varepsilon)$:
+%
+\begin{equation*}
+\kappa = \frac{|f^+-f^-|}{f^++f^-} = \frac{|\varepsilon|}{2+\varepsilon}
+\;\approx\; \frac{|\varepsilon|}{2}\quad(|\varepsilon|\ll1)
+\quad\text{at true equilibrium}
+\end{equation*}
+%
+Note that the pf errors in play here are \textbf{not} small, so use the exact
+form: an $\varepsilon$ of 0.5--1 (a factor 1.5--2 in pf) manufactures
+$\kappa = \mathbf{0.20}$--$\mathbf{0.33}$ \textbf{at a state where the true
+$\kappa$ is zero}, where the linearised $\varepsilon/2$ would have said
+0.25--0.5. The distinction matters precisely here, because this is the number
+being compared against a measured p90. That is the measurement:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{5.0cm} L{3.0cm}@{}}
+\toprule
+\textbf{variant} & \textbf{median $\kappa$ at NSE (\msn{80} / \msn{151})}
+  & \textbf{p90} \\
+\midrule
+pyna graphs as built (raw v-flag) &
+  $6.6\times10^{-2}$ / $1.3\times10^{-1}$ & 0.39 / 0.49 \\
+stock MESA r23.05.1 &
+  $3.6\times10^{-3}$ / $3.3\times10^{-3}$ &
+  $1.2\times10^{-2}$ / $7.2\times10^{-3}$ \\
+MESA 24.08.1 &
+  $5.3\times10^{-3}$ / $4.9\times10^{-3}$ & 0.76 / 0.76 \\
+\textbf{pf-corrected engine (screening off)} &
+  $\mathbf{2.6\times10^{-12}}$ & $\mathbf{8.2\times10^{-12}}$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\resultsref{2026-07-10}. The worst individual pairs move from
+$\kappa = 0.44$--$0.64$ to $1.7\times10^{-12}$--$1.3\times10^{-11}$ under (c)
+--- \textbf{the attribution is dispositive}, not circumstantial: the entire
+floor was the missing $G$-ratio.
+
+\paragraph{Why this would have destroyed the kill-test.} The active-set gate is
+$\kappa_r > 0.1$. A spurious floor with p90 $= 0.39$ puts a large fraction of
+\emph{equilibrated} pairs above the threshold, so they enter the active set as
+if they carried net flow. $\cond(S_{\rm active})$ would be computed on a set
+inflated with noise columns, $|\dYe|$ attribution would be spread across
+reactions carrying nothing, and the Target-A verdict would be a measurement of a
+rate-construction artifact. Hence the project's only blocking construction gate,
+which \emph{refuses} rather than warning: compilation raises
+\code{PfGateError} (\S\ref{sec:guard-pf}).
+
+% =====================================================================
+\subsection{\texorpdfstring{$\kappa$}{kappa} as the numerical test of detailed balance}
+\label{sec:kappa-db}
+
+Tier~0 \S0.2.3 gave this its first reading; now it has teeth.
+%
+\begin{equation*}
+\kappa_r = \frac{|f^+_r - f^-_r|}{f^+_r + f^-_r}
+\end{equation*}
+
+\begin{itemize}
+\item At \textbf{true} equilibrium, detailed balance says $f^+ = f^-$
+      \emph{pairwise}, so $\kappa_r \to 0$ to rate-evaluation precision.
+\item A \textbf{nonzero $\kappa$ floor at NSE is therefore a self-consistency
+      failure of the rate set}, measurable without any reference to the truth
+      --- you do not need to know the correct rate, only that forward and
+      reverse must agree at a composition you can compute independently (from
+      Saha).
+\item This is what makes the $\kappa$-floor screen a \emph{clean} experiment:
+      NSE compositions come from pynucastro's solver, the rates come from three
+      different sources, and the only thing being tested is mutual consistency.
+\end{itemize}
+
+\code{crosscheck/kappa.py} implements exactly that, with one trick worth noting:
+
+\begin{aside}
+MESA-side gross fluxes reuse pynucastro's $Y$-product factors: within a pair
+comparison the composition factors are common, so
+\begin{equation*}
+f_{\rm MESA} = f_{\rm pyna}\cdot\frac{\lambda_{\rm MESA}}{\lambda_{\rm pyna}}
+\end{equation*}
+with bare (unscreened, $T$-only) rates on both sides.
+\end{aside}
+
+Because $\kappa$ is a \emph{ratio} within a pair, the abundance products cancel
+--- so a MESA-side $\kappa$ can be computed from MESA\,/\,pyna rate ratios
+alone, without ever evaluating a MESA composition. That is why the screen only
+needs the probe's $T$-only \code{eval\_rates} mode (\S\ref{sec:probe-modes}).
+
+\begin{warn}
+There is a second, entirely real reason $\kappa \ne 0$ at NSE, and it is not a
+bug: \textbf{screening}. Its derivation and the resulting
+\emph{two-$\kappa$-conventions} rule are \S\ref{sec:screened-kappa} and
+\S\ref{sec:two-kappa} --- stated there because that is where they are derived.
+Every $\kappa$ threshold in this project is evaluated on \emph{unscreened} runs.
+\end{warn}
+
+% =====================================================================
+\subsection{gh-575, derived from the same algebra}
+\label{sec:gh575}
+
+MESA's \code{compute\_rev\_ratio} implements \eqref{eq:dbratio} --- but gets the
+\emph{number of powers} of $\fac\cdot\Tn^{3/2}$ wrong. Read the source rather
+than paraphrasing it (\code{rates/private/reaclib\_support.f90:228}):
+
+\begin{srclisting}
+if (No==1) then
+   rates% inverse_exp(i) = 1        ! ... and multiply/divide coefficient(1) by fac
+else
+   rates% inverse_exp(i) = 0
+end if
+\end{srclisting}
+
+\textbf{The branch key is \code{No == 1} --- the number of \emph{products} of
+the tabulated direction --- and nothing else.} It is not ``three or more
+participants on a side'', and it is not $|\Delta N| \ne 1$. The applied exponent
+is therefore
+%
+\begin{equation*}
+e = \begin{cases} \pm1 & N_{\rm out}^{\rm tab} = 1\\
+                  0 & \text{otherwise}\end{cases}
+\qquad\text{against the correct }
+\dNs = N_{\rm in}^{\rm tab} - N_{\rm out}^{\rm tab}
+\end{equation*}
+%
+so the reverse is displaced by $|\dNs - e|$ powers, \textbf{not $|\dNs|$
+powers}:
+%
+\begin{equation}
+\boxed{\;
+\begin{aligned}
+|\Delta\log_{10}| &= \bigl|\dNs - e\bigr| \cdot
+  \log_{10}\bigl(\fac\cdot\Tn^{3/2}\bigr) \\
+&= \bigl|\dNs - e\bigr| \times \{10.30,\ 10.90,\ 11.34\}
+  \quad\text{at } \Tn = \{1.6,\,4.0,\,7.9\}
+\end{aligned}
+\;}
+\label{eq:gh575}
+\end{equation}
+
+\derivedhere{}. Tabulating it over the chapters that actually occur (arities
+read off \code{probe\_dump\_net\_mesa\_{80,151}.csv}) \derivedhere{}:
+
+\begin{center}
+\begin{tabular}{@{}llrrrl@{}}
+\toprule
+\textbf{Tabulated} & \textbf{chapter} & \textbf{\dNs} & \textbf{$e$}
+  & \textbf{powers missing} & \textbf{measured $\Delta\log_{10}$ at $\Tn = 4$} \\
+\midrule
+$2 \to 1$ & 4 & $+1$ & 1 & \textbf{0} & --- (correct) \\
+$2 \to 2$ & 5 & $0$  & 0 & \textbf{0} & --- (correct) \\
+$2 \to 3$ & 6 & $-1$ & 0 & 1 & $+10.1 \ldots +10.6$ $^{(*)}$ \\
+$3 \to 2$ & 9 & $+1$ & 0 & 1 & $-10.59$ \\
+$\mathbf{3 \to 1}$ & \textbf{8} & $\mathbf{+2}$ & \textbf{1} & \textbf{1}
+  & $\mathbf{-10.12 \ldots -10.89}$ \\
+$2 \to 4$ & 7 & $-2$ & 0 & 2 & $+21.79$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+$^{(*)}$ over the conforming chapter-6 rows. One member,
+\code{r\_h1\_h1\_he4\_to\_he3\_he3}, sits at 1.79\,dex instead of ${\sim}10.9$ --- and
+that is exactly the channel \S\ref{sec:appendixb} identifies as \emph{not} a
+gh-575 case (it is unchanged in MESA 24.08.1). The predicted-vs-measured
+comparison is what isolates it: a row that fails a mechanism-derived prediction
+is the signal that the mechanism does not apply to it.
+
+\begin{warn}
+\warnglyph{}~\textbf{Chapter 8 is the case the naive formula gets wrong, and it
+is the flagship one.} It has $|\dNs| = 2$, so ``$|\dNs|$ powers'' predicts
+${\approx}21.8$\,dex --- but its tabulated direction \emph{does} have a single
+product, so MESA applies one power and the deficit is \textbf{one} power,
+${\approx}10$\,dex. That is exactly what the screen measured for
+$\mathrm{c12} \to 3\alpha$ ($-10.118$\,dex at $\Tn = 4$ in
+\code{configs/appendixb\_excluded\_channels.yaml}). Reconstructing the affected
+set from the branch condition alone reproduces the config exactly: 9 rows for
+\msn{80}, 11 for \msn{151}. \derivedhere
+\end{warn}
+
+With the corrected formula the measurement lands where it should:
+
+\begin{result}
+$|\Delta\log10| = 10.0$--$11.1$ ($|\Delta N| = 1$, sign follows $\Delta N$) and
+20.6--22.7 ($|\Delta N| = 2$: \code{h1+h1+he4+he4} $\to$ \code{he3+be7}),
+tracking $|\Delta N|$\,$\cdot$\,$\log10(\fac\cdot\mathrm{T9}^{3/2})$ within
+${\lesssim}0.35$\,dex \resultsref{2026-07-09}.
+\end{result}
+
+Refined through the mechanism above (the RESULTS row's $|\Delta N|$ coincides
+with $|\dNs - e|$ on its own chapter-6/7/9 channels, where $e = 0$; the row
+predates the branch-condition derivation): deviation from
+$|\dNs - e|\cdot\log_{10}(\fac\cdot\Tn^{3/2})$ is $\le 0.31$\,dex except on
+channels with three identical particles on one side
+(\code{r\_he4\_he4\_he4\_to\_h1\_b11}, \code{r\_c12\_to\_he4\_he4\_he4}), which sit
+${\approx}0.78$\,dex ${\approx}\log_{10}3!$ low --- an identical-particle
+multiplicity offset on top of the missing power. The row's own
+``10.0--11.1 \ldots within ${\lesssim}0.35$\,dex'' matches the \msn{80}
+chapter-6/7/9 screen exactly (recomputed: 9.99--11.13, max deviation 0.308) but
+not \msn{151} or the chapter-8 class, which is low by 9.5--11.3\,dex
+\resultsref{2026-07-09}. \derivedhere
+
+Within ${\lesssim}0.3$\,dex for most channels --- and to three significant
+figures on the chapter-7 row (21.787 measured vs 21.795 predicted) --- from a
+one-line formula. \textbf{This is what ``dispositive attribution'' means} --- the
+notebook-04 figure plots measured vs predicted displacement side by side
+precisely so the agreement is visible rather than asserted.
+
+\begin{warn}
+\warnglyph{}~\textbf{The compression trap.} Tier~0 \S0.5 flagged it and it is
+worth repeating because \emph{two} natural summaries are wrong. The criterion is
+\textbf{not} ``$|\Delta N| \ne 1$'': of the 20 config rows across both networks,
+\textbf{13 have $|dN| = 1$}. And the displacement is \textbf{not} $|\Delta N|$
+powers, per the chapter-8 row above. The discriminator is the \emph{product
+arity of the tabulated direction}, which is why the config's own class field
+says \code{multi\_body\_inverse}. Read
+\code{configs/appendixb\_excluded\_channels.yaml} with its (unstated) convention
+in hand: \code{chapter} \textbf{and} \code{dN} both describe the tabulated
+direction, while \code{mesa\_handle} names the \textbf{inverse} being flagged ---
+so \code{r\_c12\_to\_he4\_he4\_he4}, which is itself $1 \to 3$ with its own
+$\Delta N = -2$, correctly carries \code{chapter: 8, dN: 2}.
+\end{warn}
+
+\paragraph{A completeness caveat.} Chapters 2 ($1{\to}2$), 3 ($1{\to}3$), 10
+($4{\to}2$) and 11 ($1{\to}4$) would fail \code{No == 1} in exactly the same
+way. They are absent from the flagged set because they are \textbf{empty in
+these two networks} --- the tabulated arities present are only $(2,1)$, $(2,2)$,
+$(3,1)$, $(2,3)$, $(2,4)$, $(3,2)$ \derivedhere{} --- not because the mechanism
+spares them. If the isotope list ever widens, the screen must be re-run rather
+than assumed to still enumerate the same classes.
+
+\paragraph{Beyond the paper.} The project's own screen found a class the
+Grichener et al.\ Appendix~B does not list: the inverses of chapter-8 rates (the
+$1 \to 3$ photodisintegrations), including \textbf{c12 $\to$ 3$\alpha$}, low by
+9.5--11.3\,dex \resultsref{2026-07-09}. Worth noticing as a matter of method ---
+the paper's list was taken as a starting hypothesis, the \emph{mechanism} was
+derived, and then the mechanism was used to search for channels the paper
+missed.
+
+\paragraph{Whose problem is it?} The Zenodo labels were generated with the
+authors' \emph{locally patched} r23.05.1, so:
+
+\begin{itemize}
+\item the \textbf{labels are clean} on these channels,
+\item \textbf{our stock MESA is the outlier},
+\item therefore MESA-side values on those channels must never be used as a
+      reference --- which is exactly \code{assert\_appendixb\_routing}
+      (\S\ref{sec:guard-appendixb}).
+\end{itemize}
+
+% =====================================================================
+\subsection{\texorpdfstring{$Q(T)$}{Q(T)}: the thermal Q-value, derived and measured}
+\label{sec:qoft}
+
+The architecture spec calls for the energy head to use \textbf{$Q_j(T)$} ---
+``tabulated from the same temperature-dependent partition functions the backbone
+sees (not $T$-independent values)'' --- while
+\code{docs/phase0-killtest-verdict.md} records that ``$Q_j(T)$ corrections are
+not modeled'', and pynucastro's \code{Rate.Q} is a scalar float. So there is a
+specified quantity that nothing computes and nothing in the study plan defines.
+Here it is.
+
+\paragraph{Derivation.} The mass-excess $Q$ of (0.7) is the \emph{ground-state
+to ground-state} energy release. In a thermal ensemble each nucleus carries a
+mean excitation energy, which follows from the partition function by the
+standard statistical-mechanics identity \citep[e.g.][]{rauscher2000}
+%
+\begin{equation}
+\langle E^*\rangle_i = kT^2\,\frac{\dd\ln G_i}{\dd T}
+= kT\cdot \Tn\frac{\dd\ln G_i}{\dd \Tn}
+\label{eq:meanexc}
+\end{equation}
+%
+and the effective energy released when thermally-populated reactants become
+thermally-populated products is
+%
+\begin{equation}
+\boxed{\;
+Q_j(T) = Q_j^{\rm gs}
++ \sum_{i\in\Rset_j}\langle E^*\rangle_i
+- \sum_{k\in\Pset_j}\langle E^*\rangle_k
+\;}
+\label{eq:qoft}
+\end{equation}
+
+\textbf{The pleasing part:} the bracket in \eqref{eq:qoft} is the
+\emph{derivative} of exactly the same pf combination
+$\ln\prod G_{\Rset} - \ln\prod G_{\Pset}$ that appears in the detailed-balance
+ratio \eqref{eq:dbratio}. The engine already builds splines of $\ln G$ per
+nucleus and the $\pm$ incidence matrix \code{pf\_matrix}
+(\S\ref{sec:pf-spline}). \textbf{$Q(T)$ needs no new data --- only
+\code{spline.derivative()} and the matrix that already exists.} That is a
+three-line change, which makes the fact that it is unimplemented a genuine
+oversight rather than a deferred cost.
+
+\textbf{Measured magnitudes} \derivedhere{}. Mean excitation energies
+$\langle E^*\rangle$ [MeV]:
+
+\begin{center}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{Nucleus} & \textbf{$\Tn{=}3$} & \textbf{5} & \textbf{7.9} \\
+\midrule
+\nuc{Si}{28} & 0.009 & 0.133 & 0.520 \\
+\nuc{S}{32}  & 0.002 & 0.065 & 0.516 \\
+\nuc{Ca}{40} & 0.000 & 0.010 & 0.358 \\
+\nuc{Ni}{56} & 0.000 & 0.031 & 0.553 \\
+\nuc{Ti}{44} & 0.080 & 0.440 & 1.340 \\
+\nuc{Sc}{45} & 0.121 & 0.393 & 1.004 \\
+\nuc{Fe}{56} & 0.140 & 0.509 & \textbf{1.698} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\nuc{Fe}{56} holds \textbf{1.7\,MeV of thermal excitation} at the top of the box
+--- the same species-selectivity as \S\ref{sec:pf-in-ratio}, for the same
+reason.
+
+And the channel-level correction $Q(T) - Q^{\rm gs}$:
+
+\begin{center}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Channel} & \textbf{$Q^{\rm gs}$} & \textbf{$\Tn{=}3$}
+  & \textbf{$\Tn{=}5$} & \textbf{$\Tn{=}7.9$} \\
+\midrule
+$\nuc{Si}{28}(\alpha,\gamma)\nuc{S}{32}$  & 6.948 & $+0.1\%$ & $+1.0\%$ & $+0.1\%$ \\
+$\nuc{S}{32}(\alpha,\gamma)\nuc{Ar}{36}$  & 6.641 & $-0.0\%$ & $-0.6\%$ & $-2.3\%$ \\
+$\nuc{Ti}{44}(\alpha,\gamma)\nuc{Cr}{48}$ & 7.696 & $-1.2\%$ & $-0.3\%$ & $+3.8\%$ \\
+$\mathbf{\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}}$ & 5.127 & $-1.6\%$
+  & $\mathbf{-8.4\%}$ & $\mathbf{-19.2\%}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Against invariant \#5's $\le1\%$ gate on \enuc.}
+$\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$ --- a core $\alpha$-ladder step, not
+an exotic channel --- carries a 19\% $Q$ correction at the box top and 8\% in
+the QSE window. Note also the \emph{non-monotonicity} and \emph{sign changes}:
+this is not a smooth offset that could be absorbed into a calibration.
+
+\begin{warn}
+\warnglyph{}~\textbf{But be careful about what this does and does not show.}
+Three honest qualifications:
+
+\begin{enumerate}
+\item \textbf{The aggregate is a flux-weighted sum, and the terms partially
+      cancel.} The $\alpha$ ladder shares nuclei between consecutive steps, so
+      $\langle E^*\rangle$ of \nuc{Ti}{44} enters
+      $\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$ with one sign and
+      $\nuc{Ti}{44}(\alpha,\gamma)\nuc{Cr}{48}$ with the other. The per-channel
+      19\% is an upper bound on a single term, not a measured \enuc{} error.
+\item \textbf{It is a bookkeeping-convention question, not obviously an error.}
+      Nuclear excitation energy is \emph{real} internal energy of the matter.
+      Whether it belongs in \enuc{} (the nuclear source term) or in the EOS
+      internal energy depends on whether the EOS accounts for nuclear excitation
+      --- and most stellar EOSs do not. The requirement is
+      \textbf{consistency between the two}, not that either convention is right.
+      Using $Q^{\rm gs}$ while the EOS ignores excitation may well be the
+      self-consistent pair.
+\item \textbf{Invariant \#5's current PASS is near-algebraic.} The verdict doc
+      says so explicitly: with constant mass-derived $Q$, flux-route vs
+      mass-excess bookkeeping ``bounds Q-table rounding, not route physics''.
+      The 1.000 pass fraction is not evidence that $Q(T)$ does not matter --- it
+      is a measurement that cannot see $Q(T)$ at all. This is the
+      \S\ref{sec:commonmode} common-mode blindness in its purest form: identical
+      $Q$ on both sides of a comparison.
+\end{enumerate}
+\end{warn}
+
+So the finding is not ``\enuc{} is 19\% wrong''. It is: \textbf{the project has
+a specified quantity it does not compute, a gate that structurally cannot detect
+its absence, and a per-channel magnitude nineteen times the gate.} Resolving it
+needs one decision (which convention MESA/bbq uses) and one three-line
+implementation. Recorded in \S\ref{sec:gap-qoft}.
+
+% =====================================================================
+\subsection*{Self-check --- S3}
+\addcontentsline{toc}{subsection}{Self-check --- S3}
+\label{sec:selfcheck-db}
+
+\begin{selfcheck}
+\item Derive \eqref{eq:dbratio} from
+      \eqref{eq:saha}--\eqref{eq:dbdensities} yourself, keeping the molar
+      conversion explicit. Where exactly does $1/N_A^{\dNs}$ enter?
+\item Verify \eqref{eq:fac} numerically. Then confirm that MESA's stated form
+      $N_A^{-1}\bigl(10^9 k/(2\pi\hbar^2 N_A)\bigr)^{3/2}$ is the same number,
+      and say why.
+\item For a chapter-5 rearrangement, which factors of \eqref{eq:dbratio}
+      survive? Why is this class immune to gh-575?
+\item Predict the pf correction on $\nuc{Si}{28}(\alpha,\gamma)\nuc{S}{32}$ at
+      $\Tn = 7.9$ from the table in \S\ref{sec:pf-in-ratio}, then check it
+      against pynucastro. Why is it so much smaller than for
+      $\nuc{Ca}{40}(\alpha,\gamma)\nuc{Ti}{44}$?
+\item Given $\varepsilon = 1.0$ (a factor-2 error in $f^-$), compute $\kappa$ at
+      true equilibrium. Compare with the measured p90 of the raw-v-flag variant.
+      Are they consistent?
+\item Show that the Rauscher pf tables are normalised, using only the $\Tn = 3$
+      column of \S\ref{sec:pf-in-ratio} and the ground-state spins of
+      \nuc{Ni}{56} and \nuc{Sc}{45}. What would the table look like if they were
+      not?
+\item State the reciprocity theorem \eqref{eq:reciprocity} and explain why
+      chemical equilibrium alone would not license using a DB reverse at
+      $\kappa = 0.9998$.
+\end{selfcheck}
+
+\begin{aside}
+Three questions of this block moved with their material: the two about the
+$\kappa$-floor screen and about \code{test\_exported\_npz\_trips\_the\_gate} are now
+\S\ref{sec:selfcheck-verification}, and the one about \code{use\_coulomb\_corr} is
+\S\ref{sec:selfcheck-plasma}. Appendix~\ref{app:concordance} records every such
+relocation.
+\end{aside}

@@ -1,0 +1,133 @@
+% =====================================================================
+%  LAYER D -- Executable policy.
+%  Section 8: the guards.
+%
+%  Source: tier1.md Part VII (3375-3411), together with the constants and
+%          exception classes each guard pins, gathered from where the
+%          source states them: PfGateError (1554-1557),
+%          SCREENING_ALLOWED (2310-2312), DEFAULT_TABULAR_ORDERING
+%          (2892-2894) and its ordering check (2906-2909).
+% =====================================================================
+
+\section{The guards: Tier 1 as executable policy}
+\label{part:guards}
+
+\code{fluxes/guards.py} is the tier's conclusions compiled into code that
+refuses to run. Four gates, each traceable to a measurement in
+\S\ref{part:db}--\S\ref{part:verification}:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.5cm} Y L{4.6cm}@{}}
+\toprule
+\textbf{Guard} & \textbf{Encodes} & \textbf{From} \\
+\midrule
+\code{assert\_pf\_gate} & no raw v-flag reverses, ever &
+  \S\ref{sec:vflag} --- spurious $\kappa$ floor to 0.8 \\
+\code{assert\_appendixb\_routing} & gh-575 channels never take stock r23.05.1
+  values & \S\ref{sec:gh575} --- 10--23 dex \\
+\code{assert\_screening\_allowed} & \code{chugunov\_2007} or \code{None}, nothing
+  else & \S\ref{sec:screening-pairs}\,/\,\S\ref{sec:screening-determination} ---
+  0.0021 dex determination \\
+\code{assert\_reconciled\_build} & pinned tabular ordering $+$
+  \code{provisional\_reaction\_set == False} &
+  \S\ref{sec:tablefamilies}\,/\,\S\ref{sec:disposition} --- ADR 0003 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% ---------------------------------------------------------------------
+\subsection{The four gates, as code}
+\label{sec:guard-code}
+
+\subsubsection{\texorpdfstring{\code{assert\_pf\_gate}}{assert pf gate}}
+\label{sec:guard-pf}
+
+Fed the \code{vflag\_sets} boolean of \S\ref{sec:vflag-extraction} (or
+\code{derived\_from\_inverse} read straight from an npz), it raises rather than
+warns:
+
+\begin{srclisting}
+class PfGateError(RuntimeError):
+    """Raised when a flux/kappa computation would use raw v-flag reverse rates."""
+\end{srclisting}
+
+and compilation \emph{refuses}. The physics it protects is
+\S\ref{sec:vflag}: the partition-function ratio is the one factor of
+\eqref{eq:dbratio} with no common-mode partner, so an error in it survives into
+$\kappa$ at full strength.
+
+\subsubsection{\texorpdfstring{\code{assert\_appendixb\_routing}}{assert appendixb routing}}
+\label{sec:guard-appendixb}
+
+Refuses stock-r23.05.1 MESA values on the 9\,/\,11 excluded channels of
+\code{configs/appendixb\_excluded\_channels.yaml} --- the gh-575 class derived in
+\S\ref{sec:gh575} and measured in \S\ref{sec:appendixb}. The Zenodo labels were
+generated with the authors' locally patched r23.05.1, so on those channels the
+labels are clean and \emph{our} stock MESA is the outlier.
+
+\subsubsection{\texorpdfstring{\code{assert\_screening\_allowed}}{assert screening allowed}}
+\label{sec:guard-screening}
+
+\begin{srclisting}
+SCREENING_ALLOWED = frozenset({"chugunov_2007", None})
+\end{srclisting}
+
+--- a pin derived from a measurement, not a preference
+(\S\ref{sec:screening-determination}: median ratio 0.99999, max 0.0021\,dex
+against \code{chugunov\_2007}; 0.52\,dex against \code{chugunov\_2009}).
+
+\subsubsection{\texorpdfstring{\code{assert\_reconciled\_build}}{assert reconciled build}}
+\label{sec:guard-reconciled}
+
+This one encodes two conclusions. First the tabular precedence of
+\S\ref{sec:tablefamilies}, pinned as a constant:
+
+\begin{srclisting}
+DEFAULT_TABULAR_ORDERING = ("suzuki", "pruet_fuller", "ffn", "oda", "langanke")
+\end{srclisting}
+
+and checked on every build, because a build with the wrong ordering would be
+subtly wrong in a way no conservation test can catch:
+
+\begin{srclisting}
+if tuple(info.tabular_ordering) != DEFAULT_TABULAR_ORDERING:
+    raise ValueError("... != pinned ADR-0003 ordering ...")
+\end{srclisting}
+
+Second, the reconciled-membership flag of \S\ref{sec:licenses}:
+\code{provisional\_reaction\_set == False} plus \code{disposition\_sha256} in every
+npz, which is the machine-readable form of ``this build is the reconciled one''.
+
+% ---------------------------------------------------------------------
+\subsection{Four properties worth studying as design}
+\label{sec:guard-design}
+
+Independently of the physics:
+
+\begin{enumerate}
+\item \textbf{They raise, they do not warn.} A warning in a batch job is a log
+      line nobody reads. \code{PfGateError} stops compilation.
+\item \textbf{They are import-light on purpose.} ``No pynucastro import at
+      module scope so the guards can gate cheap code paths (npz-only checks)
+      without the heavy import.'' A guard that is expensive to call gets called
+      less.
+\item \textbf{They are placed at the chokepoint.} \emph{Every} flux\,/\,$\kappa$
+      entry point goes through \code{compile\_network}, which calls three of the
+      four (\code{assert\_screening\_allowed}, \code{assert\_reconciled\_build},
+      \code{assert\_pf\_gate}); the fourth, \code{assert\_appendixb\_routing},
+      guards a different chokepoint --- any request for MESA-side rate
+      \emph{values} (the spot-check harness) --- since compilation never
+      consumes stock-MESA values. No path into the flux engine bypasses the
+      three compilation gates --- which is a stronger property than ``all
+      current callers check''.
+\item \textbf{They are tested for their failure behaviour}, not their success
+      behaviour: \code{test\_flux\_guards.py} is mostly \code{pytest.raises}.
+      Including \code{test\_exported\_npz\_trips\_the\_gate}
+      (\S\ref{sec:oracles-db}), which asserts that a real artifact in the repo
+      still fails the gate.
+\end{enumerate}
+
+This is the pattern Tier~0 \S VII.4 named (``invariants live in code that
+refuses, not in comments''). Tier~1 is where you see it applied to five separate
+physics conclusions in one file (the fourth guard encodes two: the ordering pin
+and the reconciled-membership flag).
