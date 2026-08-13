@@ -134,7 +134,12 @@ def main() -> int:
     check("verbatim listings in report", listings, 2)
     # remaining 3 fenced blocks became tables; verified by the Appendix B
     # diagram table, which must list all 12.
-    diag = tex[tex.index("\\section{Diagrams}"):]
+    # level-agnostic: the Diagrams heading may sit at any sectioning depth
+    diag_at = re.search(r"\\(?:sub)*section\*?\{Diagrams\}", tex)
+    if diag_at is None:
+        failures.append("Appendix B has no Diagrams heading")
+        return 1
+    diag = tex[diag_at.start():]
     diag_rows = len(re.findall(r"&", diag[: diag.index("\\end{tabularx}")])) - 1
     check("blocks listed in Appendix B diagram table", diag_rows, 12)
 

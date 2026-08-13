@@ -2,7 +2,7 @@
 %  Part IX -- Working practice.
 %  Source: tier0.md Part VII (3111-3218), order unchanged.
 % =====================================================================
-\part{Working practice: the discipline the repo runs on}
+\section{Working practice: the discipline the repo runs on}
 \label{part:practice}
 
 \textbf{The one non-physics part.} It is here because you cannot read this
@@ -11,7 +11,7 @@ which epistemic rule they enforce. Every pattern below appears in code you will
 read in Tier 1.
 
 % ---------------------------------------------------------------------
-\chapter{Every number carries a provenance label}
+\subsection{Every number carries a provenance label}
 \label{sec:provenance}
 
 Exactly one of:
@@ -47,7 +47,7 @@ direction from the assumption. \textbf{That is the system working}, and it only
 worked because the number was never allowed to be quoted as sourced.
 
 % ---------------------------------------------------------------------
-\chapter{Thresholds must have instruments}
+\subsection{Thresholds must have instruments}
 \label{sec:instruments}
 
 Any gate written down --- per-step $|\dYe| \lesssim 3\times10^{-6}$,
@@ -65,7 +65,7 @@ produce it. When you see a number in \code{CLAUDE.md}, look for its instrument;
 if you cannot find one, that is a finding.
 
 % ---------------------------------------------------------------------
-\chapter{Decisions carry their own reversal condition}
+\subsection{Decisions carry their own reversal condition}
 \label{sec:switchconditions}
 
 Settled decisions become ADRs, and every ADR must state a \textbf{switch
@@ -91,7 +91,7 @@ governs measurements: a redone measurement never silently overwrites the old
 value.
 
 % ---------------------------------------------------------------------
-\chapter{Invariants live in code that refuses, not in comments}
+\subsection{Invariants live in code that refuses, not in comments}
 \label{sec:guards}
 
 The pattern you will meet repeatedly: rather than documenting a rule and hoping,
@@ -128,7 +128,7 @@ gate blocks. The conservation check is a gate: training does not begin until it
 passes, and edits to \code{graph/} trigger it automatically.
 
 % ---------------------------------------------------------------------
-\chapter{Non-regenerable artifacts are persisted, not re-derived}
+\subsection{Non-regenerable artifacts are persisted, not re-derived}
 \label{sec:persistence}
 
 \S\ref{sec:sobol} established that the Sobol grid cannot be regenerated. The
@@ -146,7 +146,7 @@ integers does not. Same reasoning behind content hashes recorded for every
 generated flux store.
 
 % ---------------------------------------------------------------------
-\chapter{Notebooks explore; scripts produce}
+\subsection{Notebooks explore; scripts produce}
 \label{sec:notebooks}
 
 Notebooks are \textbf{exploratory only}. Every citable number comes from
@@ -159,8 +159,8 @@ declared UNSCREENED/SCREENED convention that must match the store's own
 attributes, so mixing conventions fails loudly rather than silently.
 
 % ---------------------------------------------------------------------
-\chapter*{Self-check --- working practice}
-\addcontentsline{toc}{chapter}{Self-check --- working practice}
+\subsection*{Self-check --- working practice}
+\addcontentsline{toc}{subsection}{Self-check --- working practice}
 \label{sec:selfcheck-practice}
 
 \begin{selfcheck}

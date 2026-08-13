@@ -3,7 +3,7 @@
 %  Source: tier0.md Part 0 preamble (123-137), 0.1 (138-306),
 %          0.2 (308-439), 0.3 (441-548), 0.4 (550-641).
 % =====================================================================
-\part{The physical substrate}
+\section{The physical substrate}
 \label{part:substrate}
 
 The physics that must be in place before ``a nuclide has $(Z,N)$'' and ``the
@@ -37,10 +37,10 @@ yourself --- several justify configuration choices that otherwise look
 arbitrary.
 
 % ---------------------------------------------------------------------
-\chapter{The thermodynamic state of silicon-burning matter}
+\subsection{The thermodynamic state of silicon-burning matter}
 \label{sec:thermostate}
 
-\section{The four pressure components}
+\subsubsection{The four pressure components}
 \label{sec:pressurecomponents}
 
 \begin{equation*}
@@ -59,7 +59,7 @@ P = P_{\mathrm{ion}} + P_{e} + P_{\mathrm{rad}} + P_{\mathrm{Coulomb}}
       screening} (\S\ref{sec:gamma})
 \end{itemize}
 
-\section{Worked example --- box centre
+\subsubsection{Worked example --- box centre
   (\texorpdfstring{$\rho = 10^{8}$\,\gcc, $T_9 = 4$, $Y_e = 0.5$,
    $\bar{A} \approx 28$}{rho = 1e8, T9 = 4, Ye = 0.5, Abar = 28})}
 \label{sec:boxcentre}
@@ -110,7 +110,7 @@ $P_{\mathrm{rad}}$ & $6.5\times10^{23}$ & ${\sim}3\%$ \\
 object, so a composition variable that changes $n_e$ changes the structure
 directly.
 
-\section{Degeneracy across the box}
+\subsubsection{Degeneracy across the box}
 \label{sec:degeneracy}
 
 Degeneracy is measured by $E_{F,\mathrm{kin}}/kT$, with
@@ -135,7 +135,7 @@ The box spans exactly the transition from ``electrons barely notice each
 other'' to ``electrons dominate everything'' --- not a coincidence, but the
 physically interesting range.
 
-\section{The Coulomb coupling parameter
+\subsubsection{The Coulomb coupling parameter
   \texorpdfstring{$\Gamma$}{Gamma} --- and why \code{chugunov\_2007}}
 \label{sec:gamma}
 
@@ -204,7 +204,7 @@ Carry this into \textbf{S4}: when you read \code{fluxes/screening.py}, you are
 reading an intermediate-coupling interpolation, and you now know why nothing
 simpler would do.
 
-\section{The electron-capture threshold --- a box edge derived from scratch}
+\subsubsection{The electron-capture threshold --- a box edge derived from scratch}
 \label{sec:ecthreshold}
 
 Electron capture on free protons, $p + e^- \to n + \nu$, requires the total
@@ -265,13 +265,13 @@ free-proton number is the clean reference point.
 \end{selfcheck}
 
 % ---------------------------------------------------------------------
-\chapter{Statistical mechanics you actually need}
+\subsection{Statistical mechanics you actually need}
 \label{sec:statmech}
 
 Three results, one framework. Everything in S3 (detailed balance) and S9 (NSE
 and QSE) is a corollary of this chapter.
 
-\section{Chemical potential and the equilibrium condition}
+\subsubsection{Chemical potential and the equilibrium condition}
 \label{sec:chempotential}
 
 For a system at fixed $(T, V)$, the Helmholtz free energy $F$ is minimized. The
@@ -330,7 +330,7 @@ This single equation generates everything:
       $Q$-value and partition functions. This is S3.
 \end{itemize}
 
-\section{Nuclear partition functions}
+\subsubsection{Nuclear partition functions}
 \label{sec:partitionfunctions}
 
 A nucleus has excited states. The internal partition function is
@@ -376,7 +376,7 @@ cross-checked against each other, because a pf mismatch between the rate side
 and the equilibrium side would silently corrupt every $\kappa$ comparison.
 \end{repopointer}
 
-\section{Detailed balance from time reversal}
+\subsubsection{Detailed balance from time reversal}
 \label{sec:detailedbalance}
 
 The microscopic statement: for a transition $a \to b$, the squared matrix
@@ -426,10 +426,10 @@ this project.)
 \end{selfcheck}
 
 % ---------------------------------------------------------------------
-\chapter{Nuclear structure minimum}
+\subsection{Nuclear structure minimum}
 \label{sec:nuclearstructure}
 
-\section{The mass-excess convention --- a real sign trap}
+\subsubsection{The mass-excess convention --- a real sign trap}
 \label{sec:massexcess}
 
 Nuclear data tables give the \textbf{mass excess}, not the binding energy:
@@ -498,7 +498,7 @@ carries a \code{q\_mev} field per reaction, and the energy identity
 $\enuc = \sum_j Q_j \Phi_j$ in S10 consumes it. You should be able to reproduce
 any entry by hand.
 
-\section{Magic numbers and why \texorpdfstring{\nuc{Ni}{56}}{56Ni} is the
+\subsubsection{Magic numbers and why \texorpdfstring{\nuc{Ni}{56}}{56Ni} is the
   Si-burning endpoint}
 \label{sec:magicnumbers}
 
@@ -521,7 +521,7 @@ maximum (\nuc{Ni}{62}) and the actual product (\nuc{Ni}{56}) differ because the
 and they are slow. The composition is set by a \emph{constrained} optimum, and
 the constraint is the project's central variable.
 
-\section{Where the rates actually come from --- and how well they are known}
+\subsubsection{Where the rates actually come from --- and how well they are known}
 \label{sec:ratesources}
 
 The part most easily assumed away. In a network reaching to Ni and beyond:
@@ -576,10 +576,10 @@ available. Two consequences:
 \end{selfcheck}
 
 % ---------------------------------------------------------------------
-\chapter{Neutrinos}
+\subsection{Neutrinos}
 \label{sec:neutrinos}
 
-\section{Two distinct neutrino channels}
+\subsubsection{Two distinct neutrino channels}
 \label{sec:nuchannels}
 
 Do not conflate these; the dataset carries them differently.
@@ -601,7 +601,7 @@ In the data: \code{eps\_nu} / \code{eps\_neu} columns. Note the units trap from
 \S\ref{sec:labelnoise} --- a \textbf{rate} [erg/g/s] in the training CSVs while
 \code{eps\_nuc} beside it is \textbf{integrated} [erg/g].
 
-\section{Why neutrinos free-stream --- and why that accelerates everything}
+\subsubsection{Why neutrinos free-stream --- and why that accelerates everything}
 \label{sec:freestreaming}
 
 Neutrino--nucleon cross sections scale as \citep[][where
@@ -667,7 +667,7 @@ $+1$, $\bar\nu$ $-1$) --- is not bookkeeping fussiness. It is what lets you
 state ``lepton number is conserved by the reaction'' while the neutrino column
 subsequently leaves the system.
 
-\section{\texorpdfstring{$\langle E_\nu\rangle$}{<E nu>} --- an open item to
+\subsubsection{\texorpdfstring{$\langle E_\nu\rangle$}{<E nu>} --- an open item to
   understand before you meet it}
 \label{sec:enu}
 

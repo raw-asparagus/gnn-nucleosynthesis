@@ -6,18 +6,18 @@
 %  line-wrapped ">" sign in "cond(S_active) < 1e6 pass / > 1e8 fail".
 %  It is set inline here, not as a callout.
 % =====================================================================
-\part{Numerical analysis prerequisites}
+\section{Numerical analysis prerequisites}
 \label{part:numerics}
 
 % ---------------------------------------------------------------------
-\chapter{Catastrophic cancellation --- \texorpdfstring{$\kappa$}{kappa} is a
+\subsection{Catastrophic cancellation --- \texorpdfstring{$\kappa$}{kappa} is a
   condition number}
 \label{sec:cancellation}
 
 The single most important piece of numerical analysis in the project, and it
 deserves a derivation rather than an assertion.
 
-\section{The derivation}
+\subsubsection{The derivation}
 \label{sec:cancellationderivation}
 
 Compute $d = a - b$ where $a \approx b > 0$, with each input carrying relative
@@ -63,7 +63,7 @@ different direction --- as the numerical test of detailed balance,
 eq.~\eqref{eq:kappa-detailed-balance}. The two meanings coincide, which is why
 $\kappa$ is load-bearing in both the physics and the numerics of this project.
 
-\section{The numbers that follow}
+\subsubsection{The numbers that follow}
 \label{sec:kappanumbers}
 
 \begin{center}
@@ -101,7 +101,7 @@ $10^{-9}$  & $10^{9}$   & --- & $2.2\times10^{-7}$ \\
       amplification.
 \end{itemize}
 
-\section{Why this reframes the whole kill-test}
+\subsubsection{Why this reframes the whole kill-test}
 \label{sec:killtestreframe}
 
 The kill-test asks: \emph{can a model that predicts gross-scale quantities
@@ -112,7 +112,7 @@ why its thresholds are stated in $\kappa$ and in $\cond(S_{\mathrm{active}})$,
 both condition numbers.
 
 % ---------------------------------------------------------------------
-\chapter{Conditioning and the rank-revealing subtlety}
+\subsection{Conditioning and the rank-revealing subtlety}
 \label{sec:conditioning}
 
 For a linear system $A x = b$, relative error amplification is the condition
@@ -178,7 +178,7 @@ be rank-revealing.
 \end{aside}
 
 % ---------------------------------------------------------------------
-\chapter{Stiffness, defined properly}
+\subsection{Stiffness, defined properly}
 \label{sec:stiffness}
 
 ``Stiff'' is often used loosely to mean ``fast''. It means something specific.
@@ -217,7 +217,7 @@ S \sim 10^{12}\text{--}10^{15}
 Explicit integration would need ${\sim}10^{15}$ steps to follow the \Ye{}
 evolution. \textbf{Implicit is not an optimization, it is a necessity.}
 
-\section{Stiffness and QSE are the same phenomenon}
+\subsubsection{Stiffness and QSE are the same phenomenon}
 \label{sec:stiffnessqse}
 
 The fast modes decay quickly, after which the trajectory lies on a
@@ -247,7 +247,7 @@ sector and integrate only the slow one. Not a solver trick; exploiting the slow
 manifold directly.
 
 % ---------------------------------------------------------------------
-\chapter{Floating point, concretely}
+\subsection{Floating point, concretely}
 \label{sec:floatingpoint}
 
 \begin{center}
@@ -297,13 +297,13 @@ integer and the products are exactly representable. The bound exists for the
 general random-$\varphi$ case.)
 
 % ---------------------------------------------------------------------
-\chapter{Newton's method, damping, and globalization}
+\subsection{Newton's method, damping, and globalization}
 \label{sec:newton}
 
 Prerequisite for reading \code{qse/solver.py}, whose structure looks defensive
 until you know what it is defending against.
 
-\section{The method}
+\subsubsection{The method}
 \label{sec:newtonmethod}
 
 To solve $\mathbf{F}(\mathbf{u}) = \mathbf{0}$, iterate
@@ -319,7 +319,7 @@ step, so $10^{-2} \to 10^{-4} \to 10^{-8} \to 10^{-16}$. That is why Newton is
 the default whenever an analytic Jacobian is available --- and here it is,
 because the Saha form differentiates in closed form.
 
-\section{Why it fails, specifically here}
+\subsubsection{Why it fails, specifically here}
 \label{sec:newtonfails}
 
 The NSE residual involves $X_i = \exp(\log C_i + (Z_i u_p + N_i u_n)/kT)$. With
@@ -339,7 +339,7 @@ Two guards, both visible in the code:
       an overshoot saturates rather than overflowing.
 \end{enumerate}
 
-\section{Globalization: the fallback that cannot fail}
+\subsubsection{Globalization: the fallback that cannot fail}
 \label{sec:globalization}
 
 Damped Newton is still only \emph{locally} convergent. \code{solve\_nse}
@@ -361,12 +361,12 @@ rows to the proven scalar path.
 \end{aside}
 
 % ---------------------------------------------------------------------
-\chapter{ODE error control: what rtol and atol actually promise}
+\subsection{ODE error control: what rtol and atol actually promise}
 \label{sec:errorcontrol}
 
 Prerequisite for reading \code{fluxes/integrate.py}.
 
-\section{Local versus global error}
+\subsubsection{Local versus global error}
 \label{sec:localglobal}
 
 An adaptive solver controls the \textbf{local} error per step against
@@ -395,7 +395,7 @@ and across \code{rtol} from \code{1e-10} to \code{5e-8}. Agreement across
 \emph{method} and \emph{tolerance} is the real accuracy evidence; the tolerance
 number alone is not.
 
-\section{Why atol matters more than usual}
+\subsubsection{Why atol matters more than usual}
 \label{sec:atol}
 
 With a state spanning 15 decades, $\mathrm{rtol}\cdot|y|$ is meaningless for
@@ -410,7 +410,7 @@ $[\mathbf{Y}, \boldsymbol{\Phi}]$, and abundances and cumulative fluxes have
 different natural scales; a single atol would impose one species' notion of
 negligible on the other.
 
-\section{Dense output and t\_eval}
+\subsubsection{Dense output and t\_eval}
 \label{sec:denseoutput}
 
 \code{t\_eval} requests values at specified times. The solver does \textbf{not}
@@ -420,7 +420,7 @@ $\dd t = 10^{2}$~s with \code{t\_eval} at all nine label $\dd t$s costs
 essentially the same as integrating to $10^{2}$~s alone, and gives all nine
 labels. That is the design that makes the label prototype affordable at all.
 
-\section{BDF versus Radau}
+\subsubsection{BDF versus Radau}
 \label{sec:bdfradau}
 
 \begin{itemize}
@@ -440,8 +440,8 @@ Using BDF as production and Radau as cross-check is the right split: you get
 throughput from one and solver-independence evidence from the other.
 
 % ---------------------------------------------------------------------
-\chapter*{Self-check --- numerical analysis}
-\addcontentsline{toc}{chapter}{Self-check --- numerical analysis}
+\subsection*{Self-check --- numerical analysis}
+\addcontentsline{toc}{subsection}{Self-check --- numerical analysis}
 \label{sec:selfcheck-numerics}
 
 \begin{selfcheck}

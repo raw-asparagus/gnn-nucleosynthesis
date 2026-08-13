@@ -3,13 +3,13 @@
 %  Source: tier0.md I.1 (954-1007), I.2 (1009-1101), VI.6 (3070-3092),
 %          I.9 items 1-3 (1427-1432), VI.7 item 6 (3106-3107, relocated).
 % =====================================================================
-\part{Astrophysical context}
+\section{Astrophysical context}
 \label{part:context}
 
 Each link in this chain is a physical claim you should be able to defend.
 
 \begin{aside}
-\textbf{Notation, taken on credit.} This part is written throughout in \Ye{},
+\textbf{Notation, taken on credit.} This section is written throughout in \Ye{},
 the \emph{electron fraction}: electrons per baryon,
 $\Ye = \sum_i Z_i X_i / A_i$, equal to $0.5$ for matter with equal numbers of
 protons and neutrons and falling as electrons are captured. It is derived
@@ -18,10 +18,10 @@ until then; everything below turns on it.
 \end{aside}
 
 % ---------------------------------------------------------------------
-\chapter{The last day of a massive star}
+\subsection{The last day of a massive star}
 \label{sec:lastday}
 
-\section{The burning sequence}
+\subsubsection{The burning sequence}
 \label{sec:burningsequence}
 
 A star above ${\sim}10$--11\,\Msun{} burns through the full sequence of fuels
@@ -73,7 +73,7 @@ where cancellation ($\kappa$, \S\ref{sec:cancellation}), quasi-equilibrium
 clustering (\S\ref{sec:topology}), and stiffness (\S\ref{sec:stiffness}) all
 come from.
 
-\section{Why the acceleration}
+\subsubsection{Why the acceleration}
 \label{sec:acceleration}
 
 From carbon burning onward, energy leaves the core as \textbf{neutrinos}, not
@@ -89,7 +89,7 @@ loses energy catastrophically faster, so it must burn faster to compensate.
 Each successive stage is shorter by a large factor, and the sequence terminates
 at the iron peak where no exothermic fusion remains.
 
-\section{Why this is the regime to emulate}
+\subsubsection{Why this is the regime to emulate}
 \label{sec:whyregime}
 
 Silicon burning concentrates the computational pain: highest temperatures
@@ -99,20 +99,20 @@ leaves behind, and where a stellar-evolution code spends a disproportionate
 fraction of total runtime inside the network.
 
 % ---------------------------------------------------------------------
-\chapter{What actually determines whether the star explodes}
+\subsection{What actually determines whether the star explodes}
 \label{sec:explodability}
 
 At the end of Si burning the core is an iron sphere supported by
 \textbf{degenerate electron pressure}, which carries ${\sim}93\%$ of the total
 at box-centre conditions (\S\ref{sec:boxcentre}).
 
-Take as given, and verify in Part~\ref{part:substrate}, that at these
+Take as given, and verify in \S\ref{part:substrate}, that at these
 densities the electrons are relativistic and degenerate and carry that
 ${\sim}93\%$ share; the derivation cannot be brought forward because it is
 evaluated at box-centre conditions that are only fixed in
 \S\ref{sec:regimebox}.
 
-\section{Derivation --- \texorpdfstring{$M_{\mathrm{ch}} \propto Y_e^2$}{Mch propto Ye2}}
+\subsubsection{Derivation --- \texorpdfstring{$M_{\mathrm{ch}} \propto Y_e^2$}{Mch propto Ye2}}
 \label{sec:mchderivation}
 
 For an ultra-relativistic degenerate electron gas, pressure depends only on
@@ -154,7 +154,7 @@ this formula.)
 $\Ye = 0.45$ gives $1.18\,\Msun$, a \textbf{19\% reduction} in supportable mass
 from a 10\% change in one composition scalar.
 
-\section{The thermal correction}
+\subsubsection{The thermal correction}
 \label{sec:thermalcorrection}
 
 \begin{equation*}
@@ -170,7 +170,7 @@ Chandrasekhar mass} --- a hotter core supports more. \Ye{} remains the dominant
 lever and the one nuclear burning directly controls, but the picture is
 two-parameter.
 
-\section{The collapse trigger}
+\subsubsection{The collapse trigger}
 \label{sec:collapsetrigger}
 
 Collapse begins when pressure support fails, via two coupled runaways:
@@ -207,7 +207,7 @@ These reinforce each other, and collapse becomes dynamical on a free-fall
 timescale of ${\sim}0.1$~s ($t_{\mathrm{coll}} \approx 0.21/\sqrt{\bar\rho_8}$~s
 --- \citealt{janka2012}).
 
-\section{The observable end of the chain}
+\subsubsection{The observable end of the chain}
 \label{sec:observableend}
 
 \Ye{} at collapse onset sets: the iron core mass, the bounce shock location,
@@ -226,7 +226,7 @@ or projected away. An emulator that conserves mass and charge perfectly but
 gets \Ye{} wrong has failed at the only thing that mattered.
 
 % ---------------------------------------------------------------------
-\chapter{The observational grounding --- how we know \texorpdfstring{\Ye{}}{Ye} matters}
+\subsection{The observational grounding --- how we know \texorpdfstring{\Ye{}}{Ye} matters}
 \label{sec:obsgrounding}
 
 Chains of inference worth being able to state:
@@ -259,8 +259,8 @@ This is what makes the accuracy targets \emph{meaningful} rather than
 self-referential: there is a measurement at the end of the chain.
 
 % ---------------------------------------------------------------------
-\chapter*{Self-check --- astrophysical context}
-\addcontentsline{toc}{chapter}{Self-check --- astrophysical context}
+\subsection*{Self-check --- astrophysical context}
+\addcontentsline{toc}{subsection}{Self-check --- astrophysical context}
 \label{sec:selfcheck-context}
 
 \begin{selfcheck}

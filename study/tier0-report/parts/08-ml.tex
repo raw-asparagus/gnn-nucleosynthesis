@@ -4,11 +4,11 @@
 %          to Part I; VI.7 items 1-5 (3096-3105), item 6 relocated to
 %          Part I's self-check.
 % =====================================================================
-\part{ML framing and context}
+\section{ML framing and context}
 \label{part:ml}
 
 % ---------------------------------------------------------------------
-\chapter{What kind of learning problem this is}
+\subsection{What kind of learning problem this is}
 \label{sec:learningproblem}
 
 \textbf{It is not neural operator learning in the DeepONet/FNO sense.} Those
@@ -46,7 +46,7 @@ Recognizing that expressivity is \emph{not} the bottleneck is what justifies
 spending the effort on the decoder structure rather than on backbone scale.
 
 % ---------------------------------------------------------------------
-\chapter{Message passing, concretely}
+\subsection{Message passing, concretely}
 \label{sec:messagepassing}
 
 A GNN layer updates node states by aggregating over neighbours (the
@@ -116,10 +116,10 @@ Equation \eqref{eq:message-passing} is permutation-equivariant by construction
 spending capacity on a symmetry that could have been free.
 
 % ---------------------------------------------------------------------
-\chapter{Feature and loss design under 15 decades of dynamic range}
+\subsection{Feature and loss design under 15 decades of dynamic range}
 \label{sec:featureloss}
 
-\section{Inputs first --- the transform that is legal}
+\subsubsection{Inputs first --- the transform that is legal}
 \label{sec:inputtransform}
 
 The raw composition vector spans 15 decades, which no standard initialization or
@@ -175,7 +175,7 @@ $\log(0)$ is undefined. asinh handles it ($\asinh 0 = 0$); log needs an additive
 floor, which then becomes a hyperparameter encoding what counts as negligible.
 Prefer asinh on inputs for this reason alone.
 
-\section{Then losses --- where the naive choices all fail}
+\subsubsection{Then losses --- where the naive choices all fail}
 \label{sec:losses}
 
 \begin{center}
@@ -220,7 +220,7 @@ Relative with floor $|\Delta X|/(X + X_0)$ &
 \end{itemize}
 
 % ---------------------------------------------------------------------
-\chapter{MESA and bbq, concretely}
+\subsection{MESA and bbq, concretely}
 \label{sec:mesabbq}
 
 \textbf{MESA} (Modules for Experiments in Stellar Astrophysics) is a modular 1-D
@@ -269,7 +269,7 @@ back the composition history and energetics. Its \code{use\_hydrostatic} $+$
 the local rerun campaign.
 
 % ---------------------------------------------------------------------
-\chapter{Prior art in network acceleration --- where ML actually sits}
+\subsection{Prior art in network acceleration --- where ML actually sits}
 \label{sec:priorart}
 
 ML is the newest entry in a long line of attempts. Knowing the line matters,
@@ -311,8 +311,8 @@ itself a result, and why the flux head ended up full-width.
 \end{aside}
 
 % ---------------------------------------------------------------------
-\chapter*{Self-check --- ML framing}
-\addcontentsline{toc}{chapter}{Self-check --- ML framing}
+\subsection*{Self-check --- ML framing}
+\addcontentsline{toc}{subsection}{Self-check --- ML framing}
 \label{sec:selfcheck-ml}
 
 \begin{selfcheck}
@@ -334,6 +334,6 @@ itself a result, and why the flux head ended up full-width.
 \textbf{One question from the source document's \S VI.7 is not here.} Item~6
 (tracing the inference chain from a 1\% \Ye{} error to a changed observable)
 tests \S VI.6, whose material now opens the report as
-\S\ref{sec:obsgrounding}; it appears in Part~\ref{part:context}'s self-check
+\S\ref{sec:obsgrounding}; it appears in \S\ref{part:context}'s self-check
 instead. See Appendix~\ref{app:concordance}.
 \end{aside}

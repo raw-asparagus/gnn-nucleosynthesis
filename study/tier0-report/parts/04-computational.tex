@@ -5,11 +5,11 @@
 %          I.9 items 4-6 (1433-1438), plus II.8 items 4 and 7
 %          (1816-1817, 1825-1826) relocated here.
 % =====================================================================
-\part{The computational problem}
+\section{The computational problem}
 \label{part:computational}
 
 % ---------------------------------------------------------------------
-\chapter{Why nuclear networks are the computational bottleneck}
+\subsection{Why nuclear networks are the computational bottleneck}
 \label{sec:bottleneck}
 
 \begin{equation*}
@@ -17,7 +17,7 @@
 n_{\text{species}} \text{ equations}, \; n_{\text{rxn}} \text{ terms}
 \end{equation*}
 
-\section{The three costs, quantified}
+\subsubsection{The three costs, quantified}
 \label{sec:threecosts}
 
 \textbf{1. Stiffness forces implicit integration.} The stiffness ratio
@@ -69,7 +69,7 @@ afford, and accept that it gets the composition --- and therefore \Ye{} ---
 wrong.
 
 % ---------------------------------------------------------------------
-\chapter{Softwired networks: the compromise MESA makes}
+\subsection{Softwired networks: the compromise MESA makes}
 \label{sec:softwired}
 
 MESA's response is the \textbf{softwired} network: a fixed species list, with
@@ -83,7 +83,7 @@ That is the entire purpose of the Fortran probe
 (\code{src/mesa\_probes/probe.f90}) and the reconciliation of S6, which
 established 607 / 1518 reactions with \code{MESA\_ONLY = 0}.
 
-\section{The actual shape of the trade-off}
+\subsubsection{The actual shape of the trade-off}
 \label{sec:networkshape}
 
 Computed from the repository's own isotope lists:
@@ -212,7 +212,7 @@ exactly the $\beta$-decay and electron-capture partners that govern \Ye{}.
 \textbf{\msn{151} is not ``more of the same'' --- it is a network reshaped
 toward getting the weak sector right.}
 
-\section{The measured consequence}
+\subsubsection{The measured consequence}
 \label{sec:measuredconsequence}
 
 \msn{80} contains only 6 of 9 electron-capture controllers and \textbf{0 of 8}
@@ -239,7 +239,7 @@ evolution is biased downward --- the restoring flux that remains is carried by
 weaker channels.
 
 % ---------------------------------------------------------------------
-\chapter{Why machine-learning emulation}
+\subsection{Why machine-learning emulation}
 \label{sec:whyml}
 
 The network step is a \textbf{map}, and a well-posed one:
@@ -254,7 +254,7 @@ For fixed $(T, \rho)$ it is the time-$\Delta t$ flow of an \emph{autonomous} ODE
 output. The autonomy is not free: it is granted by operator splitting, examined
 properly in \S\ref{sec:splitting}.
 
-\section{The cost model --- what speedup would actually matter}
+\subsubsection{The cost model --- what speedup would actually matter}
 \label{sec:costmodel}
 
 Replace an adaptive implicit solve (several Newton iterations $\times$ several
@@ -271,7 +271,7 @@ network dominates runtime --- the ratio is most favourable.
 \emph{large} network everywhere, ending the accuracy-vs-cost compromise of
 \S\ref{sec:softwired} rather than merely optimizing within it.
 
-\section{Framing it honestly}
+\subsubsection{Framing it honestly}
 \label{sec:framinghonestly}
 
 This is operator learning with a twist. The operator has exact algebraic
@@ -282,10 +282,10 @@ The difficulties are dynamic range, stiffness, exact constraints, and rollout
 drift (\S\ref{sec:learningproblem}).
 
 % ---------------------------------------------------------------------
-\chapter{What breaks when an emulator does not conserve}
+\subsection{What breaks when an emulator does not conserve}
 \label{sec:conservationfailure}
 
-\section{Mode 1 --- accumulation}
+\subsubsection{Mode 1 --- accumulation}
 \label{sec:accumulation}
 
 Let the per-step conservation violation be $\delta$. Linearizing error
@@ -318,7 +318,7 @@ saturate --- but \Ye{} has no restoring force, because strong reactions conserve
 it exactly. Expect the two to behave differently, and expect the gate to belong
 on \Ye{}.
 
-\section{Mode 2 --- physical inconsistency}
+\subsubsection{Mode 2 --- physical inconsistency}
 \label{sec:physicalinconsistency}
 
 $\sum_i X_i \neq 1$ --- equivalently $\sum_i A_i Y_i \neq 1$, equation
@@ -328,7 +328,7 @@ host code does not error; it silently produces a wrong star. (Note it is
 $\sum X_i$ that is normalized, not $\sum A_iX_i$: the latter is
 $\approx \bar{A} \sim 30$ and is not conserved by anything.)
 
-\section{Why soft penalties are the wrong fix}
+\subsubsection{Why soft penalties are the wrong fix}
 \label{sec:softpenalties}
 
 The standard ML response is a loss term $\lambda\|C\cdot \dd Y\|^2$. This gives
@@ -357,7 +357,7 @@ shows residual drift is bounded by ${\sim}n\varepsilon \approx
 float32 it would miss by seven orders of magnitude.
 
 % ---------------------------------------------------------------------
-\chapter{Why a graph neural network}
+\subsection{Why a graph neural network}
 \label{sec:whygnn}
 
 The reaction network \emph{is} a graph --- not an analogy:
@@ -400,10 +400,10 @@ $(T, \rho, \mathbf{X})$ in, $(\mathbf{X}', e_{\text{nuc}}, \varepsilon_\nu)$ out
 even a different depth per network size \citep{grichener2025}.
 
 % ---------------------------------------------------------------------
-\chapter{Where conservation is allowed to live}
+\subsection{Where conservation is allowed to live}
 \label{sec:whereconservation}
 
-\section{Target A}
+\subsubsection{Target A}
 \label{sec:targetA}
 
 Predict signed net per-reaction fluxes $\varphi$, decode through fixed
@@ -417,7 +417,7 @@ Conserves for any $\varphi$. Also carries per-reaction structure: you can
 inspect which reaction the model thinks is carrying flux, which is what makes
 bridge and bottleneck analysis possible at all.
 
-\section{Target B --- and the full projector derivation}
+\subsubsection{Target B --- and the full projector derivation}
 \label{sec:targetB}
 
 Predict $\dd Y$ directly, then project onto the constraint manifold. We want the
@@ -462,7 +462,7 @@ derivation, not just input validation. In practice the implementation uses a QR
 null-space form, which is numerically better conditioned than forming
 $(CC\Tr)^{-1}$ explicitly.
 
-\section{The critical theorem --- and the documented failure mode}
+\subsubsection{The critical theorem --- and the documented failure mode}
 \label{sec:criticaltheorem}
 
 $P$ is valid \textbf{only in a linear output space}. Suppose you predict in a
@@ -497,8 +497,8 @@ Internal $\asinh$/signed-log latents are fine --- they just may never be the
 space where a sum constraint is evaluated.
 
 % ---------------------------------------------------------------------
-\chapter*{Self-check --- the computational problem}
-\addcontentsline{toc}{chapter}{Self-check --- the computational problem}
+\subsection*{Self-check --- the computational problem}
+\addcontentsline{toc}{subsection}{Self-check --- the computational problem}
 \label{sec:selfcheck-computational}
 
 \begin{selfcheck}

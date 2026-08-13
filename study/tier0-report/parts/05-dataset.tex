@@ -2,14 +2,14 @@
 %  Part V -- The dataset as a physical object.
 %  Source: tier0.md Part III (1832-2222), order unchanged.
 % =====================================================================
-\part{The dataset as a physical object}
+\section{The dataset as a physical object}
 \label{part:dataset}
 
 The dataset is a \emph{discretization of an operator}, and every design choice
 in it encodes a physical assumption. Study it as physics.
 
 % ---------------------------------------------------------------------
-\chapter{What one record is}
+\subsection{What one record is}
 \label{sec:onerecord}
 
 \begin{result}
@@ -42,7 +42,7 @@ value is rejected (\S\ref{sec:dtgrid}).
 \end{repopointer}
 
 % ---------------------------------------------------------------------
-\chapter{The regime box, derived rather than assumed}
+\subsection{The regime box, derived rather than assumed}
 \label{sec:regimebox}
 
 \begin{align*}
@@ -111,7 +111,7 @@ over. Physically richest and hardest.
 \end{repopointer}
 
 % ---------------------------------------------------------------------
-\chapter{The \texorpdfstring{$\dd t$}{dt} grid --- and why nominal values are a
+\subsection{The \texorpdfstring{$\dd t$}{dt} grid --- and why nominal values are a
   lie}
 \label{sec:dtgrid}
 
@@ -144,7 +144,7 @@ Producer        & \code{scripts/check\_training\_csvs.py} (from the real
 \end{tabular}
 \end{center}
 
-\section{Two deeper traps at opposite ends of the grid}
+\subsubsection{Two deeper traps at opposite ends of the grid}
 \label{sec:dttraps}
 
 \textbf{Short end --- the linearity premise is void.} The premise that
@@ -169,10 +169,10 @@ network the same way at large $\Delta t$ is a genuine open question, developed
 in \S\ref{sec:splitting}.
 
 % ---------------------------------------------------------------------
-\chapter{Sobol sampling: the theory, and its limits here}
+\subsection{Sobol sampling: the theory, and its limits here}
 \label{sec:sobol}
 
-\section{Discrepancy}
+\subsubsection{Discrepancy}
 \label{sec:discrepancy}
 
 For $P = \{x_1\ldots x_N\} \subset [0,1]^d$, the star discrepancy is
@@ -211,7 +211,7 @@ Sobol (digital $(t,m,s)$-net) &
 $N = 2^m$ net bound is one log factor sharper, $O((\log N)^{d-1}/N)$ ---
 \citealt{owen2022}.)
 
-\section{How Sobol is actually built}
+\subsubsection{How Sobol is actually built}
 \label{sec:sobolbuild}
 
 Each dimension $j$ has a set of \textbf{direction numbers} $v_{j,1}$, $v_{j,2}$,
@@ -234,7 +234,7 @@ resolution is coarse --- \citealt{niederreiter1992}; \citealt{owen2022}). This
 is why \textbf{$N = 2^{20}$} --- powers of two are where the guarantee is tight,
 and taking a non-power-of-2 prefix degrades it \citep{owen2022}.
 
-\section{The gap you must fill honestly}
+\subsubsection{The gap you must fill honestly}
 \label{sec:sobolgap}
 
 \begin{warn}
@@ -255,7 +255,7 @@ degree of freedom and correlates all the rest)? And note the sharper version of
 the concern from \S\ref{sec:onezone}: uniform coverage of composition space is
 coverage of a set that is \emph{mostly physically unreachable}.
 
-\section{Scrambling}
+\subsubsection{Scrambling}
 \label{sec:scrambling}
 
 Owen scrambling applies random permutations to the digits of each coordinate,
@@ -266,7 +266,7 @@ the exact rate is $O(N^{-3/2}(\log N)^{(d-1)/2})$
 the regular lattice artifacts plain Sobol shows in some 2-D projections (the
 motivation for the \citealt{joe2008} direction numbers).
 
-\section{The consequence that shapes this entire repository}
+\subsubsection{The consequence that shapes this entire repository}
 \label{sec:nonregenerable}
 
 The grid used an \textbf{unseeded} scrambled sampler: permutations drawn from
@@ -288,7 +288,7 @@ over-engineering until you realize a re-drawn sample would be a \emph{different}
 sample, and every measured number keyed to it would become unreproducible.
 
 % ---------------------------------------------------------------------
-\chapter{The identity problem --- why \code{state\_id}}
+\subsection{The identity problem --- why \code{state\_id}}
 \label{sec:stateid}
 
 The raw CSVs carry \textbf{no sample id}. Three measured facts resolve identity:
@@ -304,7 +304,7 @@ The raw CSVs carry \textbf{no sample id}. Three measured facts resolve identity:
 Therefore \code{state\_id} $=$ row index (0-based);
 (\code{state\_id}, \code{dt\_index}) identifies a record.
 
-\section{Do this estimate yourself}
+\subsubsection{Do this estimate yourself}
 \label{sec:collisionestimate}
 
 Rounding $\log T \in [9.2, 9.9]$ and $\log\rho \in [7, 9]$ to 3 decimals gives
@@ -348,10 +348,10 @@ screened-$\kappa$ refusal in \code{distributions.py}).
 \end{repopointer}
 
 % ---------------------------------------------------------------------
-\chapter{Label noise, floors, and censoring}
+\subsection{Label noise, floors, and censoring}
 \label{sec:labelnoise}
 
-\section{float32 labels}
+\subsubsection{float32 labels}
 \label{sec:float32labels}
 
 Upstream models and label tensors are float32:
@@ -362,7 +362,7 @@ raw CSVs as \textbf{float64} and does conservation arithmetic in float64;
 float32 is permitted in model internals only (\S\ref{sec:floatingpoint} derives
 why).
 
-\section{The \texorpdfstring{$1\times10^{-15}$}{1e-15} floor}
+\subsubsection{The \texorpdfstring{$1\times10^{-15}$}{1e-15} floor}
 \label{sec:floor}
 
 \code{final\_*} mass fractions are clamped at \code{FINAL\_X\_FLOOR = 1e-15}
@@ -379,7 +379,7 @@ squared error against the clamp. Note also the dynamic range: $X$ spans 15
 decades, so plain MSE in linear $X$ is dominated entirely by the handful of
 species near unity (\S\ref{sec:featureloss}).
 
-\section{Energy normalization}
+\subsubsection{Energy normalization}
 \label{sec:energynorm}
 
 \code{eps\_nuc} and \code{eps\_nu} in the training CSVs are stored
@@ -401,7 +401,7 @@ would not.)
 future re-extraction re-checks before training touches $\varepsilon_\nu$.
 
 % ---------------------------------------------------------------------
-\chapter{Leakage-safe splits}
+\subsection{Leakage-safe splits}
 \label{sec:splits}
 
 All nine records of one state share its \code{state\_id} and therefore
@@ -421,7 +421,7 @@ of $\Phi_{\Delta t}$ relative to point spacing. Form your own view; the
 repository does not settle this.
 
 % ---------------------------------------------------------------------
-\chapter{The missing rows}
+\subsection{The missing rows}
 \label{sec:missingrows}
 
 1,041,400 rows against $2^{20} = 1{,}048{,}576$ grid points ---
@@ -442,7 +442,7 @@ has a hole exactly where the physics is hardest --- a very different problem
 from losing 0.68\% at random.
 
 % ---------------------------------------------------------------------
-\chapter{Stratification: encoding physics into sampling}
+\subsection{Stratification: encoding physics into sampling}
 \label{sec:stratification}
 
 The Sobol grid is uniform over the box; the \emph{physics} is not uniformly
@@ -473,7 +473,7 @@ because reproducibility-by-seed depends on library versions while an id list
 does not.
 
 % ---------------------------------------------------------------------
-\chapter{Code reading order for S1}
+\subsection{Code reading order for S1}
 \label{sec:readingorder-s1}
 
 \begin{figure}[H]
@@ -537,8 +537,8 @@ dashed boxes are configs.}
 \end{repopointer}
 
 % ---------------------------------------------------------------------
-\chapter*{Self-check --- the dataset}
-\addcontentsline{toc}{chapter}{Self-check --- the dataset}
+\subsection*{Self-check --- the dataset}
+\addcontentsline{toc}{subsection}{Self-check --- the dataset}
 \label{sec:selfcheck-dataset}
 
 \begin{selfcheck}

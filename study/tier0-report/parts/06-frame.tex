@@ -2,17 +2,17 @@
 %  Part VI -- The modelling frame.
 %  Source: tier0.md Part IV (2226-2479), order unchanged.
 % =====================================================================
-\part{The modelling frame}
+\section{The modelling frame}
 \label{part:frame}
 
-What sits between the physics and the model. This part contains the single most
+What sits between the physics and the model. This section contains the single most
 load-bearing unexamined assumption in the project (\S\ref{sec:splitting}).
 
 % ---------------------------------------------------------------------
-\chapter{Operator splitting --- the assumption everything rests on}
+\subsection{Operator splitting --- the assumption everything rests on}
 \label{sec:splitting}
 
-\section{The setup}
+\subsubsection{The setup}
 \label{sec:splitsetup}
 
 A stellar evolution code solves, per zone, a coupled system:
@@ -46,7 +46,7 @@ splitting \citep{strang1968,blanes2008}, with splitting error:
 \text{Godunov:}\ \ O(\Delta t) \qquad\qquad \text{Strang:}\ \ O(\Delta t^2)
 \end{equation*}
 
-\section{Why this is the project's foundational assumption}
+\subsubsection{Why this is the project's foundational assumption}
 \label{sec:whyfoundational}
 
 \textbf{The emulator is a drop-in for the network sub-step.} Its contract is
@@ -74,7 +74,7 @@ way.
 So the operator being learned is well-defined and matches how a host code would
 call it. Good. But three things follow that you should hold consciously:
 
-\section{Consequence 1 --- the split's validity is a physical constraint on
+\subsubsection{Consequence 1 --- the split's validity is a physical constraint on
   \texorpdfstring{$\Delta t$}{dt}}
 \label{sec:splitconsequence1}
 
@@ -114,7 +114,7 @@ Worth checking directly against how MESA's \code{net} module is invoked in
 production, and worth knowing that the nine-decade $\dd t$ grid spans from
 definitely-safe to questionable.
 
-\section{Consequence 2 --- the emulator inherits the split's error, it does not
+\subsubsection{Consequence 2 --- the emulator inherits the split's error, it does not
   fix it}
 \label{sec:splitconsequence2}
 
@@ -124,7 +124,7 @@ of the surrogate is bounded above by the accuracy of the scheme it plugs into.}
 A useful sanity anchor when someone proposes tightening a gate: below the
 splitting error, extra fidelity buys nothing.
 
-\section{Consequence 3 --- it makes the problem tractable at all}
+\subsubsection{Consequence 3 --- it makes the problem tractable at all}
 \label{sec:splitconsequence3}
 
 The flip side: because $(T, \rho)$ are frozen, the network ODE is
@@ -133,10 +133,10 @@ a semigroup structure (\S\ref{sec:rollouterror}), and what makes the
 augmented-state integrator of S10 well-posed.
 
 % ---------------------------------------------------------------------
-\chapter{The one-zone approximation --- and the reachable manifold}
+\subsection{The one-zone approximation --- and the reachable manifold}
 \label{sec:onezone}
 
-\section{What bbq is}
+\subsubsection{What bbq is}
 \label{sec:whatisbbq}
 
 \code{bbq} is a \textbf{one-zone burner}: a single fluid element at fixed
@@ -144,7 +144,7 @@ $(T, \rho)$, no neighbours, no mixing, no transport. It integrates the network
 and nothing else. This matches the split of \S\ref{sec:splitting} exactly ---
 mixing is the host's job.
 
-\section{The subtlety nobody states}
+\subsubsection{The subtlety nobody states}
 \label{sec:convectivesubtlety}
 
 Silicon-burning cores are \textbf{convective}. Convective turnover times are
@@ -165,7 +165,7 @@ The compositions a real star presents to the network are the output of burning
 low-dimensional \textbf{reachable manifold}, not spread over composition space.
 \end{result}
 
-\section{This is the deepest structural insight in Tier 0}
+\subsubsection{This is the deepest structural insight in Tier 0}
 \label{sec:reachablemanifold}
 
 The Sobol design samples composition space \textbf{uniformly over the box}. The
@@ -236,10 +236,10 @@ distribution can produce a confident, meaningless answer.
 \end{aside}
 
 % ---------------------------------------------------------------------
-\chapter{The semigroup structure and rollout error}
+\subsection{The semigroup structure and rollout error}
 \label{sec:rollouterror}
 
-\section{The semigroup property}
+\subsubsection{The semigroup property}
 \label{sec:semigroup}
 
 For an autonomous flow (which \S\ref{sec:splitting} guarantees), the exact
@@ -265,7 +265,7 @@ requiring no ground truth. It is not currently used anywhere in the project, and
 it is arguably the cheapest available diagnostic of rollout health.
 \end{aside}
 
-\section{Rollout error propagation --- deriving the accumulation trichotomy}
+\subsubsection{Rollout error propagation --- deriving the accumulation trichotomy}
 \label{sec:accumulationtrichotomy}
 
 In deployment the emulator is applied autoregressively:
@@ -319,8 +319,8 @@ does, for what would then be a \emph{derived} rather than assumed reason.
 \end{aside}
 
 % ---------------------------------------------------------------------
-\chapter*{Self-check --- the modelling frame}
-\addcontentsline{toc}{chapter}{Self-check --- the modelling frame}
+\subsection*{Self-check --- the modelling frame}
+\addcontentsline{toc}{subsection}{Self-check --- the modelling frame}
 \label{sec:selfcheck-frame}
 
 \begin{selfcheck}
