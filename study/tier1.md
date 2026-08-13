@@ -28,6 +28,13 @@ the business code, configs, notebooks, and tests.
   commit + data provenance, tagged **[RESULTS]**. This file is **not** their
   source of truth; if a number here disagrees with `RESULTS.md`, `RESULTS.md`
   wins.
+- **Literature audit 2026-08-13.** Every scholarly claim, constant, and
+  derivation chain was verified against primary sources (arXiv TeX cached under
+  `data/literature/`, the REACLIB format specification, GitHub issues, the local
+  MESA r23.05.1 tree, and pynucastro 2.12.0), with all worked arithmetic
+  recomputed in float64; errors found were corrected in place. Inline
+  author–year citations point to the References section at the end; the
+  claim-by-claim audit log is [`tier1-audit.md`](tier1-audit.md).
 
 Notation follows the repo and Tier 0: unicode math, `⁵⁵Co` in prose, `co55` in
 code-adjacent contexts, Yₑ / ν / φ / κ as in the codebase. Section references
@@ -162,6 +169,7 @@ In a plasma v is distributed. Non-relativistically and in the absence of
 degeneracy for the *ions* (which holds throughout the box — §0.1.3 established
 that the electrons are degenerate but the ions are not), the relative velocity
 of an uncorrelated pair is Maxwell–Boltzmann with the **reduced mass**
+(Adelberger et al. 2011, eq. 4)
 
 $$
 \mu = \frac{m_1 m_2}{m_1+m_2}
@@ -174,7 +182,8 @@ $$
               e^{-\mu v^2/2kT}\,dv
 $$
 
-and the thermally averaged rate coefficient is
+and the thermally averaged rate coefficient is (Rauscher & Thielemann 2000;
+Adelberger et al. 2011)
 
 $$
 \langle\sigma v\rangle = \int_0^\infty \sigma(v)\,v\,\phi(v)\,dv
@@ -206,7 +215,8 @@ a fitting basis wide enough to hold all three.
 ### 1.1.2 Double counting: the identical-particle factor
 
 The number of *distinct pairs* per unit volume is n₁n₂ for distinct species but
-n²/2 for identical ones — writing n₁n₂ would count every pair twice. In general
+n²/2 for identical ones (Adelberger et al. 2011, eq. 2) — writing n₁n₂ would
+count every pair twice. In general
 for a reaction with reactant multiset {…}, the rate per unit volume carries
 
 $$
@@ -251,7 +261,8 @@ $$
 \dot Y \sim \rho\,Y_1 Y_2 \cdot \bigl(N_A\langle\sigma v\rangle\bigr)
 $$
 
-So the natural tabulated quantity is **N_A⟨σv⟩** in cm³ mol⁻¹ s⁻¹, and each
+So the natural tabulated quantity is **N_A⟨σv⟩** in cm³ mol⁻¹ s⁻¹ (Cyburt et
+al. 2010), and each
 additional reactant beyond the first brings one power of ρ. That is the entire
 content of
 
@@ -264,7 +275,7 @@ $$
 
 with n_j the number of reactants. R_j is the **gross flux** of column j in
 mol g⁻¹ s⁻¹ — the same units as Ẏ, which is what makes ẏ = ν R dimensionally
-clean.
+clean (Cyburt et al. 2010, eq. 2).
 
 **Special cases you must not fumble:**
 
@@ -273,8 +284,9 @@ clean.
   internalising, because it is half of why the reverse of a capture behaves so
   differently from the capture itself (§1.4).
 - **Yₑ-weighted REACLIB electron captures.** A handful of REACLIB fits (the
-  `ec` label; ⁷Be(e⁻,ν)⁷Li is the one in mesa_80) tabulate the rate *per
-  electron*, so the physical rate carries an extra factor ρYₑ. pynucastro sets
+  `ec` label; in mesa_80 there are **two**: ⁷Be(e⁻,ν)⁷Li and the pep reaction
+  p(p e⁻,ν)d) tabulate the rate *per electron*, so the physical rate carries an
+  extra factor ρYₑ. pynucastro sets
   `use_ye_weighting`, increments `dens_exp` by one, and multiplies by Yₑ at
   evaluation. The compiled engine mirrors both halves:
 
@@ -303,7 +315,7 @@ and `engine.evaluate_fluxes` assembles them:
 ```python
 R = lam * cn.prefactor[:, None] * rho[None, :] ** cn.dens_exp[:, None]
 ...
-Ypad = np.vstack([Y, np.ones((1, n_states))])       # sentinel row = 1.0
+Ypad = np.vstack([Y, np.ones((1, n_states), dtype=np.float64)])  # sentinel row = 1.0
 for k in range(cn.reactant_idx.shape[1]):
     R *= Ypad[cn.reactant_idx[:, k]]
 ```
@@ -352,7 +364,8 @@ E_G = 2\mu c^2 (\pi \alpha Z_1 Z_2)^2
 \tag{1.3}
 $$
 
-E_G is the **Gamow energy** (a constant of the pair, not of T). Since the
+E_G is the **Gamow energy** (a constant of the pair, not of T; Adelberger et
+al. 2011: σ = (S/E)·e^{−2πη} with Sommerfeld parameter η = Z₁Z₂α/v). Since the
 cross-section also carries the geometric factor σ ∝ πƛ² ∝ 1/E, it is
 conventional to strip both known energy dependences and define the
 **astrophysical S-factor**
@@ -362,7 +375,8 @@ $$
 \tag{1.4}
 $$
 
-S(E) is smooth and slowly varying for non-resonant reactions — that is the
+S(E) is smooth and slowly varying for non-resonant reactions (Adelberger et
+al. 2011) — that is the
 entire point of the definition: it isolates the *nuclear* physics from the
 *Coulomb* physics, so that experimental data taken at MeV energies can be
 extrapolated down to the astrophysically relevant tens-to-hundreds of keV
@@ -388,15 +402,17 @@ $$
 \tag{1.5}
 $$
 
-— the **Gamow peak**. Expanding the exponent to second order about E₀ gives a
-Gaussian of width
+— the **Gamow peak** (Adelberger et al. 2011; Chugunov et al. 2007:
+E_pk = k_B T τ/3). Expanding the exponent to second order about E₀ gives a
+Gaussian of width (Adelberger et al. 2011: ΔE₀/kT = 4√(E₀/3kT))
 
 $$
 \Delta = \frac{4}{\sqrt{3}}\sqrt{E_0\,kT}
 \tag{1.6}
 $$
 
-and evaluating the exponent at the peak,
+and evaluating the exponent at the peak (Chugunov et al. 2007, their eq.
+for τ),
 
 $$
 \frac{E_0}{kT} + \sqrt{\frac{E_G}{E_0}} = 3\frac{E_0}{kT} \equiv \tau,
@@ -421,7 +437,9 @@ $$
 exactly the T^{−2/3} prefactor.)
 
 **This is the single most important equation in Tier 1**, because it is
-literally the shape of the REACLIB fit. In practical units,
+literally the shape of the REACLIB fit (Adelberger et al. 2011, eq. for ⟨σv⟩;
+Cyburt et al. 2010, Table 1). In practical units (the constant recomputed here
+from CODATA 2018; Cyburt et al. 2010, Table 1 prints the truncated 4.2486),
 
 $$
 \tau = 4.2487\,\bigl(Z_1^2 Z_2^2\,\mu_{\rm amu}\,/\,T_9\bigr)^{1/3}
@@ -459,13 +477,15 @@ Three things to take from this table.
    (Hauser–Feshbach) treatment is the right one in this box — the window
    spans hundreds of levels — and it is a statement about Δ, not about Δ/E₀.
 3. **E₀ is still below E_C** (4.3 vs 7.27 MeV for Si+α): tunnelling, not
-   over-the-barrier. But not by the factor of 30 that low-temperature
-   nucleosynthesis enjoys — silicon burning sits in an awkward middle where
-   neither the deep-tunnelling nor the classical limit is clean.
+   over-the-barrier. But E_C/E₀ ≈ 1.7 here, not the factor of 10–100 that
+   low-temperature nucleosynthesis enjoys (E_C/E₀ ≈ 12 for ¹²C+α at T₉ = 0.2,
+   ≈ 76 for ¹²C+p at T₉ = 0.02, ≈ 100 for p+p) — silicon burning sits in an
+   awkward middle where neither the deep-tunnelling nor the classical limit is
+   clean.
 
 A useful sanity identity: τ from (1.9) at T₉ = 1 for ²⁸Si+α gives
 **τ = 59.48**, and E₀ = τkT/3 reproduces the table exactly. Hold that number —
-it reappears verbatim in §II.3 as a REACLIB coefficient.
+it reappears to 0.01% in §II.3 as a REACLIB coefficient.
 
 ### 1.2.5 Neutrons have no Gamow peak
 
@@ -487,7 +507,8 @@ leans on the second.
 at low energy is dominated by the entrance-channel phase space. Write
 σ = πƛ²·T(E)·(branching), with ƛ = ℏ/p ∝ 1/√E. For s-wave neutrons the
 transmission through the (absent) barrier tends to a constant times k ∝ √E
-as E → 0 (the standard threshold law T_ℓ ∝ k^{2ℓ+1}), so
+as E → 0 (the standard threshold law T_ℓ ∝ k^{2ℓ+1}; Wigner 1948; Blatt &
+Weisskopf 1952), so
 
 $$
 \sigma \propto \frac{1}{E}\cdot\sqrt{E} = \frac{1}{\sqrt E} \propto \frac{1}{v}
@@ -495,7 +516,8 @@ $$
 $$
 
 Hence ⟨σv⟩ is temperature-independent at low energy, and (n,γ) rates in REACLIB
-are nearly flat in T. Contrast the charged-particle case, where the barrier
+are nearly flat in T (Cyburt et al. 2010, Table 1: a₆ = ℓ for n-induced
+non-resonant). Contrast the charged-particle case, where the barrier
 transmission (1.3) overwhelms everything.
 
 **The reciprocity theorem** is the *microscopic* statement, independent of any
@@ -511,10 +533,12 @@ $$
 \tag{1.11}
 $$
 
-with k the centre-of-mass wavenumbers. **This is a relation between cross-sections
+with k the centre-of-mass wavenumbers (Blatt & Weisskopf 1952; cf. Cyburt et
+al. 2010, p. 30). **This is a relation between cross-sections
 at the same total energy, valid reaction-by-reaction, with no reference to a
 thermal bath.** Thermally averaging (1.11) with (1.1) reproduces the ratio
-(3.4) — spins, masses, the phase-space power, and e^{−Q/kT} all fall out.
+(3.4) — spins, masses, the phase-space power, and e^{−Q/kT} all fall out
+(Rauscher & Thielemann 2000).
 
 Why have both routes? Because they justify different things:
 
@@ -548,7 +572,8 @@ N_A\langle\sigma v\rangle
 \tag{1.10}
 $$
 
-i.e. **λ ∝ T^{-3/2} exp(−E_r/kT)**. Note the constant 11.605 = 1/(k·10⁹ K in
+i.e. **λ ∝ T^{-3/2} exp(−E_r/kT)** (Longland et al. 2010). Note the constant
+11.605 = 1/(k·10⁹ K in
 MeV) = 1/0.0861733 — the conversion you will meet again in every Q/kT term in
 this document.
 
@@ -567,7 +592,8 @@ REACLIB's seven, and §II.1 gets the remaining four.
 
 Once the level density in the compound nucleus is high enough that many
 resonances overlap within the Gamow window, individual levels are neither
-resolvable nor relevant. The **statistical model** (Hauser–Feshbach) replaces
+resolvable nor relevant. The **statistical model** (Hauser–Feshbach; Rauscher
+& Thielemann 2000) replaces
 them with averaged transmission coefficients:
 
 $$
@@ -579,8 +605,10 @@ The inputs are (i) an optical model for the entrance/exit transmissions, (ii) a
 level-density prescription, (iii) γ-ray strength functions. All three are
 *models*, calibrated where data exist.
 
-**Validity condition:** enough levels in the window. In the Fe-peak at
-E₀ ≈ 4–7 MeV excitation with Δ ≈ 3 MeV, this is comfortably satisfied for
+**Validity condition:** enough levels in the window (Rauscher, Thielemann &
+Kratz 1997). In the Fe-peak, α-capture Gamow peaks sit at E₀ ≈ 4–7 MeV
+(compound-nucleus excitation E* = Q + E₀ ≈ 11–17 MeV) with Δ ≈ 3 MeV; this is
+comfortably satisfied for
 mid-shell nuclei — and marginal exactly at shell closures, where level densities
 plunge. Note which nuclei those are: ⁵⁶Ni (Z = N = 28) and ⁴⁰Ca (Z = N = 20),
 both doubly magic, and ²⁸Si (Z = N = 14), which is not magic but sits at the
@@ -601,9 +629,9 @@ Tier 0 §0.3.3 gave the summary table; the mechanism is now visible:
 
 | Source | Coverage | Uncertainty | Why |
 |---|---|---|---|
-| Direct experiment | light nuclei | 10–20% | measured, extrapolated via S(E) |
-| Hauser–Feshbach | most (n,γ), (p,γ), (α,γ) mid/heavy | factor ~2 | level density + optical model + γSF |
-| Shell-model weak (LMP) | Fe-peak EC/β | factor ~2–10 | Gamow–Teller strength (§V.3) |
+| Direct experiment | light nuclei | a few % (best channels) to a few tens of % | measured, extrapolated via S(E) |
+| Hauser–Feshbach | most (n,γ), (p,γ), (α,γ) mid/heavy | factor ~2 (Rauscher & Thielemann 2000) | level density + optical model + γSF |
+| Shell-model weak (LMP) | Fe-peak EC/β | no blanket figure; GT-strength dependent — the LMP revision moved key FFN EC rates by factors ~10–350 (Langanke & Martínez-Pinedo 2000) | Gamow–Teller strength (§V.3) |
 
 The practical consequence, which you should be able to state without hedging:
 
@@ -628,7 +656,8 @@ the relevant excitation energy:
 - **Γ/D ≳ 1** — overlapping; individual levels are unresolvable and Hauser–Feshbach
   averaging is appropriate.
 
-Level densities follow a back-shifted Fermi-gas form, ρ(E) ∝ exp(2√(aU))/U^{5/4}
+Level densities follow a back-shifted Fermi-gas form (Rauscher, Thielemann &
+Kratz 1997), ρ(E) ∝ exp(2√(aU))/U^{5/4}
 with a ≈ A/8 MeV⁻¹ and U the shifted excitation. Two features matter here:
 
 1. **ρ rises steeply with excitation.** The compound nucleus is formed at
@@ -639,8 +668,10 @@ with a ≈ A/8 MeV⁻¹ and U the shifted excitation. Two features matter here:
    sit exactly where the denominator of Γ/D is largest.
 
 There is also a hard ceiling on any single resonance's strength — the **Wigner
-limit**, Γ_ℓ ≤ 3ℏ²/(μR²) roughly, i.e. a level cannot be more strongly coupled
-to a channel than a single-particle state. Useful as a sanity check when a
+limit**: the reduced width obeys γ² ≤ γ_W² = 3ℏ²/(2μR²), so the observable
+width Γ_ℓ = 2P_ℓγ² ≤ 3ℏ²P_ℓ/(μR²) with P_ℓ the penetrability (Teichmann &
+Wigner 1952; Descouvemont & Baye 2010) — i.e. a level cannot be more strongly
+coupled to a channel than a single-particle state. Useful as a sanity check when a
 tabulated rate looks impossibly large.
 
 ### 1.3.5 ⚠ Ground-state versus stellar rates — a partly-settled convention
@@ -673,13 +704,15 @@ Neither code exposes anything named `sef` / `stellar_enhancement`; the pf
 machinery in both is confined to the DB ratio. But note what (3.4) *is*: the
 partition-function ratio ∏G_ℛ/∏G_𝒫 appears there because the thermal average
 over excited **target** states has already been taken on both sides. The
-Rauscher–Thielemann reverse-ratio relation holds between **stellar** rates; it
+Rauscher–Thielemann reverse-ratio relation holds between **stellar** rates
+(Rauscher & Thielemann 2000); it
 is not the relation between two ground-state rates. So a pipeline that derives
 every reverse through (3.4) — which is exactly what the pf gate mandates — has
 already committed to its forwards being stellar. The two branches are therefore
 not symmetric:
 
-- **The `ths8r` (NON-SMOKER statistical-model) fits are stellar rates.** This is
+- **The `ths8r` (NON-SMOKER statistical-model) fits are stellar rates**
+  (Cyburt et al. 2010; Rauscher & Thielemann 2000). This is
   the branch (3.4) presupposes, the pf ratio is then the correct and complete
   treatment, and there is nothing to add. Anything else would make
   `DerivedRate(use_pf=True)` — the project's mandated construction — the wrong
@@ -695,8 +728,10 @@ not symmetric:
 So the question to actually answer is narrower than "are REACLIB forwards
 stellar": it is **which label classes in these two networks are experimental
 fits, how much flux do they carry in the Si-burning box, and what is their SEF
-there?** Given that the α ladder and the Fe-peak captures are `ths8r`
-throughout, the exposure is probably small — but "probably small" on a
+there?** Given that the α ladder and the Fe-peak α-captures are `ths8r`
+throughout except ⁴⁰Ca(α,γ)⁴⁴Ti (label `chw0`, a resonance-based
+re-evaluation) — a handful of Fe-peak n/p captures (`ks03`, `si13n`, `nfisn`)
+are themselves experimental fits — the exposure is probably small — but "probably small" on a
 systematic multiplier is not a measurement. **Recorded in §VIII as an open
 prerequisite, with that narrower scope.**
 
@@ -713,7 +748,7 @@ $$
 
 and since n_γ ∝ E² /(e^{E/kT} − 1) ≈ E²e^{−E/kT} for E ≫ kT, the rate carries
 the factor **e^{−Q/kT}** — steeply increasing in T, and completely
-density-independent (§1.1.3).
+density-independent (§1.1.3; Hix & Thielemann 1999b).
 
 You do not, in practice, evaluate this integral. **Detailed balance gives
 λ_γ from the capture rate exactly** (that is Part III). But it is worth
@@ -743,8 +778,9 @@ rate per ³²S nucleus, λ_γ, at ρ = 10⁸ g/cm³ **[derived here]**:
    structure of this regime is the reverse rate.
 2. **The pair reaches balance at T₉ = 5.10** for Y_α = 10⁻³. Solving
    rev/fwd = 1 from the same coefficients **[derived here]**, the balance point
-   moves by **≈ +0.8 in T₉ per decade of Y_α**: 3.31 / 4.50 / 5.10 / 5.87 at
-   Y_α = 10⁻⁷ / 10⁻⁴ / 10⁻³ / 10⁻². QSE onset is composition-dependent, not a
+   moves by ≈ +0.5 in T₉ per decade of Y_α on average (steepening from
+   ≈ +0.4/decade at Y_α = 10⁻⁷–10⁻⁴ to ≈ +0.8/decade at 10⁻³–10⁻²):
+   3.31 / 4.50 / 5.10 / 5.87 at Y_α = 10⁻⁷ / 10⁻⁴ / 10⁻³ / 10⁻². QSE onset is composition-dependent, not a
    fixed temperature — and the numbers land exactly where the project's band
    does: **Y_α ≈ 10⁻⁷, which is the α abundance early in Si burning, puts this
    pair's balance at T₉ = 3.31.** That is the quantitative content of "QSE onset
@@ -772,13 +808,16 @@ rate per ³²S nucleus, λ_γ, at ρ = 10⁸ g/cm³ **[derived here]**:
 
 Set the reverse rate of the *weakest-bound* abundant species equal to its
 destruction rate. The α separation energy of ²⁸Si is 9.98 MeV, of ³²S 6.95 MeV,
-and the exponential e^{−Q/kT} at Q ≈ 7 MeV gives
+and the exponential e^{−Q/kT} at Q ≈ 7 MeV alone contributes
 
 $$
 \frac{d\ln\lambda_\gamma}{d\ln T} \approx \frac{Q}{kT} \approx 27 \ \text{at } T_9=3
 $$
 
-A 10% temperature rise multiplies the photodisintegration rate by e^{2.7} ≈ 15.
+(the full fitted slope, including the capture rate's Gamow term inherited
+through detailed balance, is ≈ 35). A 10% temperature rise multiplies the
+e^{−Q/kT} factor alone by e^{2.7} ≈ 15, and the full rate by ×~30 (cf. Hix &
+Thielemann 1999b: T ≈ Q/30k_B switch-on rule).
 That extreme sensitivity is what makes the QSE transition sharp in temperature
 and what makes the label distribution so structured (§IV.2 of Tier 0 — the
 reachable manifold).
@@ -789,16 +828,18 @@ reachable manifold).
 blackbody spectrum at the matter temperature. That requires the photon mean free
 path to be short compared with the temperature scale height and the
 photon–matter coupling time short compared with the burning time. At ρ ≥ 10⁷
-g/cm³ the Thomson mean free path is ~10⁻² cm against structure scales of
-10⁷–10⁸ cm, so the medium is optically thick by twenty orders of magnitude.
+g/cm³ the Thomson mean free path is ~5×10⁻⁷ cm (λ = 1/(n_eσ_T), with
+n_e = ρN_AYₑ ≈ 3×10³⁰ cm⁻³) against structure scales of 10⁷–10⁸ cm, so the
+medium is optically thick by ~13–14 orders of magnitude.
 **LTE for photons is safe here** — which is worth stating once, because it is
 the assumption that fails for the neutrinos (§0.4.2) and the contrast is the
 whole reason Yₑ is a one-way variable.
 
 **Triple-α, and why it is chapter 8.** The reaction 3α → ¹²C is not a genuine
-three-body collision. It proceeds sequentially: α + α ⇌ ⁸Be (unbound, lifetime
-~10⁻¹⁶ s, held at a small equilibrium abundance), then ⁸Be + α → ¹²C* through
-the **Hoyle state** at 7.65 MeV, which then γ-decays. REACLIB folds the ⁸Be
+three-body collision. It proceeds sequentially (Salpeter 1952; José & Iliadis 2011): α + α ⇌ ⁸Be
+(unbound, lifetime ~10⁻¹⁶ s, held at a small equilibrium abundance), then
+⁸Be + α → ¹²C* through the **Hoyle state** at 7.65 MeV (Freer & Fynbo 2014),
+which then γ-decays. REACLIB folds the ⁸Be
 equilibrium abundance into an effective three-body rate — hence chapter 8
 (3 → 1) and the ρ² density dependence, and hence `prefactor` = 1/3! = 1/6.
 
@@ -863,7 +904,8 @@ Notebook: 05.
 
 ## II.1 The seven-coefficient form, derived
 
-REACLIB stores every rate as a sum of **sets**, each set seven coefficients:
+REACLIB stores every rate as a sum of **sets**, each set seven coefficients
+(Cyburt et al. 2010, eq. 1):
 
 $$
 \boxed{\;
@@ -875,7 +917,8 @@ a_0 + \frac{a_1}{T_9} + \frac{a_2}{T_9^{1/3}} + a_3 T_9^{1/3}
 \tag{2.1}
 $$
 
-Every term has a physical origin. Derive them rather than memorising:
+Every term has a physical origin (fitting rules: Cyburt et al. 2010, Table 1).
+Derive them rather than memorising:
 
 | Term | Origin |
 |---|---|
@@ -883,7 +926,7 @@ Every term has a physical origin. Derive them rather than memorising:
 | a₁/T₉ | **resonance**: exp(−E_r/kT), with a₁ = −11.605·E_r[MeV] (1.10). Also **detailed-balance Q**: a₁ = −11.605·Q (§III) |
 | a₂/T₉^{1/3} | **the Gamow exponent** −τ from (1.7)/(1.9): a₂ = −4.2487(Z₁²Z₂²μ)^{1/3} |
 | a₃T₉^{1/3}, a₄T₉, a₅T₉^{5/3} | **empirical shape terms, not a derived expansion.** They absorb the higher orders of the saddle-point approximation and the energy dependence of S(E) near E₀, and they form the odd ladder T₉^{1/3}, T₉^{3/3}, T₉^{5/3} continuing the a₂ term's T₉^{−1/3}. Do **not** claim a clean derivation here: expanding S(E) ≈ S₀ + S′E₀ + … with E₀ ∝ T^{2/3} generates T^{2/3}, T^{4/3}, which is not this ladder. The honest statement is that the basis was chosen wide enough to fit both §1.2's and §1.3's asymptotics with three free shape parameters left over (§II.7) |
-| a₆ ln T₉ | the power-law prefactor: **−2/3** for non-resonant (1.8), **−3/2** for a narrow resonance (1.10), and **+3/2·ΔN** shifts for a detailed-balance reverse (§III) |
+| a₆ ln T₉ | the power-law prefactor: **−2/3** for non-resonant (1.8), **−3/2** for a narrow resonance (1.10), and **+3/2·ΔN** shifts for a detailed-balance reverse (§III; Rauscher & Thielemann 2000) |
 
 Two properties of this basis are load-bearing downstream:
 
@@ -907,15 +950,20 @@ coefficients, and (2.1) sums the exponentials. `c12(a,g)o16` carries two sets;
 
 Three pieces of REACLIB metadata matter here.
 
-**Chapter** — reactant/product counts (Tier 0 §0.5's table). Determines arity,
+**Chapter** — reactant/product counts (Tier 0 §0.5's table; Cyburt et al.
+2010). Determines arity,
 hence `dens_exp` and `prefactor`, and it is the index of the gh-575 bug (§III.7).
 
-**labelprops** — a six-character field per set. Positions 0–5 hold the data
-source label (`ths8r `, `nac2  `, `ks03  `, `wc12  `, `ec    `, `bet+  `), and
-**position 5 carries the `v` flag** marking a set as a *pf-free inverse fit*:
+**labelprops** — a six-character field per set: positions 0–3 hold the
+four-character data source label (`ths8`, `nac2`, `ks03`, `wc12`, `bet+`),
+position 4 a one-character resonance/weak flag (blank or `n` non-resonant,
+`r` resonant, `w` weak), and **position 5 the reverse flag `v`** marking a set
+as a *pf-free inverse fit* (Rauscher & Thielemann 2000; Cyburt et al. 2010).
+So `ths8r ` = label `ths8` + resonant flag; the weak examples in this network
+read `wc12w `, `  ecw `, `bet+w `:
 
 ```python
-vflag_sets = np.array([lp[5] == "v" for lp in set_labelprops])   # compile.py:250
+vflag_sets = np.array([lp[5] == "v" for lp in set_labelprops], dtype=bool)  # compile.py:250
 assert_pf_gate(vflag_sets, context=f"{network} compiled set tensor")
 ```
 
@@ -1019,7 +1067,7 @@ of sets, each with seven coefficients) into flat arrays:
 | `coeffs` (n_sets, 7) | every set of every rate, stacked |
 | `set_owner` (n_sets,) | which reaction column owns each set |
 | `set_starts`, `owned_cols` | `reduceat` boundaries for the segment sum |
-| `pf_splines`, `pf_matrix` | per-nucleus log-pf splines + the ±1 incidence matrix |
+| `pf_splines`, `pf_matrix` | per-nucleus log-pf splines + the ± multiplicity-count incidence matrix (+n per reactant occurrence, −n per product occurrence) |
 | `tab_*` | per-tabular-rate grids and 2-D log-rate arrays |
 | `screen_pairs`, `screen_map` | deduplicated (Z,A) pairs + per-reaction multiplicity |
 
@@ -1050,8 +1098,10 @@ pure Part-I physics:
 > association differences reach ~10⁻¹² rel.
 
 Check the magnitude yourself: at T₉ = 1.6, Q/kT for a 7 MeV channel is
-80.6/1.6 ≈ 50; for the largest Q-values in the network it reaches several
-hundred. Adding two numbers of order 500 and exponentiating amplifies a
+80.6/1.6 ≈ 50; for the largest Q-values in the network it approaches two
+hundred (max |Q| = 23.85 MeV in both nets → |Q|/kT ≈ 173 at T₉ = 1.6); other
+exponent terms do reach O(500) (e.g. c12(a,g)o16's a₃T₉^{1/3} ≈ −492 at
+T₉ = 1.6). Adding two numbers of order 500 and exponentiating amplifies a
 1-ulp (≈10⁻¹⁶) association difference to 500×10⁻¹⁶ = 5×10⁻¹⁴ relative — and
 summing several sets, plus the pf and screening terms, gets you to the measured
 1.3×10⁻¹² floor [RESULTS 2026-07-10]. **The gate is set just above a measured
@@ -1082,7 +1132,9 @@ Three readings:
 
 1. **Nothing ever overflows.** The maximum exponent (+38) is nowhere near
    ln(DBL_MAX) = 709.78. The evaluator can compute `exp` unguarded.
-2. **43 of 1834 sets underflow to exactly 0** at T₉ = 1.6. This is *correct* —
+2. **43 of the 1834 set-evaluations across the two box-edge temperatures
+   underflow to exactly 0** (mesa_80 has 917 sets; 7 underflow at T₉ = 1.6 and
+   36 at T₉ = 7.9). This is *correct* —
    those are rates whose true value is e^{−4×10⁶}, i.e. zero to any meaning of
    the word. The compiled path relies on IEEE graceful underflow rather than
    masking, which is the right call: a masked branch would cost a comparison on
@@ -1112,7 +1164,8 @@ non-resonant channels — exactly the α-ladder captures that dominate here.
 
 Which raises the question the form invites: **what happens outside the fitted
 range?** With a₆ = +137, extrapolating below the fit's lower T bound produces
-nonsense fast. REACLIB fits are typically valid over T₉ ∈ [0.01, 10]; the box
+nonsense fast. REACLIB fits are typically valid over T₉ ∈ [0.01, 10] (Rauscher & Thielemann
+2000); the box
 (1.6–7.9) sits comfortably inside, so this project never tests it. Worth knowing
 as a boundary of the tooling rather than of the physics — and worth contrasting
 with the weak tables (§V.5), where the out-of-range behaviour *is* specified and
@@ -1144,7 +1197,7 @@ Two things REACLIB is *not*:
 4. Write out `lam` for a chapter-8 rate (3 reactants → 1 product) with two sets,
    symbolically, all the way to R_j including prefactor and ρ powers.
 5. Why does `set_starts` exist rather than a loop over columns? Estimate the
-   speedup for mesa_151 (1518 columns, ~2000 sets, 4096 states).
+   speedup for mesa_151 (1518 columns, ~1700 sets, 4096 states).
 6. `compile_network` raises if `set_owner` is not sorted. What downstream
    computation would silently produce wrong answers if it were not?
 
@@ -1168,7 +1221,7 @@ like physics.
 
 Start from chemical equilibrium (Tier 0, eq. 0.1): Σᵢ νᵢμᵢ = 0. For nuclei in
 a non-degenerate, non-relativistic gas the number density at chemical potential
-μᵢ is
+μᵢ is (Hix & Thielemann 1999b)
 
 $$
 n_i = g_i\,G_i(T)\left(\frac{m_i kT}{2\pi\hbar^2}\right)^{3/2}
@@ -1250,25 +1303,34 @@ $$
 \tag{3.5}
 $$
 
-**[derived here]** — and this is precisely the constant MESA computes in
+**[derived here]**, the same constant Rauscher & Thielemann (2000) print —
+and this is precisely the constant MESA computes in
 `rates/private/reaclib_support.f90` as
 
 $$
 \mathrm{fac} = \frac{1}{N_A}\left(\frac{10^9\,\mathrm{K}\cdot k}{2\pi\hbar^2 N_A}\right)^{3/2}
 $$
 
-[RESULTS 2026-07-09], the two forms being identical because
-$1/N_A = m_u$ to ten digits.
+[RESULTS 2026-07-09], the two forms agreeing to nine digits because
+$1/N_A = m_u$ to one part in 10⁹ (CODATA 2022: m_u = 1.66053906892×10⁻²⁴ g vs
+1/N_A = 1.66053906717×10⁻²⁴ g, relative difference 1.05×10⁻⁹ = M_u − 1 g/mol;
+the equality was exact only pre-2019 SI).
 
-Six factors. **Miss any one of them and the reverse rate is wrong by a
+Six factors (Rauscher & Thielemann 2000; Smith et al. 2023). **Miss any one of them and the reverse rate is wrong by a
 multiplicative constant that looks completely plausible.** The rest of Part III
 is a tour of which implementations miss which.
 
 > **Sanity check to do once, by hand.** Verify (3.4) against pynucastro for
 > ²⁸Si(α,γ)³²S: reproduce `rev.eval(T)` from `fwd.eval(T)` and the six factors.
-> I get agreement to 6×10⁻⁴ relative at T₉ = 3, the residual being pynucastro
-> using its own recomputed Q rather than the library's (a ΔQ ≈ 1.6×10⁻⁴ MeV
-> rounding). **[derived here]**
+> Using the literal six factors of (3.4) (masses A^mass, library Q) I get
+> agreement to 1.3×10⁻³ relative at T₉ = 3, the residual splitting into two
+> comparable parts: 6.4×10⁻⁴ from pynucastro recomputing Q from masses rather
+> than taking the library's (ΔQ = 1.6×10⁻⁴ MeV), and 7.0×10⁻⁴ from
+> `DerivedRate`'s exact-mass molar convention — its prefactor carries
+> ∏(A^mass)^{5/2}/A and m_u^{(5/2)ΔN}(k·10⁹/2πℏ²)^{(3/2)ΔN}, which differs
+> from (3.4)'s (∏A^mass)^{3/2}·fac^{ΔN} by
+> ∏_ℛ(A^mass/A)/∏_𝒫(A^mass/A)·(m_u N_A)^{ΔN} = 1.00070 for this channel.
+> **[derived here]**
 
 ## III.2 The thermal phase-space factor and why |ΔN| is the index
 
@@ -1278,7 +1340,7 @@ thermal de Broglie volume holds one particle. Each *net* particle destroyed in
 the forward direction has to be re-created from the thermal bath in the
 reverse, and the price of doing so is one quantum concentration.
 
-Hence:
+Hence (chapters per Cyburt et al. 2010):
 
 | Forward chapter | ℛ → 𝒫 | ΔN_s | powers of fac·T₉^{3/2} in the reverse ratio |
 |---|---|---|---|
@@ -1294,7 +1356,8 @@ Hence:
 Magnitudes **[derived here]**: log₁₀(fac·T₉^{3/2}) = 10.30 / 10.90 / 11.34 at
 T₉ = 1.6 / 4.0 / 7.9. So *one missing power is ten to eleven orders of
 magnitude*, and two is twenty-one to twenty-three. Hold those numbers — §III.7
-matches them against a measurement to three significant figures.
+matches them against a measurement to within a third of a decade (and to three
+significant figures on the chapter-7 row).
 
 **Chapter 5 is the special case worth naming:** 2 → 2 rearrangements
 ((p,α), (n,α), (n,p)) have ΔN_s = 0 and need no phase-space factor at all.
@@ -1309,7 +1372,7 @@ T₉^{3/2} and e^{−Q/kT}, and it is the one most easily dropped, because at lo
 temperature it is 1.
 
 Measured pf values exp(log_pf) from the Rauscher tables pynucastro ships
-**[derived here]**:
+(Rauscher et al. 1997; Rauscher 2003; Smith et al. 2023) **[derived here]**:
 
 | Nucleus | T₉=3 | 4 | 5 | 6.3 | 7.9 |
 |---|---|---|---|---|---|
@@ -1344,7 +1407,7 @@ the project measured **0.22×–4.5× across the network at NSE temperatures**
 would double-count the ground state.
 
 The tables are normalised, i.e. (0.4)'s form G = Σ(2J_s+1)e^{−E_s/kT}/(2J₀+1),
-so G → 1 as T → 0. **Check it in the §III.3 table:** every entry at T₉ = 3 is
+so G → 1 as T → 0 (Rauscher & Thielemann 2000; Rauscher 2003). **Check it in the §III.3 table:** every entry at T₉ = 3 is
 ≥ 1.000 and the near-magic ones are 1.000–1.005. If the tables were
 unnormalised, ⁵⁶Ni (J₀ = 0, g = 1) would still read ≈1 but ⁴⁵Sc (J₀ = 7/2,
 g = 8) would read ≈8, not 1.803. **[derived here]**
@@ -1413,7 +1476,7 @@ have nothing to do with the rates.
 | Construction | spins | masses | fac^ΔN | Q | **partition functions** |
 |---|---|---|---|---|---|
 | **(a)** Independent REACLIB fit of the reverse | implicit | implicit | implicit | implicit | implicit in the fit — but *only at the temperatures fitted* |
-| **(b)** REACLIB **v-flag** inverse fit | ✓ | ✓ | ✓ | ✓ | ✗ **omitted** |
+| **(b)** REACLIB **v-flag** inverse fit (Cyburt et al. 2010) | ✓ | ✓ | ✓ | ✓ | ✗ **omitted** |
 | **(c)** `DerivedRate(source_rate=fwd, use_pf=True)` | ✓ | ✓ | ✓ | ✓ | ✓ evaluated at runtime |
 | **(d)** MESA `compute_rev_ratio` | ✓ | ✓ | **exactly one power, and only when the tabulated direction has one product** — so zero powers where one or two are needed, and one where two are needed (chapter 8) | ✓ | ✓ (winvn pf ratios) |
 
@@ -1431,7 +1494,8 @@ have nothing to do with the rates.
 ## III.5 The v-flag dissected — and why it is fatal above T₉ ≈ 3
 
 Return to the §II.3 table. The v-flag reverse of ²⁸Si(α,γ)³²S is the forward's
-seven coefficients with exactly three changed:
+seven coefficients with exactly three changed (Rauscher & Thielemann 2000;
+Smith et al. 2023):
 
 $$
 a_0 \mathrel{+}= \ln F, \qquad
@@ -1447,7 +1511,8 @@ factors — all temperature-independent, all correctly folded into a constant.
 the partition-function ratio is the one factor that is temperature-dependent
 and cannot be absorbed into a constant.** The v-flag construction is not sloppy;
 it is *structurally incapable* of carrying pf within a seven-coefficient fit
-whose basis functions are fixed.
+whose basis functions are fixed (Rauscher & Thielemann 2000: the fitted reverse
+"has to be multiplied by the ratio of the partition functions" at runtime).
 
 The consequence is bounded and predictable: the v-flag reverse is wrong by
 exactly ∏G_ℛ/∏G_𝒫, which is ≈1 below T₉ ≈ 2 and reaches 0.22×–4.5× at NSE
@@ -1589,10 +1654,24 @@ mesa_80, 11 for mesa_151 **[derived here]**.
 
 With the corrected formula the measurement lands where it should:
 
-> |Δlog₁₀| = 10.0–11.1 for one missing power and 20.6–22.7 for two, tracking
-> |ΔN_s − e|·log₁₀(fac·T₉^{3/2}) within ≲0.35 dex [RESULTS 2026-07-09].
+> |Δlog10| = 10.0–11.1 (|ΔN| = 1, sign follows ΔN) and 20.6–22.7 (|ΔN| = 2:
+> h1+h1+he4+he4→he3+be7), tracking |ΔN|·log10(fac·T9^{3/2}) within ≲0.35 dex
+> [RESULTS 2026-07-09].
 
-Three significant figures, from a one-line formula. **This is what "dispositive
+Refined through the mechanism above (the RESULTS row's |ΔN| coincides with
+|ΔN_s − e| on its own chapter-6/7/9 channels, where e = 0; the row predates the
+branch-condition derivation): deviation from |ΔN_s − e|·log₁₀(fac·T₉^{3/2}) is
+≤ 0.31 dex except on channels with three identical particles on one side
+(`r_he4_he4_he4_to_h1_b11`, `r_c12_to_he4_he4_he4`), which sit ≈ 0.78 dex
+≈ log₁₀3! low — an identical-particle multiplicity offset on top of the missing
+power. The row's own "10.0–11.1 … within ≲0.35 dex" matches the mesa_80
+chapter-6/7/9 screen exactly (recomputed: 9.99–11.13, max deviation 0.308) but
+not mesa_151 or the chapter-8 class, which is low by 9.5–11.3 dex
+[RESULTS 2026-07-09]. **[derived here]**
+
+Within ≲0.3 dex for most channels — and to three significant figures on the
+chapter-7 row (21.787 measured vs 21.795 predicted) — from a one-line formula.
+**This is what "dispositive
 attribution" means** — the notebook-04 figure plots measured vs predicted
 displacement side by side precisely so the agreement is visible rather than
 asserted.
@@ -1662,7 +1741,7 @@ untouched. Three details that are each a lesson:
 
 The `missing_pf_nuclei` field records nuclei with no Rauscher table, where
 pynucastro defaults log_pf = 0. Measured: light sector only (d, ³He, ⁴He, ⁷Li,
-⁷⁹Be, ⁸B, ¹²⁻¹³C, ¹³⁻¹⁵N) [RESULTS 2026-07-10] — harmless, since G ≈ 1 there for
+⁷,⁹,¹⁰Be, ⁸B, ¹²,¹³C, ¹³⁻¹⁵N) [RESULTS 2026-07-10] — harmless, since G ≈ 1 there for
 exactly the §0.2.2 reason (few low-lying levels in light nuclei).
 
 ## III.9 Oracles
@@ -1716,7 +1795,7 @@ $$
 \mu_i \to \mu_i + \mu^c_i(Z_i, \Gamma_e)
 $$
 
-pynucastro implements the Chabrier & Potekhin (1998) fit:
+pynucastro implements the Chabrier & Potekhin (1998, eq. 28) fit:
 
 $$
 \frac{\mu^c}{kT} =
@@ -1736,7 +1815,9 @@ with A₁ = −0.9052, A₂ = 0.6322, **A₃ = −√3/2 − A₁/√A₂**, and
 **The Z^{5/3} scaling is the important physics.** μ^c grows much faster than
 linearly with charge, so the correction *differentially* favours heavy nuclei in
 NSE — it shifts the NSE composition toward the Fe peak at fixed T, ρ, Yₑ. At the
-box's cold, dense corner (Γ_e large) this is not a small effect.
+box's cold, dense corner (Γ_e large) this is not a small effect (Hix &
+Thielemann 1996: screening factors in the equilibrium reach ~10⁶ at T₉ = 3.5,
+ρ = 10⁹ g cm⁻³).
 
 **Why the κ screen sets `use_coulomb_corr=False`.** The screen compares *bare*
 (unscreened) rates on both sides (§III.6). Detailed balance for bare rates
@@ -1767,7 +1848,7 @@ study plan defines. Here it is.
 **Derivation.** The mass-excess Q of (0.7) is the *ground-state to ground-state*
 energy release. In a thermal ensemble each nucleus carries a mean excitation
 energy, which follows from the partition function by the standard
-statistical-mechanics identity
+statistical-mechanics identity (e.g. Rauscher & Thielemann 2000)
 
 $$
 \langle E^*\rangle_i = kT^2\,\frac{d\ln G_i}{dT}
@@ -1942,8 +2023,8 @@ $$
 \tag{4.1}
 $$
 
-Salpeter's classic result. Two things to notice, both of which matter for what
-follows:
+Salpeter's classic result (Salpeter 1954, eq. 21). Two things to notice, both
+of which matter for what follows:
 
 - **h depends on Z₁Z₂, not on the reaction.** Screening is a property of the
   *entering pair*, not of the exit channel. This is the seed of the §IV.7
@@ -2015,6 +2096,7 @@ difference is the whole reason a single formula has to interpolate.
 
 At Γ ≫ 1 each ion sits in a neutralising sphere of radius a_i = (3Z_i/4πn_e)^{1/3}.
 The electrostatic energy of one such ion sphere is the classic
+(Salpeter 1954, eq. 28)
 
 $$
 E_{\rm sphere}(Z) = -\frac{9}{10}\frac{Z^2e^2}{a_i} \;\propto\; -Z^{5/3}
@@ -2033,7 +2115,7 @@ $$
 — note the 9/10 is the *same* 9/10 as in E_sphere; nothing else enters. Two
 cross-checks, both worth doing once **[derived here]**:
 
-- In cgs this is the classic Salpeter form,
+- In cgs this is the classic Salpeter form (Salpeter 1954, eq. 29),
   h = 0.205 (ρ/μ_e)^{1/3} T₆⁻¹ [(Z₁+Z₂)^{5/3} − Z₁^{5/3} − Z₂^{5/3}], since
   Γ_e = 0.2274 (ρ/μ_e)^{1/3}/T₆ and 0.9 × 0.2274 = 0.205.
 - For an equal-charge pair it gives h/Γ₁₂ = 0.9(2^{5/3} − 2) = **1.057**,
@@ -2130,7 +2212,9 @@ T_p = \frac{\hbar}{k}\,e\sqrt{\frac{4\pi Z_1Z_2\,n_i}{m_i}} = \frac{\hbar\omega_
 $$
 
 ω_p is the plasma frequency of the reduced-mass ion pair — the scale at which
-**zero-point ion motion** matters. T_norm = T/T_p is the classical-to-quantum
+**zero-point ion motion** matters. (The single-species T_p is Chugunov et al.
+2007, eq. 2; the Z₁Z₂, 2μ₁₂ pair form is pynucastro's generalization,
+attributed there to Yakovlev et al. 2006.) T_norm = T/T_p is the classical-to-quantum
 ratio; for T ≪ T_p the ions are quantum oscillators, not a classical fluid.
 `smooth_clip_vec(T_norm, 0.1, 0.2)` floors it with a half-cosine so the fit never
 extrapolates into a regime it was not built for. **[derived here]**
@@ -2155,10 +2239,11 @@ $$
 $$
 
 ζ ∝ T_norm^{−2/3} is the quantum-diffraction parameter; the cubic in ζ is
-Chugunov's fit to the Monte-Carlo free energy, and γ̃ is the *effective*
+Chugunov's fit to the Monte-Carlo free energy (Chugunov et al. 2007,
+eqs. 3, 21), and γ̃ is the *effective*
 classical coupling that reproduces the quantum result.
 
-**4. The enhancement.**
+**4. The enhancement** (Chugunov et al. 2007, eq. 19).
 
 $$
 \boxed{\;
@@ -2186,8 +2271,9 @@ h \;\longrightarrow\; \tilde\gamma^{3/2}\left(\frac{A_1}{\sqrt{A_2}} + A_3\right
 $$
 
 **because A₃ is *defined* as √3 − A₁/√A₂.** That is the weak-screening
-(Debye–Hückel) limit of the one-component plasma, recovered exactly. As γ̃ → ∞
-the B-terms dominate and h grows linearly in γ̃ — the strong-screening /
+(Debye–Hückel) limit of the one-component plasma, recovered exactly
+(Chugunov et al. 2007, §IV.C). As γ̃ → ∞ the A₁ and B₁ terms both go linear and
+partially cancel, leaving h → (A₁+B₁)γ̃ + O(√γ̃) — the strong-screening /
 ion-sphere limit of §IV.3. **One functional form, both asymptotics, fitted in
 between.** The A₃ line in the code is not a magic constant; it is a boundary
 condition, and you can read it as such.
@@ -2309,11 +2395,16 @@ weaklib/LMP table:
 TableIndex:  RHOY=0  T=1  MU=2  DQ=3  VS=4  RATE=5  NU=6  GAMMA=7
 ```
 
-- **MU** — the electron chemical potential at that (ρYₑ, T), including rest mass.
+- **MU** — the electron chemical potential at that (ρYₑ, T); NOTE the
+  rest-mass convention varies by table family (langanke files: without rest
+  mass; suzuki files: with rest mass).
 - **VS** — the **screening potential**: the Coulomb correction to μ_e, i.e.
   exactly this effect.
-- **DQ** — the effective Q-value shift from thermal population of parent excited
-  states (§V.3's "stellar rate" statement, tabulated).
+- **DQ** — the Coulomb correction to the reaction threshold:
+  ΔQ_C = μ_C(Z−1) − μ_C(Z), the shift in effective Q from the ion (nucleus)
+  Coulomb chemical potentials in the electron background (Suzuki, Toki &
+  Nomoto 2016). Thermal population of parent excited states is folded into
+  RATE itself, not tabulated separately.
 
 **And the engine reads only column 5.**
 
@@ -2341,9 +2432,12 @@ But two consequences are worth carrying:
    as `TabularRate.get_nu_loss`, but the compiled evaluator never builds it. Any
    flux-route energy accounting that must be "net of neutrino losses" — which is
    the trajectory-file `eps_nuc` convention [RESULTS 2026-07-11] — needs this
-   column compiled in. Named in §VIII as an open prerequisite, since the
-   flux-route vs bbq `eps_nuc` comparison is already recorded as UNRESOLVED
-   [RESULTS 2026-07-10].
+   column compiled in. Named in §VIII as an open prerequisite. (Status: the
+   2026-07-10 UNRESOLVED row on the flux-route vs bbq `eps_nuc` comparison was
+   retired by the 2026-07-11 eps_nuc convention pin — a units/convention
+   mismatch, not an engine error [RESULTS 2026-07-11]; invariant-#5 proper
+   passed 2026-07-12 with the constant-Q caveat of §III.12
+   [RESULTS 2026-07-12]; the NU-column gap itself stands.)
 
 ## IV.10 Self-check for S4
 
@@ -2426,14 +2520,16 @@ $$
 
 For an allowed transition (leptons carry no orbital angular momentum, so their
 wavefunctions are evaluated at the nucleus and factor out), the nuclear matrix
-element separates from the lepton phase-space integral, giving
+element separates from the lepton phase-space integral (Langanke &
+Martínez-Pinedo 2000), giving
 
 $$
 \lambda = \frac{\ln 2}{K}\,\bigl[\,g_V^2 B(F) + g_A^2 B(GT)\,\bigr]\; f(Z,W_0)
 \tag{5.1}
 $$
 
-with the **phase-space integral** (in units of m_ec²)
+with the **phase-space integral** (Langanke & Martínez-Pinedo 2000),
+in units of m_ec²,
 
 $$
 f(Z,W_0) = \int_1^{W_0} F(Z,W)\,W\sqrt{W^2-1}\,(W_0-W)^2\,dW
@@ -2453,7 +2549,8 @@ experimental handle.
   concentrated in a single state at high excitation. Largely irrelevant for
   stellar EC on Fe-peak nuclei.
 - **Gamow–Teller (axial)**, B(GT) = |⟨στ₊⟩|²: operator Σστ, ΔJ = 0, ±1
-  (no 0→0), no parity change. **This is the one that matters.**
+  (no 0→0), no parity change. **This is the one that matters**
+  (Langanke & Martínez-Pinedo 2003).
 
 Note the crucial feature of (5.2): **f ∝ W₀⁵ for large endpoints.** The rate is
 a very steep function of the available energy. In a plasma, "available energy"
@@ -2464,7 +2561,8 @@ includes the electron Fermi energy — which is what §V.4 exploits.
 The GT⁺ strength (the direction relevant to electron capture) is not
 concentrated in a single state; it is distributed over a **Gamow–Teller
 resonance** spread over several MeV of excitation in the daughter, with
-substantial strength at low excitation energy.
+substantial strength at low excitation energy (Langanke & Martínez-Pinedo
+2000, 2003).
 
 Three facts that follow, all of which shape the project:
 
@@ -2480,8 +2578,11 @@ Three facts that follow, all of which shape the project:
    distributions for stable targets, but the network needs rates for unstable
    nuclei at finite temperature. Hence large-scale shell-model diagonalisation
    in the pf shell — Langanke & Martínez-Pinedo (LMP).
-3. **Hence the factor 2–10 uncertainty** (§0.3.3): quenching of the axial
-   coupling, model-space truncation, and the placement of GT strength all enter.
+3. **Hence the large, GT-placement-dependent uncertainty** (§0.3.3 — no
+   blanket figure; the LMP revision moved key FFN EC rates by factors ~10–350):
+   quenching of the axial
+   coupling (Langanke & Martínez-Pinedo 2000: (g_A/g_V)_eff = 0.74 (g_A/g_V)_bare),
+   model-space truncation, and the placement of GT strength all enter.
    This is the largest physics uncertainty anywhere in this problem, and it sits
    directly on the project's target variable.
 
@@ -2495,7 +2596,8 @@ Now the plasma physics, which is what makes the weak sector density-dependent.
 
 In the lab, EC uses a bound atomic electron. In this plasma the atoms are fully
 ionised, and capture proceeds on the **degenerate free-electron sea**. The rate
-becomes an integral over the electron Fermi–Dirac distribution:
+becomes an integral over the electron Fermi–Dirac distribution
+(Langanke & Martínez-Pinedo 2000; Bildsten & Cumming 1998, eq. 3):
 
 $$
 \lambda_{\rm EC} \propto \int_{W_{\rm thr}}^{\infty}
@@ -2539,7 +2641,8 @@ p_F = ℏ(3π²n_e)^{1/3}) **[derived here]**:
 electron rest mass.** For p + e⁻ → n + ν the reaction Q is
 (m_p + m_e − m_n)c² = **−0.782 MeV**, so by the rule just stated the threshold
 *total* electron energy is W_thr = |Q| + m_ec² = 0.782 + 0.511 =
-**1.293 MeV** — which is just (m_n − m_p)c², as it must be. It is **not**
+**1.293 MeV** (Bildsten & Cumming 1998: "the 1293 keV threshold") — which is
+just (m_n − m_p)c², as it must be. It is **not**
 m_ec² + 1.293; the 1.293 MeV already includes the rest mass.
 
 Set against W_thr = 1.293 MeV: **the box's lower ρ edge sits just below it and
@@ -2583,11 +2686,13 @@ f_{\beta^-} \;\longrightarrow\; \int_{\mu_e}^{W_0} F(Z,W)\,W\sqrt{W^2-1}\,(W_0-W
 $$
 
 So in a degenerate plasma, **electron capture is enhanced (λ ∝ μ_e⁵) while β⁻
-decay is suppressed, both by the same μ_e.** That is the ratchet, and it is a
+decay is suppressed, both by the same μ_e**
+(Langanke & Martínez-Pinedo 2000, 2003). That is the ratchet, and it is a
 much sharper statement than "neutrinos escape".
 
 **This is directly visible in the tables.** Measuring the local power-law index
-d log₁₀λ / d log₁₀(ρYₑ) inside the box **[derived here]**:
+d log₁₀λ / d log₁₀(ρYₑ) on the table nodes spanning the box (log ρYₑ segments
+6–7, 7–8, 8–9; log T nodes 9.0–10.0) **[derived here]**:
 
 | Channel | type | index range |
 |---|---|---|
@@ -2691,8 +2796,8 @@ structural fact:
 > vanishes identically. All interpolation error therefore lives where the
 > *power-law index changes* — i.e. at thresholds and saturation knees.
 
-**The measurement.** Second differences of the real tables, restricted to the
-box **[derived here]**:
+**The measurement.** Second differences of the real tables, on the table nodes
+spanning the box (see note below) **[derived here]**:
 
 | Channel | class | max\|Δ²\| ρYₑ dir | predicted err | max\|Δ²\| T dir | predicted err |
 |---|---|---|---|---|---|
@@ -2701,6 +2806,14 @@ box **[derived here]**:
 | ⁴⁴Sc → ⁴⁴Ca | EC | 0.68 | **0.085** | 0.87 | 0.109 |
 | ⁵⁴Fe → ⁵⁴Mn | EC, steep | 3.95 | **0.494** | 1.10 | 0.137 |
 | ⁴⁸Ca → ⁴⁸Sc | β⁻, steep | 1.73 | 0.216 | 3.92 | **0.490** |
+
+*Note on windowing:* every value above is an exact second difference of the
+real tables, but several of the steep-channel maxima are centered on nodes just
+outside the strict in-box interpolation stencil (⁵⁴Fe 3.95 and ⁴⁸Ca 1.73 both at
+log ρYₑ = 7, log T = 9.0; the ⁴⁸Ca T-direction 3.92 centered at log ρYₑ = 9,
+log T = 9.176). Restricted strictly to in-box stencils, those maxima shrink
+(⁵⁴Fe ρYₑ-dir 2.11 → predicted 0.264; ⁴⁸Ca ρYₑ-dir 0.94 → 0.117); the ⁵⁶Ni row
+and the controller-scale conclusion are unaffected.
 
 Compare with the measurement: off-node medians 0.03–0.18 dex, β⁻/steep tail
 ≤ 0.8 dex, and the docs name `ca43/ca48/k40/sc44 wk-minus` as the tail
@@ -2719,8 +2832,11 @@ Three things this buys you:
    restrict analyses to node temperatures — T₉ = 5.0 being a node is why that
    state recurs throughout the project.
 3. **The error is largest exactly where λ is smallest** (steep β⁻ channels sit
-   at log λ ≈ −27 in the box). A 0.5 dex error on a rate 25 decades below the
-   dominant one is irrelevant to ΔYₑ. **The error budget and the importance
+   at log λ ≈ −15…−9 on the in-box table nodes: ⁴³Ca→⁴³Sc reaches −15.3,
+   ⁴⁸Ca→⁴⁸Sc −12.3, ⁴⁴Sc→⁴⁴Ti −12.8, ⁴⁰K→⁴⁰Ca −9.3; *interpolated* at the
+   cold-dense box corner the steepest reaches ≈ −24). A 0.5 dex error on a rate
+   10–14 decades below the dominant one on the nodes (up to ~25 at that
+   interpolated corner) is irrelevant to ΔYₑ. **The error budget and the importance
    budget are anti-correlated**, which is why a 0.8 dex outlier in this sector
    was correctly classified as benign rather than blocking.
 
@@ -2763,8 +2879,8 @@ analogue:
 | `ffn` | Fuller, Fowler & Newman (1980–85) | broad, early, independent-particle-model based |
 | `oda` (MESA "OHMT") | Oda et al. (1994) | sd shell, A = 17–39 |
 | `langanke` (MESA "LMP") | Langanke & Martínez-Pinedo (2001) | pf shell, the Fe peak — large-scale shell model |
-| `suzuki` | Suzuki et al. | sd shell, more modern than Oda |
-| `pruet_fuller` | — | no MESA analogue |
+| `suzuki` | Suzuki, Toki & Nomoto (2016) | sd shell, more modern than Oda |
+| `pruet_fuller` | Pruet & Fuller (2003) | A = 65–80; no MESA analogue |
 
 MESA weaklib's precedence is **LMP > Oda > FFN**, with `use_suzuki_weak_rates`
 defaulting to `.false.` — and bbq runs with an empty `&nuclear` namelist, so
@@ -2824,7 +2940,7 @@ Column 6 of the table is log₁₀ of the neutrino energy-loss rate. Two roles:
   project can defer it. But any *flux-route* energy accounting (invariant #5)
   must decide whether Q_j is the full Q or Q − Q_ν. Worth knowing that the
   MESA-side dump carries both `q` and `qneu` per reaction
-  (`crosscheck/mesa_dump.py:92–93`) precisely so the question is answerable.
+  (`crosscheck/mesa_dump.py:91–92`) precisely so the question is answerable.
 
 ## V.9 Code path summary
 
@@ -3029,7 +3145,7 @@ n+p+2α → ³He+⁷Li direction MESA carries only one way, and ¹⁶N's β⁻-d
 mesa_151). Dropping them changes mesa_151's weak census 174 → 173.
 
 The 28/32 `MATCHED_DIFF_PROVENANCE` entries after the ordering fix are all
-**construction direction-swaps** (§III.4a): 14/16 forward-reverse pairs where
+**construction direction-swaps** (§III.4, construction (a)): 14/16 forward-reverse pairs where
 the two REACLIB snapshots disagree about which direction was fitted. Membership
 identical, values possibly not — hence carried forward with a stated looser band.
 
@@ -3094,7 +3210,8 @@ is the template for how this project handles a suspected upstream defect:
 
 1. **Read the source.** Locate the defect statically:
    `rates/private/reaclib_support.f90::compute_rev_ratio` applies the
-   phase-space factor only in the single-product branch.
+   phase-space factor only in the single-product branch (MESA r23.05.1 source;
+   cf. MESA issue #575, Grichener et al. 2025, App. B).
 2. **Derive the predicted signature.** |ΔN|·log₁₀(fac·T₉^{3/2}) from (3.4)–(3.5).
 3. **Measure it.** 10.0–11.1 dex (|ΔN|=1), 20.6–22.7 (|ΔN|=2), tracking the
    prediction within ≲0.35 dex.
@@ -3276,9 +3393,13 @@ the physics:
    so the guards can gate cheap code paths (npz-only checks) without the heavy
    import." A guard that is expensive to call gets called less.
 3. **They are placed at the chokepoint.** *Every* flux/κ entry point goes
-   through `compile_network`, and `compile_network` calls all four. There is no
-   path into the flux engine that bypasses them — which is a stronger property
-   than "all current callers check".
+   through `compile_network`, which calls three of the four
+   (`assert_screening_allowed`, `assert_reconciled_build`, `assert_pf_gate`);
+   the fourth, `assert_appendixb_routing`, guards a different chokepoint — any
+   request for MESA-side rate *values* (the spot-check harness) — since
+   compilation never consumes stock-MESA values. No path into the flux engine
+   bypasses the three compilation gates — which is a stronger property than
+   "all current callers check".
 4. **They are tested for their failure behaviour**, not their success behaviour:
    `test_flux_guards.py` is mostly `pytest.raises`. Including
    `test_exported_npz_trips_the_gate`, which asserts that a real artifact in the
@@ -3286,7 +3407,8 @@ the physics:
 
 This is the pattern Tier 0 §VII.4 named ("invariants live in code that refuses,
 not in comments"). Tier 1 is where you see it applied to five separate physics
-conclusions in one file.
+conclusions in one file (the fourth guard encodes two: the ordering pin and the
+reconciled-membership flag).
 
 ---
 
@@ -3321,7 +3443,7 @@ never written. If you learned any of these, relearn them.
 | V.4 | free-proton EC threshold W_thr = 1.804 MeV | **1.293 MeV** — the n–p mass difference *is* the threshold total energy; adding m_ec² double-counts it. Crossing at ρ ≈ 2.4×10⁷, inside the box |
 | IV.3 | h_strong ≃ 0.624 Γ_e[ΔZ^{5/3}] | **9/10** Γ_e[ΔZ^{5/3}] — the same 9/10 as the ion-sphere energy two lines above. Cross-checks: Salpeter's 0.205 in cgs, and h/Γ₁₂ = 1.057 against Chugunov's 1.0346 |
 | III.7 | gh-575 displaces the reverse by \|ΔN_s\| powers | **\|ΔN_s − e\|** powers, e = 1 iff the tabulated direction has one product. Chapter 8 is off by one power (~10 dex), not two (~21.8). The source branch is `No == 1`, not "three or more participants on a side" |
-| 1.4.2 | ×10 in Y_α moves the Si⇌S balance to T₉ ≈ 5.3 | **5.87**; the sensitivity is ≈ +0.8 in T₉ per decade of Y_α |
+| 1.4.2 | ×10 in Y_α moves the Si⇌S balance to T₉ ≈ 5.3 | **5.87**; the sensitivity is ≈ +0.5–0.8 in T₉ per decade of Y_α (steepening toward high Y_α) |
 | 1.4.2 | a forward-rate error "moves the balance point negligibly" | symmetric in the ratio; the real asymmetry is that forward errors are **common-mode** through the DB construction and cancel |
 | 1.2.4 | Δ/E₀ ~ 0.1 in hydrogen burning | Δ/E₀ = 4/√τ exactly, so ≈ 0.5–1 there. 0.1 needs τ ≈ 1600, which nothing reaches |
 | III.5 | ε = 0.5–1 gives κ ≈ 0.25–0.5 | κ = ε/(2+ε) = **0.20–0.33**; the linearised ε/2 is out of validity at these ε |
@@ -3373,8 +3495,9 @@ Ordered by how much they could change a project conclusion.
 
 ### VIII.C.1 Rate-uncertainty → Yₑ sensitivity propagation
 
-**The gap.** §1.3.3 establishes factor-~2 Hauser–Feshbach and factor-2–10
-shell-model weak uncertainties. The project has a Yₑ *physics floor*
+**The gap.** §1.3.3 establishes factor-~2 Hauser–Feshbach uncertainties and
+GT-placement-dependent shell-model weak ones (no blanket figure; key FFN→LMP
+EC revisions were factors ~10–350). The project has a Yₑ *physics floor*
 (5×10⁻³–1.5×10⁻² per trajectory) anchored on the FFN→LMP difference. But there
 is no node that computes **δYₑ / δ ln λ_r** — the sensitivity of the target
 observable to each rate.
@@ -3406,9 +3529,11 @@ consistency test in the repository.
 
 **Cost.** Now mostly mechanical rather than a literature question: tally the
 label classes over both networks, weight by flux carried in the box, and check
-Rauscher's SEF tables for whatever survives that filter. Hours, not days — and
-the expected answer is "negligible exposure", since the α ladder and the Fe-peak
-captures are `ths8r` throughout.
+Rauscher's SEF tables (Rauscher & Thielemann 2000) for whatever survives that
+filter. Hours, not days — and the expected answer is "negligible exposure",
+since the α ladder and the Fe-peak α-captures are `ths8r` throughout, with the
+single exception of ⁴⁰Ca(α,γ)⁴⁴Ti (label `chw0`, a resonance-based
+re-evaluation — one named channel for the tally to check; §1.3.5).
 
 ### VIII.C.3 Neutrino losses in the flux route (the dropped NU column)
 
@@ -3418,9 +3543,13 @@ as `get_nu_loss`.
 
 **Why it matters.** Invariant #5 requires flux-route vs composition-route e_nuc
 agreement to ≤1%, and the trajectory-file `eps_nuc` is *net of neutrino losses*.
-The flux-route vs bbq comparison is already logged as UNRESOLVED
-[RESULTS 2026-07-10]. A missing loss term is a candidate explanation that
-nobody can currently test, because the quantity is not compiled.
+(Status: the 2026-07-10 UNRESOLVED flux-route-vs-bbq row was retired by the
+2026-07-11 eps_nuc convention pin — a units/convention mismatch, not an engine
+error [RESULTS 2026-07-11]; invariant-#5 proper passed 2026-07-12 with the
+constant-Q caveat of §III.12 [RESULTS 2026-07-12].) The gap itself stands: the
+engine still cannot compute ν losses — the pin leaned on the labels' own
+eps_neu column — so a missing loss term remains something nobody can test
+flux-route-side, because the quantity is not compiled.
 
 **Cost.** Small: one more `tab_*` array and a second bilinear pass.
 
@@ -3431,7 +3560,8 @@ imposed thermodynamic state. Tier 0 §IV.2 analyses the **compositional**
 reachable manifold beautifully. Nothing analyses the **thermal** one.
 
 **Why it matters.** In a real star ε_nuc heats the zone, T rises,
-photodisintegration rates rise steeply (§1.4.3: d ln λ_γ / d ln T ≈ 27), and the
+photodisintegration rates rise steeply (§1.4.3: Q/kT ≈ 27 from the e^{−Q/kT}
+factor alone; the full fitted slope d ln λ_γ / d ln T ≈ 35 at T₉ = 3), and the
 composition responds. Deployment couples the emulator into exactly that loop.
 Two specific questions: (i) does the operator-splitting error analysis (§IV.1)
 still bound the error when T is *changing* over the step rather than fixed?
@@ -3473,7 +3603,7 @@ neutrality n₋(μ_e) − n₊(μ_e) = ρYₑ/m_u over the box **[derived here]*
 | 10⁷ | 0.498 | 7.9 | 0.161 | **1.81** | **4.62** |
 | 10⁷ | 0.498 | 5.0 | 0.412 | 0.20 | 1.40 |
 | 10⁸ | 0.500 | 7.9 | 1.210 | 0.041 | 1.08 |
-| 10⁹ | 0.450 | 7.9 | 3.598 | 3×10⁻⁴ | 1.000 |
+| 10⁹ | 0.450 | 7.9 | 3.598 | 1.4×10⁻⁴ | 1.000 |
 
 **At the hot, thin corner the positrons outnumber the net electrons**, and the
 total charged-lepton density is 4.6× the number the code uses. It is nowhere
@@ -3484,8 +3614,9 @@ was originally about:
 
 1. Pairs add to the *polarisable* lepton density while leaving Yₑ unchanged, so
    Γ_e keyed on net n_e is low by 4.62^{1/3} ≈ 1.66× there. Bounded in
-   consequence: Γ(Si–Si) at that corner is only 0.40, so h is small and the
-   enhancement is ~1.1× either way. The rate error is real but not large.
+   consequence: Γ(Si–Si) at that corner is only 0.40, and for the α/p captures
+   the network actually carries (Γ₁₂ ≤ 0.21) the enhancement is ~1.03–1.16×
+   either way. The rate error is real but not large.
 2. **μ_e = 0.16 MeV < m_ec² means the electrons there are not degenerate at
    all.** That undercuts more than the screening call: §V.4's cold-degenerate
    E_F table, the μ_e⁵ scaling, and `chugunov_2007`'s rigid-background premise
@@ -3511,7 +3642,8 @@ astrophysics). None of it is surveyed.
 arXiv for ML-emulator work; a reduction-methods claim could be anticipated in a
 literature nobody is sweeping. Second, method: combustion chemistry solved
 "which reactions matter, adaptively" long ago, and their importance measures
-(DRG, DRGEP, computational singular perturbation) are directly analogous to the
+(DRG, Lu & Law 2005; DRGEP, Pepiot-Desjardins & Pitsch 2008; computational
+singular perturbation, Lam & Goussis 1994) are directly analogous to the
 κ/active-set machinery. Reinventing them is a waste; citing them is free.
 
 ### VIII.C.8 Isomers, and what a ground-state-only network omits
@@ -3597,9 +3729,9 @@ turns up something larger than any individual gap.
 
 | Component | Specified content | Study node |
 |---|---|---|
-| **A** — backbone | heterogeneous bipartite graph with **three** edge types (I→R, R→I signed, I→I); per-reaction-type message functions; GATv2 attention; latent width h = 128; encode–process–decode; **continuous (Z,N) embedding** as the size-transfer mechanism; depth K ≈ ⌈radius⌉+2 = 5; hypergraph convolution rejected with a switch rule; the **four added physics channels**; signed-log with NuGNN's shift trick C ≈ 17; learned flux preprocessor | **none** |
+| **A** — backbone | heterogeneous bipartite graph with **three** edge types (I→R, R→I signed, I→I); per-reaction-type message functions; GATv2 attention; latent width h = 128; encode–process–decode; **continuous (Z,N) embedding** as the size-transfer mechanism; depth K ≈ ⌈radius⌉+2 = 5; hypergraph convolution rejected with a switch rule; the **four added physics channels**; signed-log with NuGNN's shift trick C ≈ 17 (Kim et al. 2026); learned flux preprocessor | **none** |
 | **B** — heads | Target A/B · **S15** ✓; **hybrid equilibrium mask = Guidry prior + learned L0 hard-concrete gate**; energy head e_nuc = ΣQⱼ(T)φⱼ; **neutrino head ε_ν = Σ⟨E_ν⟩ⱼφⱼ** | **partial** (S15 covers the target choice only) |
-| **C** — temporal head | **Δt as global conditioning on a stiffness-aware log grid, ONE model spanning 10⁻⁶–10² s** (vs the NNN's nine); **Ono & Sugimura 2026 timescale-rescaled update** as rollout governor; its **commutation with the conservation map is an open interaction** | **none** |
+| **C** — temporal head | **Δt as global conditioning on a stiffness-aware log grid, ONE model spanning 10⁻⁶–10² s** (vs the NNN's nine); **Ono & Sugimura (2026) timescale-rescaled update** as rollout governor; its **commutation with the conservation map is an open interaction** | **none** |
 | **D** — training | **pushforward/unrolled loss through K ≥ 2 steps** as the primary stability lever; **GNS noise injection restricted to non-equilibrated channels**; **worst-case tail term (p90/p99 or CVaR)**; Fe-peak up-weighting; **deep ensembles → OOD flag → fallback-to-solver gate** | **none** |
 
 **And `docs/architecture/` — which `docs/CLAUDE.md` names as the living spec —
@@ -3737,10 +3869,16 @@ T₉ ≳ 5 — is precisely a statement about what happens near that switch.
 Three open checklist items are *sourcing* rather than measurement, and all three
 sit in the chain Tier 0 Part I uses to justify the project:
 
-- **Farmer 2016's "30%/10%"** — is it η = 1−2Yₑ or relative Yₑ? Tier 0 §I.2 and
-  docs/CLAUDE.md both carry this as explicitly unconfirmed. It is an
-  interpretation of the *observational* leverage of Yₑ, i.e. the number that says
-  why the project matters.
+- **Farmer 2016's "30%/10%"** — is it η = 1−2Yₑ or relative Yₑ? The numbers
+  themselves are now located verbatim in the paper's abstract ("≈30% variations
+  in the central electron fraction … a minimum of ≈127 isotopes is needed to
+  attain convergence of these values at the ≈10% level"; Farmer et al. 2016) —
+  but the *metric* the percentages refer to is still not defined anywhere in the
+  paper. The paper's own tables constrain the reading: the η = 1−2Yₑ
+  interpretation is quantitatively consistent (η spreads cluster around ≈30%)
+  while relative Yₑ is not (6–11%) — so the interpretation half of the gap
+  stands. It is an interpretation of the *observational* leverage of Yₑ, i.e.
+  the number that says why the project matters.
 - **⟨E_ν⟩ per reaction** for the neutrino head. Distinct from §VIII.C.3's dropped
   NU column: that is a tabulated *loss rate*, this is a *mean energy per capture*
   needed for ε_ν = Σ⟨E_ν⟩ⱼφⱼ. Open since Tier 0 §0.4.3.
@@ -3807,7 +3945,7 @@ if it passed* — is what surfaced all four.
 | "λ comes from REACLIB" | λ = Σ_sets exp(a·basis) where a₂ **is** the Gamow exponent −4.2487(Z₁²Z₂²μ)^{1/3} and a₆ = −2/3 is the saddle-point prefactor (§II.1, §II.3) |
 | "reverse rates come from detailed balance" | six explicit factors (3.4); the v-flag construction carries five and structurally cannot carry the sixth (§III.5) |
 | "use `DerivedRate(use_pf=True)`" | pf corrections reach 0.22×–4.5×, and near equilibrium a factor ε in f⁻ appears as κ ≈ ε/2 — hence a floor to 0.8 (§III.5) |
-| "gh-575 is a phase-space bug" | $\|\Delta N_s - e\|$ powers of $\mathrm{fac}\cdot T_9^{3/2}$ = 10.3–11.3 dex each, with $e = 1$ iff the tabulated direction has one product — so chapter 8 is off by **one** power, not two, matching measurement to ≲0.35 dex (§III.7) |
+| "gh-575 is a phase-space bug" | $\|\Delta N_s - e\|$ powers of $\mathrm{fac}\cdot T_9^{3/2}$ = 10.3–11.3 dex each, with $e = 1$ iff the tabulated direction has one product — so chapter 8 is off by **one** power, not two, matching measurement to ≲0.31 dex on non-identical-particle channels, with structured log₁₀k! offsets on the rest (§III.7) |
 | "screening uses chugunov_2007" | Γ ≈ 0.4–9 for Si–Si across the box ⇒ intermediate coupling; enhancements 1.1×–3.3×; A₃ = √3 − A₁/√A₂ *is* the Debye–Hückel boundary condition (§IV.3–IV.5) |
 | "screened κ has an offset at NSE" | κ = \|tanh(Δh/2)\|, exact to 1.4×10⁻¹¹; median 7.361×10⁻² reproduces the RESULTS row (§IV.7) |
 | "weak rates are tabulated in (T, ρYₑ)" | λ_EC ∝ μ_e⁵ ∝ (ρYₑ)^{5/3} past threshold; E_F = 1.02 → 3.98 MeV across the box brackets the free-proton threshold (§V.4) |
@@ -3865,3 +4003,49 @@ Five of the highest-priority open items in §VIII.F are common-mode — worked i
 
 **Next:** Tier 2 — **S7** (ν, the constraint matrix C, the null-space
 projector) and **S8** (f⁺, f⁻, φ = f⁺ − f⁻, and κ as a condition number).
+
+---
+
+# References
+
+Sources verified during the 2026-08-13 literature audit (`study/tier1-audit.md`
+records which passage of each source supports which claim). arXiv-available
+papers are cached as TeX under `data/literature/`.
+
+- Adelberger, E. G., García, A., Robertson, R. G. H., et al. 2011, "Solar fusion cross sections. II. The pp chain and CNO cycles", Rev. Mod. Phys. 83, 195. arXiv:1004.2318.
+- Bildsten, L. & Cumming, A. 1998, "Hydrogen Electron Capture in Accreting Neutron Stars and the Resulting g-Mode Oscillation Spectrum", ApJ 506, 842. arXiv:astro-ph/9807012.
+- Blatt, J. M. & Weisskopf, V. F. 1952, *Theoretical Nuclear Physics* (New York: Wiley; reprinted New York: Dover). (Pre-arXiv book, not opened — cited via the attribution in Cyburt et al. 2010, p. 30, with the quoted forms checked for internal consistency against Rauscher & Thielemann 2000.)
+- Chabrier, G. & Potekhin, A. Y. 1998, "Equation of state of fully ionized electron-ion plasmas", Phys. Rev. E 58, 4941. arXiv:physics/9807042.
+- Chugunov, A. I., DeWitt, H. E., & Yakovlev, D. G. 2007, "Coulomb tunneling for fusion reactions in dense matter: Path integral Monte Carlo versus mean field", Phys. Rev. D 76, 025028. arXiv:0707.3500.
+- CODATA — recommended values of the fundamental physical constants (the 2018 and 2022 adjustments, as noted per use), via the NIST Reference on Constants, Units, and Uncertainty (physics.nist.gov/cuu).
+- Cyburt, R. H., et al. 2010, "The JINA REACLIB Database: Its Recent Updates and Impact on Type-I X-ray Bursts", ApJS 189, 240. (Full text via the open OSTI preprint LLNL-JRNL-452312; chapter and set-field definitions verified against the JINA REACLIB format specification, reaclib.jinaweb.org/docs/reaclibFormat.pdf.)
+- Descouvemont, P. & Baye, D. 2010, "The R-matrix theory", Rep. Prog. Phys. 73, 036301. arXiv:1001.0678.
+- Farmer, R., Fields, C. E., Petermann, I., et al. 2016, "On Variations of Pre-supernova Model Properties", ApJS 227, 22. arXiv:1611.01207.
+- Freer, M. & Fynbo, H. O. U. 2014, "The Hoyle state in ¹²C", Prog. Part. Nucl. Phys. 78, 1. (No arXiv posting; verified via publisher open-access copy.)
+- Fuller, G. M., Fowler, W. A., & Newman, M. J. (FFN) 1980, ApJS 42, 447; 1982, ApJS 48, 279; 1985, ApJ 293, 1. (Pre-arXiv; process list and A-ranges verified via Langanke & Martínez-Pinedo 2003 and the ADS records.)
+- Grichener, A., et al. 2025, "Nuclear Neural Networks: Emulating Late Burning Stages in Core Collapse Supernova Progenitors", ApJS 279, 49. arXiv:2503.00115 (dataset: Zenodo 14873443).
+- Hix, W. R. & Thielemann, F.-K. 1996, "Silicon Burning. I. Neutronization and the Physics of Quasi-Equilibrium", ApJ 460, 869. arXiv:astro-ph/9511088.
+- Hix, W. R. & Thielemann, F.-K. 1999b, "Computational methods for nucleosynthesis and nuclear energy generation", J. Comput. Appl. Math. 109, 321. arXiv:astro-ph/9906478.
+- José, J. & Iliadis, C. 2011, "Nuclear astrophysics: the unfinished quest for the origin of the elements", Rep. Prog. Phys. 74, 096901. arXiv:1107.2234.
+- Kim, Y., et al. 2026, "NuGNN: a Graph Neural Network for Nuclear Reaction Network Equations", arXiv:2606.04491.
+- Lam, S. H. & Goussis, D. A. 1994, "The CSP method for simplifying kinetics", Int. J. Chem. Kinet. 26, 461. (Pre-arXiv; bibliographic data via Crossref.)
+- Langanke, K. & Martínez-Pinedo, G. 2000, "Shell-model calculations of stellar weak interaction rates II: Weak rates for nuclei in the mass range A = 45–65 in supernovae environments", Nucl. Phys. A 673, 481. arXiv:nucl-th/0001018.
+- Langanke, K. & Martínez-Pinedo, G. 2001, "Rate tables for the weak processes of pf-shell nuclei in stellar environments", At. Data Nucl. Data Tables 79, 1.
+- Langanke, K. & Martínez-Pinedo, G. 2003, "Nuclear weak-interaction processes in stars", Rev. Mod. Phys. 75, 819. arXiv:nucl-th/0203071.
+- Longland, R., Iliadis, C., Champagne, A. E., Newton, J. R., Ugalde, C., Coc, A., & Fitzgerald, R. 2010, "Charged-particle thermonuclear reaction rates: I. Monte Carlo method and statistical distributions", Nucl. Phys. A 841, 1. arXiv:1004.4136.
+- Lu, T. & Law, C. K. 2005, "A directed relation graph method for mechanism reduction", Proc. Combust. Inst. 30, 1333.
+- MESA issue #575 — "Bug in the nuclear reaction rates of reactions with more than two reactants and/or products", github.com/MESAHub/mesa/issues/575 (opened 2023-08-07; fixed via PR #632).
+- Oda, T., Hino, M., Muto, K., Takahara, M., & Sato, K. 1994, "Rate tables for the weak processes of sd-shell nuclei in stellar matter", At. Data Nucl. Data Tables 56, 231.
+- Ono, S. & Sugimura, K. 2026, "Neural-Network Chemical Emulator for First-Star Formation: Robust Iterative Predictions over a Wide Density Range", ApJ 996, 9. arXiv:2508.16114.
+- Pepiot-Desjardins, P. & Pitsch, H. 2008, "An efficient error-propagation-based reduction method for large chemical kinetic mechanisms", Combust. Flame 154, 67.
+- Pruet, J. & Fuller, G. M. 2003, "Estimates of Stellar Weak Interaction Rates for Nuclei in the Mass Range A = 65–80", ApJS 149, 189. arXiv:astro-ph/0211262.
+- Rauscher, T. 2003, "Nuclear Partition Functions at Temperatures Exceeding 10¹⁰ K", ApJS 147, 403. arXiv:astro-ph/0304047.
+- Rauscher, T. & Thielemann, F.-K. 2000, "Astrophysical reaction rates from statistical model calculations", At. Data Nucl. Data Tables 75, 1. arXiv:astro-ph/0004059.
+- Rauscher, T., Thielemann, F.-K., & Kratz, K.-L. 1997, "Nuclear level density and the determination of thermonuclear rates for astrophysics", Phys. Rev. C 56, 1613. arXiv:astro-ph/9706294.
+- Salpeter, E. E. 1952, "Nuclear reactions in stars without hydrogen", ApJ 115, 326. (Pre-arXiv; sequential-3α content verified via José & Iliadis 2011.)
+- Salpeter, E. E. 1954, "Electron screening and thermonuclear reactions", Aust. J. Phys. 7, 373. (Pre-arXiv; full text via the ADS article scan, 1954AuJPh...7..373S.)
+- Smith, A. I., et al. 2023, "pynucastro: A Python Library for Nuclear Astrophysics", ApJ 947, 65. arXiv:2210.09965.
+- Suzuki, T., Toki, H., & Nomoto, K. 2016, "Electron-capture and β-decay Rates for sd-shell Nuclei in Stellar Environments Relevant to High-density O–Ne–Mg Cores", ApJ 817, 163. arXiv:1512.00132.
+- Teichmann, T. & Wigner, E. P. 1952, "Sum rules in the dispersion theory of nuclear reactions", Phys. Rev. 87, 123. (Pre-arXiv; Wigner-limit form verified via Descouvemont & Baye 2010.)
+- Wigner, E. P. 1948, "On the Behavior of Cross Sections Near Thresholds", Phys. Rev. 73, 1002. (Pre-arXiv; threshold-law attribution only.)
+- Yakovlev, D. G., Gasques, L. R., Beard, M., Wiescher, M., & Afanasjev, A. V. 2006, "Fusion reactions in multicomponent dense matter", Phys. Rev. C 74, 035803. arXiv:astro-ph/0608488. (Not opened; cited only as pynucastro's own attribution for the pair-plasma-frequency generalization — bibliographic data verified via the arXiv record.)
