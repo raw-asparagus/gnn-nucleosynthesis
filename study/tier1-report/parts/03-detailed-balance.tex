@@ -310,7 +310,10 @@ rebuilds agree --- is \S\ref{sec:pf-spline}.
 \label{sec:threeways}
 
 \begin{center}
-\begin{tabularx}{\textwidth}{@{}L{4.3cm} L{1.1cm} L{1.2cm} L{1.7cm} L{0.7cm} Y@{}}
+% The four middle columns must each fit the unbreakable word "implicit"
+% (1.32cm in Palatino 10.95pt), and column 4 additionally wraps row (d)'s
+% sentence, so it gets more. Do not narrow these below 1.4cm.
+\begin{tabularx}{\textwidth}{@{}L{3.6cm} L{1.4cm} L{1.4cm} L{2.0cm} L{1.4cm} Y@{}}
 \toprule
 \textbf{Construction} & \textbf{spins} & \textbf{masses} & \textbf{$\fac^{\Delta N}$}
   & \textbf{$Q$} & \textbf{partition functions} \\

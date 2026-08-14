@@ -2,7 +2,7 @@
 %  Tier 1 -- Microphysics.  Standalone report.
 %
 %  Source:  study/tier1.md  (audited 2026-08-13; audit log study/tier1-audit.md)
-%  Build:   latexmk -lualatex -cd study/tier1-report/main.tex
+%  Build:   latexmk -pdf -cd study/tier1-report/main.tex
 %
 %  This file re-architects the Markdown source from its node-by-node order
 %  (Part I rate theory -> II REACLIB -> III detailed balance -> IV screening
@@ -14,14 +14,15 @@
 % =====================================================================
 \documentclass[11pt,a4paper]{article}
 
-% ---------- fonts and encoding (LuaLaTeX) ----------
-\usepackage{fontspec}
-\usepackage{unicode-math}
-\setmainfont{TeX Gyre Pagella}
-\setmathfont{TeX Gyre Pagella Math}
-\setmonofont{DejaVu Sans Mono}[Scale=MatchLowercase]
-% DejaVu Sans Mono carries the box-drawing and geometric-shape blocks, so any
-% Unicode surviving into verbatim still renders instead of vanishing.
+% ---------- fonts and encoding (pdfLaTeX) ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+% The sources are pure ASCII (accents are written \'e, \"u), so utf8 is here
+% for future-proofing rather than necessity.
+\usepackage{mathpazo}                % Palatino text + math; same design as
+                                     % TeX Gyre Pagella, and what docs/qse uses
+\usepackage[scaled=0.85]{beramono}   % Bitstream Vera Mono, DejaVu Sans Mono's
+                                     % ancestor, so \code{} keeps its texture
 
 % ---------- layout ----------
 \usepackage[a4paper,margin=2.4cm,bottom=2.8cm]{geometry}
@@ -34,6 +35,8 @@
 
 % ---------- maths ----------
 \usepackage{amsmath}
+\usepackage{amssymb}   % \checkmark, \gtrsim, \lesssim, \simeq
+                       % (unicode-math used to supply these)
 \allowdisplaybreaks
 
 % ---------- tables ----------
@@ -68,7 +71,7 @@
 \setlength{\bibsep}{2pt plus 0.4ex}
 
 % ---------- hyperref must load last ----------
-\usepackage[hidelinks]{hyperref}
+\usepackage[hidelinks,unicode]{hyperref}
 \hypersetup{
   pdftitle={Tier 1 -- Microphysics: reaction-rate theory, detailed balance,
             plasma corrections, the weak sector, and the MESA/pynucastro
@@ -126,7 +129,10 @@
 \newcommand{\ztil}{\ensuremath{\tilde z}}
 \newcommand{\Rset}{\ensuremath{\mathcal{R}}}
 \newcommand{\Pset}{\ensuremath{\mathcal{P}}}
-% reduced (barred) de Broglie wavelength; not guaranteed by unicode-math
+% Reduced (barred) de Broglie wavelength.  \mathchar'26 is the macron in math
+% family 0 slot 22 -- correct under pdfLaTeX/mathpazo, but EMPTY under
+% unicode-math (TeX Gyre Pagella Math has no U+0016), where the bar silently
+% vanished.  Do not reintroduce a Unicode math engine without rechecking this.
 \newcommand{\lbar}{\ensuremath{\mathchar'26\mkern-9mu\lambda}}
 
 % =====================================================================
