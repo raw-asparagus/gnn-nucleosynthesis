@@ -1,0 +1,1008 @@
+% =====================================================================
+%  1 -- THE ASTROPHYSICAL SETTING.
+%
+%  Source: tier2.md Part 0 -- header (193-203), 0.1 (206-392),
+%          0.2 (395-551), 0.3 (554-739), 0.5 (839-870),
+%          0.5b (874-967), 0.6 (971-1009), 0.7 (1011-1023),
+%          0.8 self-check (1025-1046).
+%  Excluded and re-homed: 0.4 (743-837, "why conservation is
+%          structural") opens section 2, immediately before the algebra
+%          it is a statement about.  Nothing else moves.
+%  Two ASCII diagrams (450-460, 613-618) are redrawn as TikZ figures.
+% =====================================================================
+
+\section{The astrophysical setting}
+\label{part:setting}
+
+Tier~0 Part~I asked \emph{why the project exists}. This section asks a narrower
+and more technical question: \textbf{why does the algebra of Tier~2 take the
+shape it does?} Why is there a cluster solver at all? Why is the central design
+bet ``most reactions are in near-balance''? Why is \Ye{} the quantity every gate
+in \code{CLAUDE.md} is written around, rather than, say, the \nuc{Ni}{56} mass
+fraction?
+
+None of that is derivable from the code. It comes from sixty years of silicon
+burning theory, and the code is unreadable as \emph{physics} without it.
+
+% =====================================================================
+\subsection{The equilibrium hierarchy}
+\label{sec:hierarchy}
+
+\subsubsection{Three regimes, stated as claims about fluxes}
+\label{sec:regimes}
+
+Take the network ODE (Tier~0 \S II.4)
+%
+\begin{equation}
+\dot Y_i \;=\; \sum_j \nu_{ij} R_j(Y; T, \rho),
+\label{eq:networkode}
+\end{equation}
+%
+and pair every strong\,/\,EM reaction $j$ with its inverse $\bar\jmath$
+(Tier~1 \S III). Then the whole of nuclear astrophysics's equilibrium taxonomy
+is a statement about which of the differences $\netflux_j = R_j - R_{\bar\jmath}$
+are negligible.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.5cm} R{1.25} R{0.95} R{0.8}@{}}
+\toprule
+\textbf{regime} & \textbf{claim} & \textbf{composition parameters
+  \emph{before} constraints} & \textbf{\ldots of which still free once
+  $(T, \rho, \Ye)$ is given} \\
+\midrule
+\textbf{full kinetics} & nothing is assumed balanced &
+  $n$ (all abundances) & $n - 2$ \\
+\textbf{QSE} (quasi-statistical equilibrium) &
+  reactions \emph{within} each of $g$ clusters balance; reactions
+  \emph{between} clusters do not & $2 + g$ &
+  \textbf{$g$} (the group masses) \\
+\textbf{NSE} (nuclear statistical equilibrium) &
+  every strong\,/\,EM reaction balances & 2 & \textbf{0} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Read the two right-hand columns together, because the familiar ``NSE has two
+free parameters'' is shorthand for the third column and the \emph{point} of NSE
+is the fourth: $(\mu_p, \mu_n)$ parameterise the composition, and the two
+constraints ($\sum X = 1$, \Ye) then fix them, leaving nothing free. QSE's $g$
+leftover degrees of freedom are exactly the group masses, which is why they have
+to come from the slow dynamics.
+
+The counting is the whole point, and it deserves to be derived rather than
+asserted.
+
+\paragraph{NSE $\to$ 2.} If every strong\,/\,EM reaction is balanced, then for
+each such reaction the chemical potentials of reactants and products are equal
+(\S\ref{sec:ensemble}--\S\ref{sec:binding}). Because every nucleus is reachable
+from free nucleons by some chain of \emph{strong} reactions, the balance
+conditions collapse to
+%
+\begin{equation}
+\mu_i \;=\; Z_i\,\mu_p + N_i\,\mu_n \quad\text{for every } i.
+\label{eq:nsemu}
+\end{equation}
+%
+Two numbers, $(\mu_p, \mu_n)$, determine all $n$ abundances. Fixing them
+requires two constraints: $\sum_i X_i = 1$ and $\sum_i (Z_i/A_i)X_i = \Ye$. So
+NSE composition is a \emph{function}, $X(T, \rho, \Ye)$ --- no history, no
+rates, no network. This is why NSE is so seductive computationally and why
+\code{qse/solver.py} exists at all.
+
+\paragraph{The reachability step is measurable, and the right measurement is not
+the one you would reach for first.} ``Every nucleus is reachable from free
+nucleons'' is a connectivity property of the \emph{strong\,/\,EM} subgraph, so
+\code{graph\_metrics}' statement that the full exported graph is connected
+\resultsref{2026-07-08} does not establish it --- the full graph carries weak
+edges too. The evidence that does is \S\ref{sec:rank}'s: the left null space of
+$\nu$ \textbf{restricted to strong\,/\,EM columns} is exactly 2-dimensional and
+equals $\mathrm{span}\{A, Z\}$. A strong subgraph that fell into $c$
+disconnected pieces would conserve each piece's mass separately and push that
+nullity above 2; the measured 2 is precisely the statement this collapse needs.
+
+\paragraph{QSE $\to$ $2 + g$.} Now suppose the network's reaction graph,
+restricted to \emph{fast} reactions, is disconnected: it falls into $g$
+clusters, plus the free nucleons. Within cluster $G$ the balance conditions
+still collapse, but only relative to a cluster-local reference. The general
+solution is
+%
+\begin{equation}
+\mu_i \;=\; Z_i\,\mu_p + N_i\,\mu_n + \uG \quad\text{for } i \in G,
+\label{eq:qsemu}
+\end{equation}
+%
+with one extra offset \uG{} per cluster --- an integration constant of the
+cluster's internal equilibrium that the \emph{slow} inter-cluster reactions must
+determine. Setting all $\uG = 0$ recovers NSE. This is exactly the structure in
+\code{qse/solver.py}'s docstring, and it is why the QSE solve has three unknowns
+$(\up, \un, \uG)$ with a third constraint: the measured group mass fraction
+$\sum_{i \in G} X_i$.
+
+That third constraint is worth pausing on, because it is where QSE stops being a
+closed theory. NSE needs $(T, \rho, \Ye)$ and nothing else. QSE needs
+$(T, \rho, \Ye)$ \textbf{plus the group mass} --- a dynamical quantity that only
+the slow bridge reactions can supply. QSE is therefore a \emph{reduction}, not a
+solution: it turns an $n$-dimensional ODE into a $(g{+}1)$-dimensional one. That
+is the entire content of the Hix \& Thielemann reduced-network programme, and it
+is the structural ancestor of this project's Target-A design.
+
+\paragraph{Full kinetics $\to$ $n$.} No reduction. What MESA\,/\,bbq actually
+integrates, and what the emulator has to reproduce.
+
+% ---------------------------------------------------------------------
+\subsubsection{The historical arc --- and why each step mattered}
+\label{sec:history}
+
+This is worth knowing properly, because the project's design choices are
+reactions to specific historical findings, not to a generic ``networks are
+slow'' complaint.
+
+\begin{itemize}
+\item \textbf{\citet{hoyle1946}} (MNRAS 106, 343, ``The Synthesis of the
+  Elements from Hydrogen'') --- the equilibrium calculation B$^2$FH later
+  systematised and named the \emph{e-process}. The iron-peak abundance pattern
+  is not the record of a reaction sequence; it is a thermodynamic equilibrium
+  distribution, with \nuc{Fe}{56} the most abundant heavy nucleus in his
+  freeze-out table (Table XIV). This is the origin of the idea that composition
+  can be a \emph{state function}. The quantitative placement --- the
+  \nuc{Fe}{56} peak at $\Ye = 26/56 \approx 0.464$ --- is not in Hoyle, whose
+  neutron-richness variable is a degeneracy parameter; it comes from the later
+  NSE surveys \citep[Fig.~2;][]{hwe1985}, the survey lineage beginning with
+  \citet{clifford1965}.
+
+  \begin{warn}
+  \textbf{Say this one carefully.} The usual shorthand --- ``\nuc{Fe}{56}
+  maximises binding energy per nucleon'' --- is not true: \nuc{Ni}{62} does
+  (8.7946 vs 8.7904\,MeV/A, AME2020, \citealp{ame2020}). What NSE actually
+  minimises is the free energy at fixed ($\sum X = 1$, \Ye), and near
+  $\Ye = 0.464 = 26/56$ the winner is the nucleus whose $Z/A$ \emph{matches}
+  \Ye{} while having near-maximal $B/A$ --- which is \nuc{Fe}{56} (the selection
+  rule stated verbatim in \citealp{seitenzahl2008}). The \Ye{} qualifier is not
+  decoration; it is the whole selection rule, and \S\ref{sec:fepeak} is the same
+  statement read as a function of \Ye.
+  \end{warn}
+
+\item \textbf{\citet{bbfh1957}} (Rev. Mod. Phys. 29, 547) --- B$^2$FH
+  systematises the e-process alongside s, r, p. Still equilibrium-first.
+
+\item \textbf{\citet{bcf1968apjs}} (ApJS 16, 299, ``Nuclear Quasi-Equilibrium
+  during Silicon Burning''; announced in \citealp{bcf1968prl}) --- the decisive
+  correction, and the paper this tier is really downstream of. Full NSE is
+  \emph{not} reached in silicon burning on the available timescale. Instead the
+  network organises into \textbf{quasi-equilibrium}: in BCF's own picture a
+  \emph{single} cluster, $28 \le A \le 62$, whose abundances are expressed
+  relative to the slowly-depleting base nucleus \nuc{Si}{28} and the free light
+  particles; the cluster is \emph{not} in equilibrium with the $A < 28$ sector,
+  and the burning rate is carried by a few slow non-equilibrium links (chiefly
+  \nuc{Mg}{24}$(\gamma,\alpha)$\nuc{Ne}{20}). Composition is neither a free ODE
+  trajectory nor a state function; it is a state function \emph{of the group
+  masses}, which evolve slowly.
+
+\item \textbf{\citet{wac1973}} (ApJS 26, 231, ``The Explosive Burning of Oxygen
+  and Silicon'') --- large explicit silicon-burning networks; QSE confirmed as
+  an emergent property of the kinetics rather than an imposed assumption (``the
+  striking tendency of elements to segregate into cluster-equilibrium groups'',
+  their p.~250). This is also where the \textbf{two-group} refinement of BCF's
+  single cluster enters: a silicon group ($A \le 45$) and an iron group
+  ($A \ge 46$), joined by bridge reactions dominated by
+  \nuc{Sc}{45}$(p,\gamma)$\nuc{Ti}{46} (their \S VIb, Fig.~17).
+
+\item \textbf{\citet{ht1996}} (ApJ 460, 869; the reference cited in
+  \code{configs/qse\_groups.yaml}) \textbf{and \citeyear{ht1999a}a}
+  \citep[ApJ 511, 862;][]{ht1999a} --- the modern diagnostic study: a full
+  299-species network run against QSE predictions, confirming the two groups
+  split ``roughly A=24 to A=45'' (the boundary giving way to an $N = 23$ rule
+  from Ti onward) and their merger into one cluster as burning proceeds. The
+  $24 \le A < 45$ single-silicon-cluster span in the repo's default group config
+  is a crisp paraphrase of this hedged boundary. The QSE \emph{reduced} networks
+  themselves --- solve for $(\up, \un, \uG)$ plus the group masses, integrate
+  only the bridges --- were made operational in the companion line of work:
+  \citet{hix1998} and \citet{hix2007}.
+
+\item \textbf{Guidry and collaborators, 2012--2013} \citep{guidry2012,
+  guidry2013pe, guidry2013asym, guidry2013qss} --- \emph{partial equilibrium}
+  and \emph{asymptotic} methods: rather than imposing group membership by
+  $A$-range, detect equilibrated reaction pairs dynamically via a departure
+  criterion, and stabilise explicit integration by algebraically removing them.
+  The repo's $\varepsilon$-sweep criterion $|y - \bar y|/\bar y < \varepsilon$
+  (\code{qse/diagnostics.delta\_species}) is this lineage --- it is Eq.~(8b) of
+  the partial-equilibrium paper \citep{guidry2013pe}, whose own operative
+  tolerance $\varepsilon = 0.01$ is the middle value of the repo's sweep.
+
+\item \textbf{Machine-learning era} --- NNN \citep{grichener2025} and NuGNN
+  \citep{kim2026}: learn the map directly. The physics-structural question these
+  inherited but did not resolve is precisely BCF68\,/\,WAC73's: \emph{is the net
+  flow carried by a small identifiable set of bridges?} If yes, a flux-space
+  target with an equilibrium mask is the right architecture. If no, it is a
+  liability.
+\end{itemize}
+
+\textbf{That question, restated as a measurement, is the kill-test}
+(\S\ref{sec:killtest}). Tier~2 builds every instrument it needs.
+
+% ---------------------------------------------------------------------
+\subsubsection{What the project bets on this hierarchy}
+\label{sec:bet}
+
+Target A predicts a per-reaction flux \Phifl{} and maps it through the fixed
+$\nu$. Three things make that attractive, and all three are QSE-dependent:
+
+\begin{enumerate}
+\item \textbf{The mask.} If most columns are equilibrated, the model only has to
+  get a few dozen bridge fluxes right. That is a far easier learning problem
+  than $n$ coupled abundances.
+\item \textbf{Sparsity of the \emph{net} flow.} Even without a mask, if
+  $|\netflux|$ is concentrated in $\lesssim 20$ columns, a loss weighted toward
+  those columns is well-posed.
+\item \textbf{Physical interpretability of errors.} A flux error is attributable
+  to a named reaction; an abundance error is not.
+\end{enumerate}
+
+Every one of those is a claim about the \emph{data}, not about the architecture.
+The honest posture --- and the one the repo takes --- is that Target A is a
+hypothesis with a falsifier attached. \S\ref{sec:killtest} states the falsifier;
+Tier~3 reports the verdict.
+
+\begin{result}
+\textbf{Read this before Tier 3:} the measured answer is not a clean yes or no.
+The bridge flow \emph{is} concentrated (top-20 columns carry 0.82--0.88 of
+inter-group flux, \resultsref{2026-07-12}) --- the BCF68\,/\,WAC73 picture
+survives. But the \emph{maskable} set on the label manifold is \textbf{empty at
+every $\varepsilon$} \resultsref{2026-07-12}, because the shipped labels' own
+equilibria are displaced by a MESA bug (Tier~3, S13). Two different claims; the
+data separates them. \S\ref{sec:negresults} carries the measurement.
+\end{result}
+
+% =====================================================================
+\subsection{Silicon burning, mechanically}
+\label{sec:sibmech}
+
+\subsubsection{Why $\sim$3\,GK is the threshold}
+\label{sec:threegk}
+
+Tier~1 \S1.4 derived the photodisintegration rate: a reverse $(\gamma, \alpha)$
+rate carries the factor $\exp(-Q/kT)$ relative to its forward
+$(\alpha, \gamma)$ partner, times a phase-space ratio $\propto T^{3/2}$ (the
+detailed-balance reciprocity relation: \citealp{fcz1967}; in modern form
+\citealp{rauscher2000}, eq. for $\lambda_\gamma$). With $Q \approx 5$--8\,MeV
+for the $\alpha$-captures in the Si--Ca range (AME2020: 6.95, 6.64, 7.04, 5.13,
+7.70\,MeV for \nuc{Si}{28}$\to$\nuc{Cr}{48}) and $kT = 86.2\,\mathrm{keV}
+\times \Tn$,
+%
+\begin{equation}
+\frac{Q}{kT} \;=\; \frac{Q\,[\mathrm{MeV}]}{0.0862\,\Tn}.
+\label{eq:qkt}
+\end{equation}
+%
+At $\Tn = 2$ and $Q = 7$\,MeV that exponent is $\approx 41$ --- reverse rates
+are suppressed by $e^{-41} \approx 10^{-18}$, utterly negligible; the flow is a
+one-way ladder. At $\Tn = 4$ it is $\approx 20$, i.e.
+$e^{-20} \approx 2\times10^{-9}$. At $\Tn = 6$ it is $\approx 13.5$.
+
+\textbf{The exponent alone does not give the crossover, and it is worth doing
+the comparison honestly}, because the shorthand ``$e^{-20}$ against a $10^{-9}$
+abundance factor, so they become comparable'' quietly drops the largest term.
+The quantity that decides is the ratio of \emph{fluxes}, not of rates:
+%
+\begin{equation}
+\frac{\text{reverse flux}}{\text{forward flux}}
+\;=\; \frac{\lambda_\gamma\,Y_B}
+           {\rho N_A\langle\sigma v\rangle\,Y_A Y_\alpha},
+\qquad
+\frac{\lambda_\gamma}{\rho N_A\langle\sigma v\rangle}
+\;=\; \frac{9.87\times10^{9}}{\rho}\,\Tn^{3/2}\,\Theta\,e^{-Q/kT},
+\label{eq:fluxratio}
+\end{equation}
+%
+with the constant $9.8685\times10^{9}$\,mol\,cm$^{-3}$ from
+\citet{rauscher2000} and $\Theta$ the $O(1)$--$O(\text{few})$ ratio of
+spin\,/\,partition-function\,/\,reduced-mass factors. At $\rho = 10^{8}$ and
+$\Tn = 4$ the prefactor is ${\sim}10^{2}$--$10^{3}$, so the rate ratio is
+${\sim}10^{-6}$ rather than the $2\times10^{-9}$ the exponent alone suggests
+--- and \emph{that} is what the light-particle abundance factor
+$Y_\alpha/Y_B \sim 10^{-6}$ meets. Two factors, both large, pulling the same
+way; the qualitative conclusion below survives, but it does not follow from
+$e^{-Q/kT}$ on its own.\derivedhere
+
+The crossover is sharp because the exponent moves by ${\sim}Q/kT$ per unit
+relative change in $T$: dropping from $\Tn = 4$ to 3 raises $Q/kT$ from 20 to
+27, i.e. suppresses the reverse by $e^{-7} \approx 10^{-3}$. \textbf{The entire
+regime change from ``ladder'' to ``equilibrium'' happens across less than a
+factor of two in $T$} --- which is why the regime box ($\Tn$ 1.6--7.9) spans
+both, why QSE onset is quoted at ${\sim}3$--3.3\,GK (\citealp{ht1999a} measure
+quasi-equilibrium ``beginning to fail'' by $\Tn = 3.25$ with photodisintegration
+freezeout near $\Tn \approx 3$, and NSE reached for $\Tn \gtrsim 5$; silicon
+ignition itself is at 2.7--3.5\,GK, \citealp{woosleyjanka2005}), and why the
+kill-test priority window is 3.3--5\,GK: that is where the structure is neither
+absent (cold) nor total (NSE).
+
+% ---------------------------------------------------------------------
+\subsubsection{Two clusters, one set of bridges}
+\label{sec:twoclusters}
+
+Once photodisintegration is fast, the picture is Figure~\ref{fig:clusters}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  grp/.style={draw, line width=0.7pt, rounded corners=2pt,
+              text width=5.4cm, inner sep=6pt, align=left,
+              fill=resultrule!5},
+  res/.style={draw, line width=0.7pt, rounded corners=2pt,
+              inner sep=5pt, fill=exrule!6}]
+
+\node[grp] (si) at (0,0)
+  {\textbf{SILICON GROUP}\\[2pt]
+   $24 \le A \le 44$\\[1pt]
+   \nuc{Si}{28} \nuc{Si}{29} \nuc{Si}{30} \nuc{P}{31} \nuc{S}{32}
+   \ldots\ \nuc{Ca}{40} \nuc{Ti}{44}\\[2pt]
+   \emph{internally equilibrated}};
+
+\node[grp] (fe) at (8.4,0)
+  {\textbf{IRON GROUP}\\[2pt]
+   $45 \le A \lesssim 60$\\[1pt]
+   \nuc{Sc}{45} \ldots\ \nuc{Fe}{52} \nuc{Fe}{54} \nuc{Ni}{56} \ldots\\[2pt]
+   \emph{internally equilibrated}};
+
+\draw[-{Latex[length=2.4mm]}, line width=0.9pt]
+  (si.east) -- node[above, font=\footnotesize]{bridge}
+               node[below, font=\footnotesize]{slow} (fe.west);
+
+\node[res] (pool) at (4.2,-2.6)
+  {free $n$, $p$, $\alpha$ reservoir};
+
+\draw[{Latex[length=2mm]}-{Latex[length=2mm]}, line width=0.7pt]
+  (si.south) -- (pool.west);
+\draw[{Latex[length=2mm]}-{Latex[length=2mm]}, line width=0.7pt]
+  (fe.south) -- (pool.east);
+\node[font=\footnotesize, align=center] at (4.2,-1.55)
+  {fast $(\gamma,\alpha)\,(\alpha,\gamma)\,(p,\gamma)\,(\gamma,p)\,
+    (n,\gamma)\,(\gamma,n)$};
+\end{tikzpicture}
+\caption{Silicon burning as two internally-equilibrated groups exchanging
+material through a shared light-particle reservoir and a small set of slow
+bridge reactions. Redrawn from the source's ASCII diagram; the edges are drawn
+for the \code{default} group variant.}
+\label{fig:clusters}
+\end{figure}
+
+The edges are drawn for the \textbf{\code{default}} group variant, and they are
+drawn to the \emph{nucleon}: \code{configs/qse\_groups.yaml} gives
+\code{a\_max: 45} and the loader applies \code{A < a\_max}
+(\code{qse/diagnostics.py}), so \code{default} is $24 \le A \le 44$ and
+\nuc{Sc}{45} sits on the \textbf{iron} side. The \code{a24\_46} variant moves
+the line one nucleon up and puts \nuc{Sc}{45} inside. Getting this off by one is
+not cosmetic --- it is exactly the difference between
+\nuc{Sc}{45}$(p,\gamma)$\nuc{Ti}{46} being a bridge and being an internal
+reaction, which is the whole content of \S\ref{sec:groupboundary}.
+
+The mechanism BCF68 identified (with the two-group structure drawn above being
+WAC73's refinement of their single cluster --- \S\ref{sec:history}):
+\nuc{Si}{28} does not fuse with \nuc{Si}{28} (the Coulomb barrier at $Z = 14$ on
+$Z = 14$ is prohibitive at these temperatures --- Tier~1 \S1.2.4). Instead,
+\emph{some} \nuc{Si}{28} photodisintegrates, releasing $\alpha$, $p$, $n$ into a
+reservoir; those light particles are then captured by \emph{other}
+silicon-group nuclei, walking them upward. The net effect is
+\nuc{Si}{28} $\to$ \nuc{Ni}{56}, but the mechanism is
+disassembly-and-reassembly, not direct fusion. Hence ``rearrangement''.
+
+Consequences that matter for the algebra downstream:
+
+\begin{itemize}
+\item \textbf{The light-particle reservoir is the coupling.} $n$, $p$, $\alpha$
+  are the shared currency; they appear in nearly every column of $\nu$. This is
+  why the isotope projection of the bipartite graph has radius 1 and diameter 2
+  \resultsref{2026-07-08}: \emph{any} two species are two hops apart through the
+  light particles. Message passing over this graph saturates almost immediately,
+  which is both good ($K = 5$ suffices, \S\ref{sec:graphK}) and dangerous (a GNN
+  can shortcut everything through $p$\,/\,$n$\,/\,$\alpha$ node features).
+\item \textbf{The bridge set is small and identifiable.} BCF68's structural
+  prediction, sharpened by WAC73 into the two-group form with a named dominant
+  bridge. Measured, on the relaxed manifold: \msn{80}'s top-5 inter-group
+  carriers are \code{Ne22(a,n)Mg25} (share 0.20), \code{Al27(p,a)Mg24} (0.13),
+  \code{P31(p,a)Si28} (0.11), \code{Na23(a,p)Mg26}, \code{Mg24(n,g)Mg25};
+  top-20 carry 0.88. \msn{151} adds the literature bottleneck
+  \nuc{Sc}{45}$(p,\gamma)$\nuc{Ti}{46} \citep[\S VIb: ``always the dominant, or
+  at least one of the dominant, flows linking the two groups''; reaffirmed by
+  \citealp{ht1996}]{wac1973} at rank 2/251 under the boundary-at-46 group
+  variant. \resultsref{2026-07-12}
+\item \textbf{The group boundary is a modelling choice, not a fact.} Whether
+  \nuc{Sc}{45} is ``in'' the silicon group changes which reactions count as
+  bridges. The repo makes this a config variant
+  (\code{configs/qse\_groups.yaml}: \code{default} $24 \le A < 45$ vs
+  \code{a24\_46}) and requires both to be reported ---
+  \S\ref{sec:groupboundary}.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsubsection{The Fe-peak endpoint, and why \texorpdfstring{\Ye}{Ye} picks it}
+\label{sec:fepeak}
+
+At $\Ye = 0.5$ (equal protons and neutrons) the most-bound nucleus available is
+\nuc{Ni}{56} ($Z = N = 28$, doubly magic --- Tier~0 \S0.3.2). Silicon burning at
+$\Ye = 0.5$ terminates on \nuc{Ni}{56}, which later decays down the $A = 56$
+chain (\nuc{Ni}{56} $\to$ \nuc{Co}{56} $\to$ \nuc{Fe}{56}, half-lives 6.075\,d
+and 77.24\,d; \citealp{ensdf}) and powers the supernova light curve. Both steps
+are weak, but not the same weak channel: \textbf{\nuc{Ni}{56} decays by electron
+capture, essentially 100\%} --- it is not a $\beta^+$ emitter (the dominant
+branch feeds the 1720\,keV level of \nuc{Co}{56}, leaving only ${\sim}0.4$\,MeV,
+below the $2m_ec^2$ positron threshold; measured $\beta^+$ intensity
+${\sim}10^{-3}$\,\%) --- while \nuc{Co}{56} is ${\sim}81\%$ EC and
+${\sim}19\%$ $\beta^+$ \citep{ensdf}. Worth keeping straight given how carefully
+\S\ref{sec:betaplus} separates the two ledgers.
+
+But \Ye{} is not 0.5. Electron captures during silicon burning drive it down
+(Tier~0 \S II.5), and at $\Ye < 0.5$ the equilibrium favours more neutron-rich
+Fe-peak species: \nuc{Fe}{54}, \nuc{Ni}{58}, and at lower \Ye{} still,
+\nuc{Fe}{56} itself --- each species peaking where its own $Z/A$ matches \Ye{}
+\citep[Fig.~2: \nuc{Ni}{56} dominant for $\Ye \gtrsim 0.49$,
+\nuc{Fe}{54}\,/\,\nuc{Ni}{58} for ${\approx}0.47$--0.49, \nuc{Fe}{56} below
+${\approx}0.47$]{hwe1985}. The endpoint of silicon burning is therefore \emph{a
+function of \Ye}, and the \nuc{Ni}{56} mass that eventually lights the supernova
+is set by how much of the burnt material stayed near $\Ye = 0.5$.
+
+\begin{invariant}
+This is the physical reason the whole project is organised around \Ye{} rather
+than around \nuc{Ni}{56}: \textbf{\Ye{} is the upstream variable, \nuc{Ni}{56}
+the downstream consequence.} An emulator that gets \Ye{} right will get the
+endpoint right for the right reason; one tuned on \nuc{Ni}{56} can be right
+about \nuc{Ni}{56} and wrong about everything else.
+\end{invariant}
+
+% ---------------------------------------------------------------------
+\subsubsection{Why the flow is not a ladder --- the trap for intuition}
+\label{sec:notladder}
+
+It is very tempting to picture silicon burning as \nuc{Si}{28} $\to$
+\nuc{S}{32} $\to$ \nuc{Ar}{36} $\to$ \nuc{Ca}{40} $\to$ \nuc{Ti}{44} $\to$
+\nuc{Cr}{48} $\to$ \nuc{Fe}{52} $\to$ \nuc{Ni}{56}, an $\alpha$-ladder with each
+rung a net flux. Tier~0 \S0.6 already warns about this. Here is why it matters
+\emph{algebraically}:
+
+If the flow were a ladder, $\nu$ restricted to the flow-carrying columns would
+be nearly bidiagonal, the net fluxes would be a chain of comparable magnitudes,
+and \kap{} would be $O(1)$ on every carrying column. Target A would be trivially
+well-posed.
+
+What actually happens is that each ladder rung is a \emph{nearly balanced pair}
+($\kap \ll 1$) whose small net difference is what advances the chain, while the
+light-particle reservoir couples every rung to every other. The net flow through
+the ladder is the \emph{residual} of large opposing gross fluxes --- which is
+precisely the catastrophic-cancellation structure of Tier~0 \S V.1, and
+precisely what makes \kap{} a condition number (\S\ref{sec:kappa-cond}).
+\textbf{The ladder picture and the cancellation problem are the same fact seen
+from two sides.}
+
+% =====================================================================
+\subsection{The \texorpdfstring{\Ye}{Ye} chain, derived end to end}
+\label{sec:yechain}
+
+This subsection is the ``theory behind the motivation''. Every gate in
+\code{CLAUDE.md} is a \Ye{} gate; this is why.
+
+\subsubsection{\texorpdfstring{$\Mch \propto \Ye^2$}{Mch proportional to Ye squared} --- the derivation}
+\label{sec:mch}
+
+Tier~0 \S I.2 does this; the short version, because \S\ref{sec:budget} needs the
+constant.
+
+A cold, fully degenerate, relativistic electron gas has pressure
+%
+\begin{equation}
+P_e \;=\; K\,n_e^{4/3}, \qquad
+K = \frac{\hbar c}{4}\left(3\pi^2\right)^{1/3},
+\label{eq:degpressure}
+\end{equation}
+%
+and $n_e = \rho \Ye / m_u$. So $P = K (\Ye/m_u)^{4/3} \rho^{4/3}$ --- a
+polytrope of index $n = 3$. For an $n = 3$ polytrope the mass is
+\emph{independent of central density}:
+%
+\begin{equation}
+M \;=\; 4\pi\left(\frac{K'}{\pi G}\right)^{3/2}\!\!\cdot\,
+        \bigl(-\xi_1^2\theta'(\xi_1)\bigr),
+\qquad K' = K\,(\Ye/m_u)^{4/3},
+\label{eq:polytropemass}
+\end{equation}
+%
+with the Lane--Emden constant $-\xi_1^2\theta'(\xi_1) \approx 2.018$. Since
+$M \propto K'^{3/2} \propto \Ye^2$,
+%
+\begin{equation}
+\boxed{\;\Mch \;\approx\; 5.83\,\Ye^2\ \Msun.\;}
+\label{eq:mch}
+\end{equation}
+%
+This is the standard Chandrasekhar result \citep{chandrasekhar1931,
+chandrasekhar1939}, usually written $\Mch = 1.457\,(2/\mu_e)^2\,\Msun$
+\citep[eq.~3.3.17]{shapiro1983} --- identical with $\mu_e = 1/\Ye$. It is the
+zero-temperature ideal-degenerate value; Coulomb corrections lower the actual
+white-dwarf limit to $\approx 1.40\,\Msun$ \citep{hamada1961}, and general
+relativity destabilises it slightly further \citep[\S6.10]{shapiro1983}, but the
+$\Ye^2$ scaling --- all that the argument below uses --- survives.
+
+At $\Ye = 0.5$, $\Mch = 1.46\,\Msun$; at $\Ye = 0.45$, $1.18\,\Msun$.
+\textbf{A 10\% change in \Ye{} moves the Chandrasekhar mass by
+$0.28\,\Msun$ --- about 19\%.}\derivedhere
+
+% ---------------------------------------------------------------------
+\subsubsection{Deleptonisation and the homologous core}
+\label{sec:delepton}
+
+The iron core grows by silicon shell burning until it exceeds \Mch{} and
+collapses. During collapse, electron capture --- dominantly on Fe-peak
+\emph{nuclei}, with free protons subdominant \citep{langanke2003, hix2003} ---
+continues to lower \Ye: with modern capture rates the central \Ye{} falls to
+$\approx 0.25$--0.27 after neutrino trapping (trapped lepton fraction
+$Y_L \approx 0.285$--0.30), essentially frozen through bounce
+\citep{janka2012}. The classic treatment \citep{bethe1990} quotes the trapped
+\emph{lepton} fraction, $Y_L \approx 0.36$--0.39 --- note the two eras and the
+\Ye-vs-$Y_L$ distinction; an earlier draft of this paragraph conflated them
+(corrected in the 2026-08-14 audit). The \emph{inner} core --- the part that
+collapses subsonically and homologously \citep{goldreich1980, yahil1983} --- has
+a mass that scales with the same $\Mch \propto \Ye^2$ relation evaluated at the
+trapped \Ye, and it is the inner core's mass that determines where the bounce
+shock forms (``whose mass scales with the instantaneous Chandrasekhar mass
+$M_{\rm Ch}(t) \propto \Ye^2(t)$, and whose edge defines the location of shock
+formation at bounce'' --- \citealp{janka2012}).
+
+Two chains, then, both keyed on \Ye{} (Figure~\ref{fig:yechain}).
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small, node distance=3mm,
+  bx/.style={draw, line width=0.6pt, rounded corners=2pt,
+             inner sep=4pt, fill=resultrule!5},
+  ar/.style={-{Latex[length=2mm]}, line width=0.6pt}]
+
+\node[bx] (ye) {Si-burning \Ye};
+
+\node[bx, right=14mm of ye, yshift=9mm] (core)
+  {pre-collapse core mass \& structure};
+\node[bx, right=6mm of core] (comp) {compactness};
+
+\node[bx, right=14mm of ye, yshift=-9mm] (init) {initial \Ye{} for collapse};
+\node[bx, right=6mm of init] (trap) {trapped \Ye};
+\node[bx, right=6mm of trap] (minner) {$M_{\rm inner}$};
+
+\node[bx, right=10mm of minner, yshift=7mm] (shock) {shock birth radius};
+\node[bx, right=10mm of minner, yshift=-7mm] (expl) {explodability};
+
+\draw[ar] (ye.east) -- (core.west);
+\draw[ar] (core) -- (comp);
+\draw[ar] (ye.east) -- (init.west);
+\draw[ar] (init) -- (trap);
+\draw[ar] (trap) -- (minner);
+\draw[ar] (minner.east) -- (shock.west);
+\draw[ar] (minner.east) -- (expl.west);
+\end{tikzpicture}
+\caption{The two chains keyed on \Ye. Redrawn from the source's ASCII chain.
+The upper chain is why an \emph{emulator's} \Ye{} matters even before collapse.}
+\label{fig:yechain}
+\end{figure}
+
+The first is why an \emph{emulator's} \Ye{} matters even before collapse: it
+sets the initial condition of everything after.
+
+% ---------------------------------------------------------------------
+\subsubsection{The observable end}
+\label{sec:observable}
+
+The chain terminates in things telescopes see:
+
+\begin{itemize}
+\item \textbf{\nuc{Ni}{56} mass} --- sets the radioactive tail of the light
+  curve, and in \emph{stripped-envelope} events (Ib/c) approximately the peak
+  too, via Arnett's rule \citep[applied to SE-SN samples in e.g.
+  \citealp{lyman2016}]{arnett1982}. \textbf{The Arnett-rule-at-peak statement
+  does not transfer to the H-rich Type II events a 20\,\Msun{} progenitor
+  typically produces}: there the plateau is powered by hydrogen recombination
+  \citep{popov1993, kasen2009}, and \nuc{Ni}{56} sets the tail and modulates the
+  plateau \emph{length}, not the peak luminosity \citep{kasen2009, nakar2016}.
+  Either way, \Ye{} sets how much of the ejecta reaches \nuc{Ni}{56} rather than
+  \nuc{Fe}{54}\,/\,\nuc{Ni}{58}.
+\item \textbf{The Fe-peak isotopic ratios} --- \nuc{Ni}{57}/\nuc{Ni}{56},
+  \nuc{Ni}{58}/\nuc{Fe}{56} --- measured directly in SN 1987A (\nuc{Co}{57}
+  $\gamma$-lines: \citealp{kurfess1992}; \citealp{seitenzahl2014}) and in the
+  solar abundance pattern, and directly sensitive to the neutron excess
+  $\eta = 1 - 2\Ye$ \citep{wac1973, thielemann1996}.
+\item \textbf{The explosion/failure branch} itself, hence the observed
+  progenitor-mass--outcome mapping.
+\end{itemize}
+
+\foreignreg{0}{R-21} has the observational grounding in detail. The point for
+Tier~2 is just that the chain is \emph{long and multiplicative}, which is what
+makes the error budget in \S\ref{sec:budget} tight.
+
+% ---------------------------------------------------------------------
+\subsubsection{The error budget this implies}
+\label{sec:budget}
+
+Now the part that produces the numbers in \code{CLAUDE.md}.
+
+Suppose the emulator makes a per-step error $\delta$ in \Ye, and a trajectory
+has $N$ steps. Tier~0 \S IV.3 derives the accumulation trichotomy:
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{error character} & \textbf{accumulated after $N$ steps} \\
+\midrule
+systematic (biased)              & $N\cdot\delta$ \\
+random walk                      & $\sqrt N\cdot\delta$ \\
+contractive (stable attractor)   & $O(\delta)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+With $N \approx 1.6\times10^{3}$ steps and the \emph{conservative} systematic
+assumption, demanding a total $|\dYe|$ below the physics floor of
+${\sim}5\times10^{-3}$ gives
+%
+\begin{equation}
+\delta \;\lesssim\; \frac{5\times10^{-3}}{1.6\times10^{3}}
+        \;\approx\; 3\times10^{-6},
+\label{eq:pergate}
+\end{equation}
+%
+which is exactly the operative per-step gate in \code{CLAUDE.md}. The
+$5\times10^{-3}$ floor itself is the FFN$\to$LMP weak-rate-library shift ---
+\citet{heger2001} report that replacing the FFN rates \citep{ffn1980, ffn1985}
+with the LMP shell-model rates \citep{lmp2000} raises the presupernova central
+\Ye{} ``by $\dYe = 0.005$ to $0.015$'' --- i.e. \textbf{the gate is set by the
+size of a known systematic uncertainty in the input physics.} That is the right
+way to set it: an emulator whose error is smaller than the disagreement between
+two defensible rate libraries is not the limiting factor.
+
+Note what the gate is \emph{conditional on}: the assumption that error
+accumulates linearly. \code{docs/phase0-checklist.md} requires the slope to be
+measured; if it turns out to be $\sqrt N$, the gate can relax to
+${\sim}5\times10^{-5}$. This is Tier~0 \S VII.3 --- decisions carry their own
+reversal condition --- applied to the project's most load-bearing number. The
+slope is unmeasured, which is why the gate is conditional: open, register
+\reg{R-21}.
+
+\begin{invariant}
+\textbf{And this is why conservation is not negotiable.} A conservation
+violation is \emph{by construction} systematic: it has a fixed sign per step
+(\S\ref{sec:softpenalty}). It lands in the worst row of that table. Nothing else
+in the error budget does. The theorem that makes conservation structural rather
+than learned, and the arithmetic of the penalty alternative, open
+\S\ref{part:conservation} at \S\ref{sec:whystructural}.
+\end{invariant}
+
+% ---------------------------------------------------------------------
+\subsubsection{The output end --- and the derivative nobody has assembled}
+\label{sec:outputend}
+
+\S\ref{sec:mch}--\S\ref{sec:observable} walked $\Ye \to \Mch \to$ collapse $\to$
+\nuc{Ni}{56} $\to$ light curve, and \S\ref{sec:budget} set the per-step gate.
+Before leaving the chain it is worth being explicit about the end of it that is
+\textbf{not} closed. \code{tier1.md} \S VIII.C.1 flags rate-uncertainty $\to$
+\Ye{} propagation --- the \emph{input} end. This is the \emph{output} end, and
+nothing flags it.
+
+\S\ref{sec:yechain} derives $\Ye \to \Mch \to$ collapse $\to$ \nuc{Ni}{56} $\to$
+light curve qualitatively, and \S\ref{sec:budget} sets the per-step gate from
+the FFN$\to$LMP shift, $\dYe = 5\times10^{-3}$--$1.5\times10^{-2}$
+\citep{heger2001}. Note what that is: \textbf{an input uncertainty used as an
+output tolerance}. The logic --- ``an emulator whose error is smaller than the
+disagreement between two defensible rate libraries is not the limiting factor''
+--- is sound and is the right way to set a \emph{floor}. But it says nothing
+about what error would actually change a scientific conclusion, because the
+derivatives
+%
+\begin{equation}
+\frac{\partial M(\nuc{Ni}{56})}{\partial \Ye},\qquad
+\frac{\partial (\text{explodability})}{\partial \Ye},\qquad
+\frac{\partial (\text{isotopic ratios})}{\partial \Ye}
+\label{eq:outputderivs}
+\end{equation}
+%
+have never been assembled --- not measured here, not cited from the literature,
+not estimated. \S\ref{sec:mch} gets as far as $\dd\Mch/\dd\Ye$
+($\Mch \approx 5.83\,\Ye^2\,\Msun$, so
+$\dd\Mch/\dd\Ye = 2 \times 5.83\,\Ye = 11.7\,\Ye\,\Msun$, i.e.
+\textbf{$5.8\,\Msun$ per unit $\delta\Ye$ at $\Ye = 0.5$}), and then the chain
+stops.
+
+Why this is worth closing:
+
+\begin{itemize}
+\item \textbf{It could relax or tighten the gate by orders of magnitude.} If
+  explodability is insensitive to $\delta\Ye$ at $10^{-3}$, the $3\times10^{-6}$
+  per-step gate is over-engineered by a factor of hundreds and the project is
+  paying enormously for it (\S\ref{sec:costwall}'s cost wall is downstream of
+  exactly this kind of demand). If some observable is sensitive at $10^{-4}$,
+  the gate is right.
+\item \textbf{It is the referee's first question.} ``You have built a
+  $3\times10^{-6}$-per-step emulator; what observable changes at
+  $3\times10^{-6}$?'' The current answer routes through an \emph{input}
+  uncertainty, which is a defensible proxy but is not an answer.
+\item \textbf{Much of it is sourceable rather than computable.} The CCSN
+  literature has progenitor studies with \Ye{} variations; the derivative may be
+  extractable from published model grids without running anything. That makes
+  this a \emph{literature} task, which is cheaper than it sounds.
+\end{itemize}
+
+\code{tier1.md} \S VIII.E.7 (``residual sourcing gaps in the motivation chain'')
+is the nearest existing item; this is the specific, actionable form of it.
+
+Open (register: \reg{R-14}) --- it is the justification for the project's most
+expensive requirement.
+
+% =====================================================================
+\subsection{What physically breaks when a leak happens}
+\label{sec:leak}
+
+Concretely, three things, in the order they bite.
+
+\paragraph{1. The composition stops being a composition.}
+$\sum X_i = \sum A_i Y_i = 1$ is not a normalisation convention you can
+re-impose; it is the statement that the mass in the zone is the mass in the
+zone. If $\sum_i A_i \dd Y_i = \varepsilon$ per step, then after $N$ steps
+$\sum X_i = 1 + N\varepsilon$, and every downstream quantity that divides by it
+--- mean molecular weight, $\Ye = \sum Z_i Y_i$, the mass density of any
+species --- is wrong by that factor. Renormalising afterwards does not fix it:
+renormalisation is a \emph{multiplicative} correction applied uniformly, whereas
+the leak was species-specific. You have silently redistributed abundance between
+species.
+
+\paragraph{2. The EOS call downstream receives a state that does not exist.}
+In a real stellar-evolution timestep the network's output composition is handed
+to the equation of state, which computes $P(\rho, T, \text{composition})$ via
+$\bar A$ and $\bar Z$ (Tier~0 \S0.1). A composition with $\sum X \neq 1$ makes
+those means ill-defined. The hydro then integrates a pressure that corresponds
+to no physical matter. This is the ``deployment coupling contract'' that Tier~1
+\S VIII.E.6 flags as still unspecified --- but the \emph{requirement} is
+unambiguous: whatever the coupling is, it will consume $\sum X = 1$.
+
+\paragraph{3. \Ye{} drifts, so \Mch{} drifts, so the answer to the science
+question drifts.} The charge row is the one with observable consequences.
+\S\ref{sec:mch}: $\delta\Ye = 10^{-4}$ moves \Mch{} by
+${\sim}6\times10^{-4}\,\Msun$; accumulated over a trajectory at $10^{-6}$/step
+it is $1.6\times10^{-3}$ in \Ye{} and ${\sim}10^{-2}\,\Msun$ --- comparable to
+the differences between progenitor models that people write papers about.
+
+Which is the argument for the \emph{charge-to-lepton} form of the constraint
+rather than plain charge conservation. \Ye{} \textbf{must} change --- that is
+the physics. What must not happen is charge appearing or disappearing without a
+lepton to account for it. \S\ref{sec:ledgers} builds the ledger that makes this
+testable rather than tautological.
+
+% =====================================================================
+\subsection{Deployment --- what consumes the output, and what speedup is
+            achievable}
+\label{sec:deployment}
+
+\S\ref{sec:leak} said what breaks when conservation fails, by naming three
+downstream consumers. This subsection makes them explicit --- they are
+\textbf{upstream of every accuracy target in the project} --- and then asks the
+question that decides whether the project is worth doing at all: what speedup is
+actually achievable. \code{tier1.md} \S VIII.E.6 flags the first half as
+unspecified.
+
+The unanswered question: \emph{what consumes the emulator's output, and what
+does it need?}
+
+Concretely, in a stellar-evolution timestep the network's output feeds:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.0cm} Y L{2.6cm}@{}}
+\toprule
+\textbf{consumer} & \textbf{needs} & \textbf{sensitivity} \\
+\midrule
+the EOS & $\bar A$, $\bar Z$ from the composition;
+  \textbf{requires $\sum X = 1$} & \S\ref{sec:leak} \\
+the energy equation & \enuc{} (and neutrino losses separately) &
+  \S\ref{sec:energyidentity} \\
+the next network call & $Y$ itself --- errors compound
+  (\S\ref{sec:budget}) & Tier~0 \S IV.3 \\
+the opacity\,/\,mixing modules & composition & unquantified \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+And the operator-split structure (Tier~0 \S IV.1) means the emulator's error
+sits \emph{inside} an outer error the split already commits. Two things follow
+that nobody has computed:
+
+\begin{enumerate}
+\item \textbf{Is the emulator's per-step error large or small compared with the
+  operator split's own $O(\Delta t^2)$ commutator error?} If the split error
+  dominates, a tighter emulator buys nothing, and the $3\times10^{-6}$ gate is
+  over-specified. If it does not, the gate is the binding constraint. This is a
+  one-experiment question --- integrate a zone with split and unsplit couplings
+  and compare --- and it would either justify or relax the project's most
+  load-bearing number.
+\item \textbf{Is the coupling $(T, \rho)$-imposed or thermodynamically fed
+  back?} \code{tier1.md} \S VIII.C.4 already flags that everything here is at
+  \emph{imposed} $(T, \rho)$, whereas real burning heats the zone, which changes
+  the rates. An emulator validated at imposed $(T, \rho)$ has not been validated
+  in the loop it will run in, and the loop has a positive feedback (burning
+  $\to$ heating $\to$ faster burning) that can amplify small errors.
+\end{enumerate}
+
+Both remain open (register: \reg{R-11}) --- the second is the reason the
+accuracy gate has the value it has.
+
+% ---------------------------------------------------------------------
+\subsubsection{The cost ceiling --- why the fallback rate matters more than the
+               speed}
+\label{sec:costceiling}
+
+Tier~0 \S I.3 and \S I.5 quantify the cost of the network and the speedup that
+would matter; the Tier-4 sketch has \textbf{S22: UQ, OOD, and the
+fallback-to-solver gate.} The arithmetic connecting them is one line, and it is
+written nowhere.
+
+Let $S_{\rm raw} = t_{\rm solver}/t_{\rm emu}$ be the raw speedup, $f$ the
+fraction of calls that fall back to the real solver, and $t_{\rm det}$ the cost
+of the out-of-distribution detector that decides. The emulator and the detector
+are paid on \textbf{every} call; the solver is paid on the fallback fraction:
+%
+\begin{equation}
+S \;=\; \frac{t_{\mathrm{solver}}}
+             {t_{\mathrm{emu}} + t_{\mathrm{det}} + f\,t_{\mathrm{solver}}}
+  \;=\; \Bigl(\tfrac{1}{S_{\mathrm{raw}}}
+              + \tfrac{t_{\mathrm{det}}}{t_{\mathrm{solver}}} + f\Bigr)^{-1}
+  \;\xrightarrow[\ S_{\mathrm{raw}}\to\infty\ ]{}\; \frac{1}{f}.
+\label{eq:costceiling}
+\end{equation}
+\derivedhere
+
+\textbf{The achievable speedup is capped at $1/f$ regardless of how fast the
+emulator is.} Tabulated:
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{fallback rate $f$} & \textbf{ceiling on speedup} \\
+\midrule
+0.1\% & $1000\times$ \\
+1\%   & $100\times$ \\
+5\%   & $\mathbf{20\times}$ \\
+20\%  & $\mathbf{5\times}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Three consequences the project should be carrying and is not:
+
+\begin{enumerate}
+\item \textbf{S22's gate has no target.} A fallback-to-solver gate is specified
+  with no stated acceptable fallback rate --- but the acceptable rate is
+  \emph{derivable} from the speedup that would make the project worthwhile
+  (Tier~0 \S I.5 has that number). $f_{\max} = 1/S_{\rm target}$. That single
+  division turns an unspecified gate into a specified one.
+\item \textbf{The detector is not free and is on the critical path.}
+  $t_{\rm det}$ is paid on every call including the $1 - f$ that succeed. A
+  detector costing 10\% of the solver caps the speedup at $10\times$ before any
+  fallback happens. This makes ``expensive UQ'' (ensembles, MC-dropout at
+  inference) structurally questionable, and cheap UQ (a single deterministic
+  score) structurally preferred --- an architecture constraint arriving from
+  economics rather than from statistics.
+\item \textbf{Batching interacts badly with fallback.} In a stellar code the
+  network is called per zone per timestep, and zones are naturally batched. If
+  fallback is decided per zone, a batch containing one fallback zone pays both
+  costs and may lose vectorisation on the rest. The effective $f$ is then closer
+  to \emph{the probability that a batch contains any fallback} --- which for
+  batch size $B$ and independent zones is $1 - (1-f)^B$, dramatically worse: at
+  $f = 1\%$ and $B = 100$, 63\% of batches contain a fallback. Whether that
+  matters depends entirely on the coupling contract (\S\ref{sec:deployment}),
+  which is unspecified.
+\end{enumerate}
+
+Open (register: \reg{R-12}) --- arithmetic, an hour's work, and it converts two
+unspecified design targets into numbers.
+
+% =====================================================================
+\subsection{The decision this tier serves}
+\label{sec:killtest}
+
+Everything in Tier~2 is instrumentation for one decision, and it is worth
+writing the decision down as a linear-algebra question before building the
+tools.
+
+\begin{invariant}
+\textbf{Kill-test.} Let $\mathcal{A} = \{j : \kap_j > 0.1\}$ be the \emph{active
+set} --- the columns not in near-balance. Restricted to $\mathcal{A}$, is the
+map $\netflux \mapsto \nu\netflux$ well-conditioned, and does it carry the
+physics?
+\end{invariant}
+
+Operationally, from \code{CLAUDE.md}:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{1.4cm} L{1.6cm} L{4.6cm}@{}}
+\toprule
+\textbf{quantity} & \textbf{pass} & \textbf{fail} & \textbf{tool} \\
+\midrule
+coverage: fraction of dominant-isotope $|\Delta X|$ and of $|\dYe|$ carried by
+  $\mathcal{A}$ & $\ge 95\%$ & --- &
+  \S\ref{sec:kappa}, \code{killtest.active\_set.carried\_fractions} \\
+spread: share of net columns near the \kap{} floor & --- & $> {\sim}30\%$ &
+  \S\ref{sec:vacuous} \\
+$\cond(\Sact) = \cond(\nu$ restricted to $\mathcal{A})$ & $< 10^{6}$ &
+  $> 10^{8}$ & \S\ref{sec:rank}, \code{cond\_s\_active} \\
+maskable-set size under the Guidry $\varepsilon$ sweep & non-empty &
+  empty $\Rightarrow$ full-width & \S\ref{sec:departure} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+If it passes, Target A with an equilibrium mask is the architecture. If it fails
+--- either because the flow spreads over too many near-cancelled columns, or
+because the restricted $\nu$ is ill-conditioned --- the project falls back to
+Target B: predict $\dd Y$ directly in a linear space and project. Note in
+advance that the fallback costs no expressive power: the two targets reach the
+same set of increments (\S\ref{sec:reachable}, proved in
+\S\ref{sec:equivalence}).
+
+\textbf{Notice what each tool in this tier is for}, now that the question is
+stated:
+
+\begin{itemize}
+\item \textbf{S7} gives $\nu$, $C$, $P$, and $\cond(\cdot)$ --- the
+  \emph{conditioning} half of the question, and the fallback (Target B) if the
+  answer is no. \S\ref{part:conservation}.
+\item \textbf{S8} gives \kap{} and the coverage statistics --- the \emph{active
+  set} half. \S\ref{part:fluxes}.
+\item \textbf{S9} gives the independent NSE\,/\,QSE reference, without which
+  ``in equilibrium'' has no measurable definition, and the Guidry $\delta$
+  criterion that defines maskability. \S\ref{part:equilibrium}.
+\item \textbf{S10} gives the reference integrator that produces the \Phifl{}
+  labels Target A needs and that the shipped dataset does not contain.
+  \S\ref{part:integration}.
+\end{itemize}
+
+Nothing in this tier is exploratory. Every module answers a clause of that one
+question.
+
+% =====================================================================
+\subsection{What is \emph{not} in this tier}
+\label{sec:scope}
+
+To keep the boundaries clean:
+
+\begin{itemize}
+\item \textbf{Where $\lambda$ comes from} --- Tier~1. Tier~2 consumes $\lambda$
+  and asks nothing about its provenance except that the pf gate held.
+\item \textbf{Silicon burning as a physical process on real trajectories, the
+  label pathology, the verdict} --- Tier~3 (S11--S16). This section gives the
+  \emph{theory} of Si burning because the algebra needs it; the
+  \emph{measurements} on actual burning histories are one tier later.
+\item \textbf{The emulator} --- Tier~4, unwritten (\code{tier1.md} \S VIII.E.1).
+\item \textbf{Screening and the two-\kap{} convention} --- Tier~1 \S IV. Tier~2
+  uses the rule (equilibrium detection on unscreened \kap) without re-deriving
+  the offset.
+\end{itemize}
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-setting}
+
+Answer without scrolling up.
+
+\begin{selfcheck}
+\item NSE has 2 free parameters given $(T, \rho, \Ye)$. Where does the number 2
+  come from, and what breaks the count for QSE?
+\item Why does silicon burning proceed by disassembly-and-reassembly rather than
+  by \nuc{Si}{28} $+$ \nuc{Si}{28}?
+\item Write $\Mch \propto \Ye^2$ and say which step of the derivation makes the
+  mass independent of central density.
+\item State the theorem ``conservation laws are left null vectors'' including
+  the quantifier that makes it load-bearing. \emph{(Answered in
+  \S\ref{sec:leftnull}, which opens \S\ref{part:conservation}.)}
+\item A soft conservation penalty achieves $\|C\,\dd Y\| \sim 10^{-8}$ per step.
+  Work out what that accumulates to over $N = 1.6\times10^{3}$ steps and compare
+  it against the \emph{right} budget --- then say why the penalty is still the
+  wrong design in two independent ways that have nothing to do with that number.
+  \emph{(Answered in \S\ref{sec:softpenalty}.)}
+\item Why is the constraint \emph{charge-to-lepton closure} rather than charge
+  conservation?
+\item State the kill-test as a question about a matrix, and name which Tier-2
+  node supplies each of its four measured quantities.
+\end{selfcheck}

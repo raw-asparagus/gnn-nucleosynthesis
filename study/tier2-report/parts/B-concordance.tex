@@ -1,0 +1,303 @@
+% =====================================================================
+%  Appendix B -- the concordance.
+%
+%  This is the instrument that makes "no content omitted" checkable
+%  rather than asserted.  Five tables:
+%    B.1  every one of the 149 source headings -> a live \S\ref
+%    B.2  every self-check question that moved, and why
+%    B.3  the source's boxed results -> a live \eqref
+%    B.4  every fenced block in the source -> figure / listing
+%    B.5  every register item R-01..R-25 -> the section anchoring it
+%
+%  check_coverage.py asserts against all five.  The B.1 row body lives
+%  in _concordance_rows.tex; regenerate it, do not hand-edit rows.
+% =====================================================================
+
+\section{Concordance with the source document}
+\label{app:concordance}
+
+The re-architecture in this report is a change of \emph{order}, not of content:
+the source's node-by-node parts were re-sequenced into a physics arc
+(\hyperref[sec:status]{Status of this document}), which dissolves the S7--S10 labels and moves equilibrium
+in front of the flux algebra. That makes a concordance necessary rather than
+decorative: a source part's argument can now land in two places, and this
+appendix is where you find them.
+
+Everything below is mechanically checked by
+\code{study/tier2-report/check\_coverage.py}.
+
+% =====================================================================
+\subsection{Headings}
+\label{app:headings}
+
+All 149 headings of \code{study/tier2.md}, in source order, with the line at
+which each begins and the section(s) of this report that carry it. A heading
+with more than one target is one whose material was split; a heading set in
+\textbf{bold} is one that was re-homed across a source part boundary.
+
+\begingroup
+\footnotesize
+\begin{longtable}{@{}L{1.5cm} L{7.3cm} r L{4.3cm}@{}}
+\toprule
+\textbf{Source \S} & \textbf{Heading} & \textbf{Line} & \textbf{Here} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Source \S} & \textbf{Heading} & \textbf{Line} & \textbf{Here} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\input{parts/_concordance_rows}
+\end{longtable}
+\endgroup
+
+\begin{aside}
+Fifty-six source headings are unnumbered in the original (the part titles, the
+front-matter blocks, the handoff blocks, and the un-numbered subsections such as
+``The measurement'' and ``The geometry''); they carry ``---'' in the first
+column. The source's
+irregular identifiers --- \S0.5b, \S I.2b, \S I.7b, \S I.10b, \S II.4b,
+\S II.7b, \S IV.4b and \S IV.8b --- are reproduced as they stand. Four source
+headings carry the \emph{same} text (``The measurement'', at lines 1870, 4094,
+4382 and 4487); each is disambiguated here by a distinct title and label.
+\end{aside}
+
+\begin{aside}
+\textbf{Two places where the source contradicts itself, and how this report
+resolves them.} Both resolutions follow the source's own majority reading; they
+are recorded here because they are the only wording changes in the
+transcription.
+
+\begin{enumerate}
+\item \textbf{``\kap, three ways'' vs ``four ways''.} The source's heading at
+  line 2338 says \emph{three} and its lead-in at line 2340 says ``Three
+  readings''; its Contents row (line 119) and its own full section list (line
+  156) both say \emph{four}, and the section carries four lettered subsections,
+  (a)--(d). This report reads \emph{four} (\S\ref{sec:kappa}), and the same
+  correction is applied to the part's opening sentence, which in the source
+  (line 2191) names three roles and omits entropy production. The B.1 row for
+  line 2338 records the source heading as it stands.
+\item \textbf{A bare \S IV.7 that means Tier~1's.} At line 2360 the source
+  attributes the screened-\kap{} offset to ``\S IV.7''; by its own convention
+  (line 70) a bare \S IV.x is \emph{this} file's, which would be ``Error control
+  for \Phifl''. The intended target is Tier~1 \S IV.7, as the source itself
+  writes at line 2433. \S\ref{sec:kappa-db} carries the disambiguated form.
+\end{enumerate}
+\end{aside}
+
+% =====================================================================
+\subsection{Relocated self-check questions}
+\label{app:selfcheck}
+
+The source carries 5 self-check blocks and 40 questions. All 40 survive; two
+moved, because the physics arc put their material in a later section and a
+question should not test material the reader has not yet reached. Nothing was
+added and nothing was dropped.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.7cm} L{2.4cm} L{2.4cm} Y@{}}
+\toprule
+\textbf{Source question} & \textbf{Was in} & \textbf{Now in} &
+\textbf{Why} \\
+\midrule
+S9 Q7 --- ``$\delta$ and \rQSE{} use different references\ldots'' &
+  \S III.14 & \S\ref{sec:selfcheck-s8} (Q9) &
+  the two diagnostics are derived in \S\ref{sec:departure}, which travelled
+  forward with \kap \\
+S9 Q8 --- ``The maskable set is empty, but \kap{} shows a continuum\ldots'' &
+  \S III.14 & \S\ref{sec:selfcheck-s8} (Q10) &
+  the empty-mask verdict is derived in \S\ref{sec:negresults}, beside the
+  vacuous pass \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Two further questions did \emph{not} move but acquired a pointer, because
+\S0.4's material now opens \S\ref{part:conservation}: Part~0 Q4 (the left-null-vector
+theorem, answered in \S\ref{sec:leftnull}) and Q5 (the soft-penalty arithmetic,
+answered in \S\ref{sec:softpenalty}). They are still asked in
+\S\ref{sec:selfcheck-setting}, where the source asks them.
+
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Self-check block} & \textbf{Source questions} &
+\textbf{Questions here} \\
+\midrule
+Part 0 $\to$ \S\ref{sec:selfcheck-setting} & 7 & 7 \\
+S7 $\to$ \S\ref{sec:selfcheck-s7} & 9 & 9 \\
+S8 $\to$ \S\ref{sec:selfcheck-s8} & 8 & 10 \\
+S9 $\to$ \S\ref{sec:selfcheck-s9} & 8 & 6 \\
+S10 $\to$ \S\ref{sec:selfcheck-s10} & 8 & 8 \\
+\midrule
+\textbf{total} & \textbf{40} & \textbf{40} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% =====================================================================
+\subsection{The source's boxed results}
+\label{app:equations}
+
+The source uses no equation numbering; it marks its five headline identities
+with \code{\textbackslash boxed}. All five survive as boxed, numbered equations
+here, and every displayed equation in the source is carried over as a numbered
+equation so that it can be cross-referenced.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.0cm} Y L{3.6cm}@{}}
+\toprule
+\textbf{Source \S} & \textbf{Boxed result} & \textbf{Here} \\
+\midrule
+0.3.1 & $\Mch \approx 5.83\,\Ye^2\,\Msun$ & \eqref{eq:mch} \\
+II.4(b) & $|\delta\netflux|/|\netflux| \le \varepsilon/\kap$ &
+  \eqref{eq:kappacond} \\
+II.4(c) & $\kap_j = |\tanh(\aff_j/2kT)|$ & \eqref{eq:kappatanh} \\
+III.3 & $\ln X_i = \log C_i(T,\rho) + (Z_i\up + N_i\un)/kT$ &
+  \eqref{eq:sahacoeff} \\
+III.6 & $\dd\Ye/\dd\up|_{\Sigma X=1} = W^2\Var_w(Z/A)/(kT S_N) > 0$ &
+  \eqref{eq:monotonicity} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\subsection{Diagrams and listings}
+\label{app:diagrams}
+
+The source carries 32 unindented fenced blocks plus one indented block nested in
+a list item (the Wegscheider top-offender dump, source line 4137). Three of the
+unindented blocks are ASCII diagrams and are redrawn as figures; the rest are
+set verbatim so that their exact spacing survives. Nothing is dropped.
+
+\begingroup
+\footnotesize
+\begin{longtable}{@{}r L{2.0cm} L{5.6cm} L{5.2cm}@{}}
+\toprule
+\textbf{Line} & \textbf{Language} & \textbf{Content} & \textbf{Here} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Line} & \textbf{Language} & \textbf{Content} & \textbf{Here} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+90 & plain & the DERIVE/READ/ORACLE/SEE loop &
+  Fig.~\ref{fig:studyloop} (TikZ) \\
+129 & plain & the full section list &
+  \S\ref{app:sourcelist} (verbatim) \\
+450 & plain & two clusters, one bridge set &
+  Fig.~\ref{fig:clusters} (TikZ) \\
+613 & plain & the two \Ye{} chains &
+  Fig.~\ref{fig:yechain} (TikZ) \\
+1066 & python & the nine-line $\nu$ build & \S\ref{sec:numap} \\
+1111 & python & the sparsity measurement & \S\ref{sec:numap} \\
+1139 & python & the left-null-space SVD & \S\ref{sec:rank} \\
+1200 & python & the $\mathrm{rowspace}(C)$ principal angles &
+  \S\ref{sec:rank} \\
+1233 & python & \code{assert dA[j] == 0.0} & \S\ref{sec:exactzero} \\
+1330 & python & the complexes comment & \S\ref{sec:deficiency} \\
+1464 & python & the closure check & \S\ref{sec:ledgers} \\
+1507 & plain & the $\beta^+$ bookkeeping & \S\ref{sec:betaplus} \\
+1539 & python & \code{constraint\_matrix} & \S\ref{sec:cmatrix} \\
+1728 & python & the QR projector & \S\ref{sec:projqr} \\
+1756 & python & the rank guard & \S\ref{sec:projqr} \\
+1876 & python & the PCA & \S\ref{sec:effdim-measurement} \\
+2124 & python & the parametrized sign ids & \S\ref{sec:oracles7} \\
+2215 & python & the three array operations & \S\ref{sec:lambdatoR} \\
+2262 & python & the weak-column \code{continue} & \S\ref{sec:pairmap} \\
+2280 & python & forward-member selection & \S\ref{sec:pairmap} \\
+2691 & python & the store round-trip & \S\ref{sec:store} \\
+3158 & python & \code{nse\_log\_coeffs\_batch} & \S\ref{sec:saha} \\
+3231 & python & the $2\times2$ Jacobian & \S\ref{sec:newton} \\
+3367 & python & the \uG{} exponent & \S\ref{sec:qsecluster} \\
+3478 & python & \code{eligible\_mask} & \S\ref{sec:departure} \\
+3524 & yaml & \code{qse\_groups.yaml} & \S\ref{sec:groupboundary} \\
+3732 & python & the rate-evaluation clip & \S\ref{sec:bdf} \\
+3883 & python & the slot-sum Jacobian & \S\ref{sec:productrule} \\
+3946 & python & $Y = Y_0 + \nu\Phifl$ & \S\ref{sec:solverconservation} \\
+3972 & python & rtol\,/\,atol & \S\ref{sec:errorcontrol} \\
+4098 & python & the Wegscheider projection &
+  \S\ref{sec:wegscheider-measurement} \\
+4137 & plain (indented) & the top-offender residuals &
+  \S\ref{sec:wegscheider-reading} \\
+4501 & python & the ICC estimator &
+  \S\ref{sec:clusterrobust-measurement} \\
+\end{longtable}
+\endgroup
+
+% =====================================================================
+\subsection{Register anchors}
+\label{app:registeranchors}
+
+The source's register table addresses each item's home section by a GitHub slug
+anchor, which does not survive a re-ordering. Every one becomes a live
+\code{\textbackslash ref} in \S\ref{sec:register}; this table is the map, and it
+is what \code{check\_coverage.py} asserts against.
+
+Three items are anchored weakly or not at all in the source body, and all three
+now carry the anchor in the body as well, so the link survives in both
+directions:
+
+\begin{itemize}
+\item \textbf{R-21} is never cited at its own home section (\S0.3.4); its only
+  body occurrence is inside \emph{another} item's write-up (\S VI.2's R-24,
+  source line 4689, carried here at \S\ref{sec:r24}).
+\item \textbf{R-22} appears nowhere in the source body at all.
+\item \textbf{R-23} likewise appears nowhere in the source body: the sole body
+  occurrence of the string ``R-23'' (source line 3747) is \emph{Tier~1's} R-23,
+  rendered here as \foreignreg{1}{R-23} at \S\ref{sec:bdf}. Tier~2's R-23 gains
+  its first body anchor at \S\ref{sec:energyidentity}.
+\end{itemize}
+
+That last case is precisely the collision the warning below is about: a naive
+string match on \code{R-23} finds a foreign item and reports the anchor as
+present.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{1.5cm} L{3.4cm} Y@{}}
+\toprule
+\textbf{ID} & \textbf{Source anchor} & \textbf{Here} \\
+\midrule
+R-01 & \S II.4b   & \S\ref{sec:entropyactive} (within \S\ref{sec:entropy}) \\
+R-02 & \S I.10b   & \S\ref{sec:effdim-stoich} (within \S\ref{sec:effdim}) \\
+R-03 & \S IV.4b   & \S\ref{sec:unidentifiable} \\
+R-04 & \S I.7b    & \S\ref{sec:posminimum} (within \S\ref{sec:positivity}) \\
+R-05 & \S II.4b   & \S\ref{sec:secondlaw} \\
+R-06 & \S IV.8b   & \S\ref{sec:wegscheider-why} (within
+                     \S\ref{sec:wegscheider}) \\
+R-07 & \S V.2     & \S\ref{sec:samplingmeasure} \\
+R-08 & \S V.3     & \S\ref{sec:clusterrobust-fix} (within
+                     \S\ref{sec:clusterrobust}) \\
+R-09 & \S I.2b    & \S\ref{sec:fluxcone} (within \S\ref{sec:crn}) \\
+R-10 & \S II.7b   & \S\ref{sec:dttau} \\
+R-11 & \S0.5b     & \S\ref{sec:deployment} \\
+R-12 & \S0.5b     & \S\ref{sec:costceiling} \\
+R-13 & \S II.4b   & \S\ref{sec:lyapunov} \\
+R-14 & \S0.3.5    & \S\ref{sec:outputend} \\
+R-15 & \S V.4     & \S\ref{sec:vandv} \\
+R-16 & \S V.4     & \S\ref{sec:vandv} \\
+R-17 & \S I.8     & \S\ref{sec:projlagrange} (within \S\ref{sec:projector}) \\
+R-18 & \S III.10  & \S\ref{sec:departure} \\
+R-19 & \S I.11    & \S\ref{sec:graphK} \\
+R-20 & \S IV.5    & \S\ref{sec:productrule} \\
+R-21 & \S0.3.4 (register); body cite in \S VI.2 only & \S\ref{sec:budget} \\
+R-22 & \S I.10 (register only) & \S\ref{sec:equivalence} \\
+R-23 & \S IV.8 (register only) & \S\ref{sec:energyidentity} \\
+R-24 & \S VI.2    & \S\ref{sec:r24} \\
+R-25 & \S VI.2    & \S\ref{sec:r25} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{warn}
+\warnglyph{}~\textbf{R-numbers collide across tiers.} The source also cites
+\foreignreg{0}{R-18} ($\asinh$ as a legitimate latent), \foreignreg{0}{R-21}
+(observational grounding), \foreignreg{1}{R-17} (the canonical rate key) and
+\foreignreg{1}{R-23} (the Fortran-probe logic) --- four foreign items whose
+numbers clash with Tier~2's own R-17, R-18, R-21 and R-23. In this report every
+foreign item is rendered with its tier prefix and is never linked into
+\S\ref{sec:register}.
+\end{warn}

@@ -1,0 +1,697 @@
+% =====================================================================
+%  3 -- STATISTICAL EQUILIBRIUM: NSE AND QSE  (source node S9).
+%
+%  Source: tier2.md Part III -- header (3019-3030), III.1 (3034-3078),
+%          III.2 (3082-3134), III.3 (3138-3186), III.4 (3190-3214),
+%          III.5 (3218-3242), III.6 (3246-3329), III.7 (3333-3351),
+%          III.8 (3355-3406), III.9 (3410-3452), III.11 (3520-3551),
+%          III.12 result (1) (3555-3563), III.13 (3613-3635),
+%          III.14 self-check (3639-3656).
+%
+%  Excluded and re-homed FORWARD into section 4, because both are
+%  defined against kappa and the physics arc puts equilibrium first:
+%          III.10 the two departure diagnostics (3456-3516) ->
+%                 sec:departure;
+%          III.12 results (2) and (3) -- the absent plateau and the
+%                 empty maskable set (3565-3609) -> sec:negresults.
+%          III.14 self-check items 7 and 8 travel with them.
+%  The III.13 oracle table is kept whole here (it is the qse/ oracle
+%  list) with its two diagnostics rows cross-referenced forward.
+% =====================================================================
+
+\section{Statistical equilibrium: NSE and QSE}
+\label{part:equilibrium}
+
+\begin{repopointer}
+\textbf{Files:} \code{qse/coeffs.py}, \code{qse/solver.py},
+\code{qse/diagnostics.py}, \code{configs/qse\_groups.yaml}. \quad
+\textbf{Oracles:} \code{tests/test\_qse\_coeffs.py},
+\code{tests/test\_qse\_solver.py} --- \S\ref{sec:codes9}. \quad
+\textbf{Notebook:} \code{06-qse-bridges.ipynb}.
+\end{repopointer}
+
+\S\ref{part:setting} said equilibrium is what makes silicon burning tractable.
+This section makes it \emph{computable}: an independent Saha solver, a cluster
+generalisation, and --- in \S\ref{sec:departure}, once \kap{} is available ---
+two departure diagnostics. Without it, ``this reaction is equilibrated'' has no
+measurable meaning, and the kill-test has no reference.
+
+\begin{aside}
+\textbf{Why this comes before the flux algebra.} In the source document this
+node sits \emph{after} fluxes and cancellation. The physics runs the other way:
+the hinge identity of the whole tier is $\kap = |\tanh(\aff/2kT)|$
+(\S\ref{sec:kappa-affinity}), and the affinity \aff{} is built from the chemical
+potentials that \S\ref{sec:saha}'s Saha coefficients produce. Deriving
+equilibrium first turns three forward references into backward ones. The price
+is that the two diagnostics defined \emph{against} \kap{} ---
+\S\ref{sec:departure} and the mask verdicts of \S\ref{sec:negresults} --- travel
+forward into \S\ref{part:fluxes} with it.
+\end{aside}
+
+\textbf{The independence matters.} \code{qse/} deliberately uses \textbf{the
+same nuclear inputs} as pynucastro (Rauscher partition functions,
+\code{Nucleus.nucbind}, \code{Nucleus.A\_nuc}, \code{Nucleus.spin\_states}) but
+an entirely separate solver. Shared data $+$ separate algorithm $=$ the
+cross-check tests the \emph{solver}, not the data. If it used its own masses
+too, agreement would prove nothing about either.
+
+% =====================================================================
+\subsection{Equilibrium from the ensemble}
+\label{sec:ensemble}
+
+\subsubsection{The distribution}
+\label{sec:distribution}
+
+For a species $i$ treated as an ideal, non-degenerate, non-relativistic gas with
+ground-state spin degeneracy $(2J_i + 1)$ and internal partition function
+$G_i(T)$, the grand-canonical number density is (the standard NSE starting
+point: \citealp{clifford1965}; \citealp{hwe1985}; chemical-potential form as in
+\citealp{seitenzahl2009})
+%
+\begin{equation}
+n_i \;=\; (2J_i+1)\,G_i(T)\left(\frac{m_i kT}{2\pi\hbar^2}\right)^{3/2}
+\exp\!\left(\frac{\mu_i - m_i c^2}{kT}\right),
+\label{eq:ndensity}
+\end{equation}
+%
+with $\mu_i$ the full chemical potential (rest mass included). Define the
+\textbf{kinetic} chemical potential $u_i \equiv \mu_i - m_i c^2$; this is what
+the code's \code{u\_p}, \code{u\_n} are, in MeV.
+
+\paragraph{Is Maxwell--Boltzmann legitimate here?} It must be checked, because
+the \emph{electrons} in this plasma are strongly degenerate (Tier~0 \S0.1). The
+criterion is $n_i \lambda_i^3 \ll 1$ with $\lambda = h/\sqrt{2\pi m kT}$. At box
+centre ($\Tn = 4$, $\rho = 10^{8}$\,\gcc) for $A = 28$:
+$m = 4.65\times10^{-23}$\,g, $kT = 5.52\times10^{-7}$\,erg, so
+$\lambda = 5.2\times10^{-13}$\,cm, $\lambda^3 = 1.4\times10^{-37}$\,cm$^3$, and
+at $X = 1$, $n = \rho/(A m_u) = 2.2\times10^{30}$\,cm$^{-3}$. Hence
+%
+\begin{equation}
+n\lambda^3 \;\approx\; 3\times10^{-7} \;\lll\; 1.
+\label{eq:nlambda3}
+\end{equation}
+\derivedhere
+
+Six and a half orders of margin. Nuclei are classical here; electrons are not,
+because $m_e$ is $5\times10^{4}$ times smaller and $\lambda_e^3$ correspondingly
+$10^{7}$ times larger. \textbf{The same plasma is simultaneously classical in
+its nuclei and degenerate in its electrons}, which is why the electron sector
+needs a Fermi treatment (Tier~1 \S V.4) while the Saha algebra can stay
+Boltzmann.
+
+\subsubsection{The equilibrium condition}
+\label{sec:eqcondition}
+
+Chemical equilibrium for reaction $j$ is $\sum_i \nu_{ij}\mu_i = 0$ (in the full
+$\mu$). Since the reaction graph is connected through the light particles
+(\S\ref{sec:graphK}) and every nucleus is reachable from free nucleons by strong
+reactions, all such conditions collapse to a single family:
+%
+\begin{equation}
+\mu_i \;=\; Z_i\,\mu_p + N_i\,\mu_n .
+\label{eq:muchain}
+\end{equation}
+
+% =====================================================================
+\subsection{Where the binding energy comes from}
+\label{sec:binding}
+
+Substituting $\mu = u + mc^2$:
+%
+\begin{equation}
+u_i + m_ic^2 \;=\; Z_i(\up + m_pc^2) + N_i(\un + m_nc^2)
+\label{eq:musub}
+\end{equation}
+%
+\begin{equation}
+\Longrightarrow\quad u_i \;=\; Z_i \up + N_i \un +
+  \underbrace{\bigl[Z_i m_p + N_i m_n - m_i\bigr]c^2}_{\textstyle B_i}.
+\label{eq:bindingappears}
+\end{equation}
+
+\begin{invariant}
+\textbf{The binding energy appears as the rest-mass bookkeeping of the
+equilibrium condition, not as an extra assumption.} This is worth doing once by
+hand, because it is the reason \code{nucbind} shows up in a
+\emph{chemical-potential} formula and the reason the equilibrium distribution
+favours the most-bound nucleus: $B_i/kT$ is an exponential reward for binding.
+\end{invariant}
+
+At $\Tn = 4$, $kT = 0.345$\,MeV, and $B(\nuc{Ni}{56}) = 484$\,MeV, so
+$B/kT \approx 1400$. The Saha exponent is enormous; what keeps abundances finite
+is the competition against the $-\ln\rho$ and $(Z\up + N\un)/kT$ terms, with
+\up{} and \un{} both strongly negative. Measured, at $\rho = 10^{8}$\,\gcc:
+\derivedhere
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.4cm} L{2.4cm} L{2.4cm} Y@{}}
+\toprule
+\textbf{$(\Tn, \Ye)$} & \textbf{\up{} [MeV]} & \textbf{\un{} [MeV]} &
+\textbf{dominant species} \\
+\midrule
+$(4, 0.50)$   & $-5.09$ & $-12.41$ & \nuc{Ni}{56} ($X = 0.94$) \\
+$(4, 0.47)$   & $-7.47$ & $-10.14$ & \nuc{Fe}{56}, \nuc{Fe}{54}, \nuc{Ni}{58} \\
+$(3.5, 0.47)$ & $-7.43$ & $-10.15$ & \nuc{Fe}{56}, \nuc{Fe}{54}, \nuc{Ni}{58} \\
+$(5, 0.47)$   & $-7.58$ & $-10.10$ & \nuc{Fe}{56}, \nuc{Fe}{54}, \nuc{Ni}{58} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Two things to read off. The $\Ye = 0.47$ rows are \S\ref{sec:fepeak}'s endpoint
+claim, measured: drop \Ye{} three points below 0.5 and the equilibrium abandons
+\nuc{Ni}{56} for the neutron-richer Fe-peak species. And the \emph{difference}
+$\up - \un$ is the free-nucleon ratio, exactly --- since $B_p = B_n = 0$ and the
+mass/spin factors are $\approx 1$,
+%
+\begin{equation}
+\frac{X_p}{X_n} \;\approx\; \exp\!\frac{\up - \un}{kT},
+\label{eq:xpxn}
+\end{equation}
+%
+which the solver confirms: at $\Ye = 0.50$, $\up - \un = 7.32$\,MeV $= 21\,kT$
+and $X_p/X_n = 1.7\times10^{9}$ ($X_p = 6.3\times10^{-4}$,
+$X_n = 3.8\times10^{-13}$); at $\Ye = 0.47$, $\up - \un = 2.67$\,MeV
+$= 7.7\,kT$ and the ratio is $2.3\times10^{3}$. Note the free nucleons are
+\emph{not} balanced even at $\Ye = 0.5$ --- with \nuc{Ni}{56} holding 94\% of
+the mass there is almost no neutron the composition needs to leave free, so
+$\up - \un$ runs to tens of $kT$. The lesson for reading a solver trace is that
+$\up - \un$ is a steep, directly interpretable function of \Ye, not that it is
+small.\derivedhere
+
+\begin{warn}
+\textbf{Do not read the solver's \code{init=(-3.5, -15.0)} as typical values.}
+It is a seed chosen to sit safely inside the convergence basin, not a converged
+answer, and nothing in the table above lands near it --- \up{} is 1.5--4\,MeV
+too high and \un{} 2--5\,MeV too low. The arrow in the original claim runs
+backwards: the seed is ``somewhere Newton reliably converges \emph{from}'',
+which is a numerical property, and inferring physics from it is exactly the
+mistake.
+\end{warn}
+
+% =====================================================================
+\subsection{The Saha coefficient, term by term}
+\label{sec:saha}
+
+Convert to mass fraction: $X_i = n_i m_i/\rho$ with
+$m_i = A_{\mathrm{nuc},i}\cdot m_u$.
+%
+\begin{equation}
+\ln X_i = \ln(A_{\mathrm{nuc},i} m_u) - \ln\rho + \ln(2J_i+1) + \ln G_i
++ \tfrac32\ln\!\frac{m_i kT}{2\pi\hbar^2} + \frac{Z_i\up + N_i\un + B_i}{kT}.
+\label{eq:lnxi}
+\end{equation}
+%
+Collect the two mass terms:
+$\ln(A_{\rm nuc} m_u) + \tfrac32\ln(A_{\rm nuc} m_u) =
+\mathbf{2.5}\cdot\ln(A_{\rm nuc} m_u)$. Hence
+%
+\begin{equation}
+\boxed{\ \ln X_i \;=\;
+\underbrace{\tfrac52\ln(A_{\mathrm{nuc},i}m_u) + \ln(2J_i+1) - \ln\rho
++ \tfrac32\ln\!\frac{kT}{2\pi\hbar^2} + \ln G_i(T) + \frac{B_i}{kT}}
+_{\textstyle \log C_i(T,\rho)}
+\; + \; \frac{Z_i\up + N_i\un}{kT}\ }
+\label{eq:sahacoeff}
+\end{equation}
+%
+which is \code{qse/coeffs.py::nse\_log\_coeffs\_batch}, line for line:
+
+\begin{srclisting}
+species = 2.5*np.log(inputs.A_nuc * constants.m_u_C18) + np.log(inputs.spin_states)
+bind    = inputs.nucbind * inputs.A                     # B/A x A = B
+state   = -np.log(rho) + 1.5*np.log(constants.k*T / (2.0*np.pi*constants.hbar**2))
+return species[None,:] + state[:,None] + log_pf + bind[None,:]/kT_MeV[:,None]
+\end{srclisting}
+
+\paragraph{Three details that are easy to get subtly wrong.}
+
+\begin{enumerate}
+\item \textbf{$A_{\rm nuc}$ vs $A$.} The mass prefactor uses \code{A\_nuc} (the
+  \emph{actual} mass in amu: 27.9769 for \nuc{Si}{28}), the binding term uses
+  the integer \code{A} (nucleon count). Using $A$ for both would introduce a
+  factor $\exp(2.5\cdot\ln(A/A_{\rm nuc})) \approx 1.002$ --- a 0.2\% error,
+  invisible in a plot and fatal to a $10^{-12}$ cross-check.
+\item \textbf{$G$ vs $(2J{+}1)G$.} Tier~1 \S III.3 flags this normalisation trap
+  on the rate side; the same trap exists here, and the code splits the two
+  explicitly (\code{spin\_states} and \code{log\_pf} as separate terms) rather
+  than relying on a library convention.
+\item \textbf{\code{EXP\_CLIP = 500}.} The Saha exponent is clipped before
+  exponentiation, matching pynucastro (\code{nse\_network.py:212}).
+  $\exp(500) \approx 10^{217}$, comfortably inside float64's
+  $1.8\times10^{308}$ --- so the clip prevents overflow during Newton excursions
+  from a bad guess \emph{without} affecting any converged answer, where
+  $X \le 1$.
+\end{enumerate}
+
+\paragraph{The cross-check.} \code{tests/test\_qse\_coeffs.py} compares these
+mass fractions at \emph{fixed} $(\up, \un)$ against pynucastro's
+\code{\_nucleon\_fraction\_nse}, $\le 10^{-12}$ rel. Fixing $u$ removes the
+solver from the comparison entirely: this test isolates the coefficient
+construction. Only then does \code{test\_qse\_solver.py} compare converged
+solutions. \textbf{Layered oracles again} --- the same discipline as
+\code{test\_conservation.py}'s two layers (\S\ref{sec:oracles7}).
+
+% =====================================================================
+\subsection{The two constraints}
+\label{sec:twoconstraints}
+
+$\log C$ determines the \emph{shape}; two constraints fix $(\up, \un)$:
+%
+\begin{equation}
+F_0(\up,\un) = \sum_i X_i - 1 = 0, \qquad
+F_1(\up,\un) = \sum_i \frac{Z_i}{A_i}X_i - \Ye = 0 .
+\label{eq:nseconstraints}
+\end{equation}
+%
+The second is $\Ye = \sum_i Z_i Y_i = \sum_i (Z_i/A_i) X_i$ (Tier~0 \S II.5).
+Note what is \emph{not} a constraint: nothing about neutrons separately, because
+baryon number is already carried by $\sum X = 1$. Two constraints, two unknowns
+--- the count of \S\ref{sec:regimes}.
+
+\paragraph{And note the convention mix, because \S\ref{sec:saha} just made a
+fuss about exactly this distinction.} $X_i$ is built from the \emph{actual} mass
+$A_{\rm nuc}$, but $F_1$ uses the \textbf{integer} $A$ (\code{solver.py}:
+\code{((Z / A) * X).sum() - ye}). Strictly, if $\sum A_{{\rm nuc},i} Y_i = 1$
+then $\Ye = \sum_i Z_i X_i / A_{{\rm nuc},i}$, and using $Z/A$ instead shifts it
+by ${\sim}0.1\%$. This is deliberate and correct, for a reason worth stating:
+\textbf{\Ye{} here is not a derived quantity being computed accurately, it is a
+boundary condition being imposed}, and the convention that must match is the one
+used by everything that consumes it --- pynucastro's NSE solver, MESA's
+\code{ye}, and the \Ye{} column of the training data all define
+$\Ye = \sum(Z_i/A_i)X_i$ with integer $A$. Using $A_{\rm nuc}$ here would make
+the solver internally prettier and externally inconsistent, which is the wrong
+trade. \S\ref{sec:saha}'s detail (1) is about a quantity being \emph{computed};
+this is a quantity being \emph{matched}.
+
+% =====================================================================
+\subsection{Newton with an analytic Jacobian}
+\label{sec:newton}
+
+Since $\partial X_i/\partial \up = X_i Z_i/kT$ and
+$\partial X_i/\partial \un = X_i N_i/kT$, the Jacobian is available in closed
+form and costs nothing beyond the residual evaluation:
+%
+\begin{equation}
+J \;=\; \frac{1}{kT}
+\begin{pmatrix}
+\sum X_iZ_i & \sum X_iN_i\\[2pt]
+\sum X_iZ_i^2/A_i & \sum X_iZ_iN_i/A_i
+\end{pmatrix}
+\label{eq:nsejacobian}
+\end{equation}
+
+\begin{srclisting}
+J = np.array([[(X*Z).sum(),       (X*N).sum()],
+              [(X*Z*Z/A).sum(),   (X*Z*N/A).sum()]]) / kT
+\end{srclisting}
+
+\paragraph{Step damping.} \code{\_MAX\_STEP\_MEV = 2.0}: the Newton step is
+capped at 2\,MeV in $\infty$-norm. Why a cap is \emph{necessary} rather than
+merely prudent falls straight out of \S\ref{sec:monotonicity}'s derivative: when
+one species dominates, the compositional variance of $Z/A$ collapses and the
+Jacobian becomes nearly singular in the \up{} direction, so an undamped step can
+be tens of MeV --- which lands in a region where the exponent clips and the
+residual carries no gradient at all. The cap is a trust region; 2\,MeV is
+${\sim}6\,kT$ at $\Tn = 4$, so it never obstructs a well-scaled step.
+
+% =====================================================================
+\subsection{The monotonicity proof --- why the bisection fallback works}
+\label{sec:monotonicity}
+
+\begin{warn}
+\warnglyph{}~The fallback is a nested bisection, and it rests on two monotonicity
+claims that the code states as comments. Both are provable, and the second is
+not obvious.
+\end{warn}
+
+\paragraph{Claim 1.} At fixed \up, $\sum X$ is strictly increasing in \un.
+%
+\begin{equation}
+\frac{\partial}{\partial \un}\sum_i X_i \;=\; \frac{1}{kT}\sum_i X_iN_i \;>\;0
+\label{eq:claim1}
+\end{equation}
+%
+whenever any species with $N > 0$ has nonzero abundance. Immediate. This
+licenses \code{u\_n\_for\_mass}, the inner bisection.
+
+\paragraph{Claim 2.} Along the curve $\sum X = 1$, \Ye{} is strictly increasing
+in \up.
+
+Not immediate --- \un{} must move to keep $\sum X = 1$, and it moves
+\emph{down}, which pushes \Ye{} up further but also removes mass. Do it
+properly. Write $w_i = X_iA_i$, $a_i = Z_i/A_i$, and
+%
+\begin{equation}
+S_Z=\sum X_iZ_i,\quad S_N=\sum X_iN_i,\quad
+M_{ZZ}=\sum X_i\frac{Z_i^2}{A_i},\quad
+M_{ZN}=\sum X_i\frac{Z_iN_i}{A_i}.
+\label{eq:moments}
+\end{equation}
+%
+Implicit differentiation of $\sum X = 1$ gives $\dd\un/\dd\up = -S_Z/S_N$. Then
+%
+\begin{equation}
+kT\,\frac{\dd\Ye}{\dd\up}\bigg|_{\Sigma X=1}
+= M_{ZZ} - \frac{S_Z}{S_N}M_{ZN}
+= \frac{1}{S_N}\Bigl(M_{ZZ}S_N - M_{ZN}S_Z\Bigr).
+\label{eq:dyedup1}
+\end{equation}
+%
+Substitute $Z_i = a_iA_i$, $N_i = (1-a_i)A_i$ so that $M_{ZZ} = \sum w a^2$,
+$S_N = \sum w(1-a)$, $M_{ZN} = \sum w a(1-a)$, $S_Z = \sum w a$:
+%
+\begin{equation}
+M_{ZZ}S_N - M_{ZN}S_Z
+= \sum_{i,j} w_iw_j\bigl[a_i^2(1-a_j) - a_i(1-a_i)a_j\bigr]
+= \sum_{i,j} w_iw_j\bigl[a_i^2 - a_ia_j\bigr].
+\label{eq:dyedup2}
+\end{equation}
+%
+Symmetrise in $(i, j)$:
+%
+\begin{equation}
+= \tfrac12\sum_{i,j} w_iw_j\,(a_i-a_j)^2
+\;=\; W^2\Var_w\!\left(\frac{Z}{A}\right),
+\qquad W=\sum_i w_i,
+\label{eq:dyedup3}
+\end{equation}
+%
+with $\Var_w$ the $w$-normalised variance. Therefore
+%
+\begin{equation}
+\boxed{\ \frac{\dd\Ye}{\dd\up}\bigg|_{\Sigma X=1}
+\;=\; \frac{W^2}{kT\,S_N}\Var_w\!\left(\frac{Z}{A}\right) \;>\; 0\ }
+\label{eq:monotonicity}
+\end{equation}
+\derivedhere
+
+strictly, unless every abundant species has the same $Z/A$. $\square$
+
+This is a satisfying result for three reasons. It \textbf{licenses the outer
+bisection} (\code{if F[1] > 0: hi\_p = u\_p}) as a theorem rather than a hope.
+It \textbf{explains the damping cap} (\S\ref{sec:newton}): the derivative is
+proportional to the compositional spread in $Z/A$, so near a single-species
+composition the map is nearly flat and Newton overshoots. And it
+\textbf{identifies the exact degenerate case} --- a composition of species all
+with identical $Z/A$ (e.g. pure $\alpha$-chain matter, $Z/A = 1/2$ throughout)
+makes \Ye{} independent of \up{} entirely.
+
+Be precise about what that degeneracy is, because the natural way to say it is
+backwards. With every $Z/A = \tfrac12$, $\Ye \equiv 0.5$ \emph{identically},
+whatever \up{} does. So $\Ye = 0.5$ is not the unachievable value --- it is the
+\textbf{only} achievable one, and $F_1 \equiv 0$ leaves \up{} completely
+undetermined (the Jacobian's second row vanishes); any target $\Ye \ne 0.5$ is
+infeasible, and the bisection has no sign change to bracket. Both failure modes
+--- an undetermined \up{} and an infeasible constraint --- are the same
+vanishing $\Var_w(Z/A)$. That is not hypothetical: an $\alpha$-chain-only
+network at exactly $\Ye = 0.5$ is the textbook NSE example, and it is precisely
+where the solve is degenerate. The production networks avoid it by containing
+odd-$A$ species.
+
+\begin{warn}
+\textbf{Honest caveat.} Claim 2 is proved \emph{along the $\sum X = 1$ curve for
+the exact solution}. The fallback's outer loop calls an inner solve that
+terminates on a finite tolerance, so the composed map is monotone only up to
+that tolerance --- which is why the fallback still returns \code{converged=False}
+with a residual rather than assuming success. The code is right not to trust the
+proof further than it goes.
+\end{warn}
+
+% =====================================================================
+\subsection{Batching, and why the scalar path survives}
+\label{sec:batching}
+
+\code{solve\_nse\_batch}\,/\,\code{solve\_qse\_batch} run one vectorised
+damped-Newton loop over all states with per-row convergence masking and per-row
+damping, then hand any row that did not converge in the Newton phase to the
+\textbf{scalar} solver, which retries Newton and applies the bisection fallback.
+
+Two design points worth stealing:
+
+\begin{itemize}
+\item \textbf{\code{\_batched\_2x2\_step}\,/\,\code{\_batched\_3x3\_step} use
+  closed-form Cramer\,/\,adjugate solves, not \code{np.linalg.solve}.} The reason
+  is in the docstring: a batched LAPACK solve \emph{aborts the whole batch} if
+  any single row is singular. A closed-form solve never raises; singular rows
+  are flagged and dropped to the fallback. Vectorisation must not make
+  robustness worse than the loop it replaces.
+\item \textbf{The batched result is required to be identical to a per-state
+  loop}, and that is a test (\code{test\_nse\_batch\_matches\_scalar\_loop},
+  \code{test\_qse\_batch\_matches\_scalar\_loop}), not a hope. Same
+  \code{EXP\_CLIP}, same \code{\_MAX\_STEP\_MEV}, same \code{\_MAX\_ITER}, same
+  tol, same float64.
+\end{itemize}
+
+% =====================================================================
+\subsection{QSE: the cluster and \texorpdfstring{\uG}{uG}}
+\label{sec:qsecluster}
+
+Now the generalisation of \S\ref{sec:regimes}. Group $G$ (the silicon group) is
+internally equilibrated but not equilibrated with the free nucleons; non-members
+are in NSE with the nucleons. The chemical-potential ansatz gains one offset:
+%
+\begin{equation}
+\mu_i \;=\; Z_i\mu_p + N_i\mu_n + \uG\,\mathbf{1}[i\in G],
+\label{eq:qseansatz}
+\end{equation}
+%
+so in the Saha exponent,
+
+\begin{srclisting}
+expo = logC + (Z*u_p + N*u_n)/kT
+if group is not None:
+    expo = expo + np.where(group, u_g/kT, 0.0)
+\end{srclisting}
+
+Three unknowns $(\up, \un, \uG)$ need three constraints; the third is the
+\textbf{measured group mass fraction}:
+%
+\begin{equation}
+F_2 \;=\; \sum_{i\in G} X_i - X_G^{\mathrm{meas}} \;=\; 0 .
+\label{eq:qseF2}
+\end{equation}
+%
+The $3\times3$ Jacobian is the same construction with
+$\dd g = \mathbf{1}_G$:
+%
+\begin{equation}
+J = \frac{1}{kT}\begin{pmatrix}
+\sum XZ & \sum XN & \sum X\mathbf{1}_G\\
+\sum XZ^2/A & \sum XZN/A & \sum XZ\mathbf{1}_G/A\\
+\sum XZ\mathbf{1}_G & \sum XN\mathbf{1}_G & \sum X\mathbf{1}_G
+\end{pmatrix}
+\label{eq:qsejacobian}
+\end{equation}
+%
+Note $J[0,2] = J[2,2]$: both are $\sum_{i\in G} X_i$, because
+$\partial(\sum X)/\partial\uG$ and $\partial(X_G)/\partial\uG$ are the same sum.
+A useful hand-check when reading the code.
+
+\textbf{$\uG = 0$ recovers NSE}, and that is a test:
+\code{test\_degenerates\_to\_nse\_when\_group\_mass\_is\_nse} --- feed the QSE
+solver the group mass \emph{taken from the NSE solution}, and require
+$|\uG| < 10^{-6}$\,MeV. \resultsref{2026-07-10} records it. A solver that could
+not do this would be solving a different problem.
+
+\begin{result}
+\textbf{What \uG{} means physically.} $\exp(\uG/kT)$ is the factor by which the
+whole silicon group is over- or under-populated relative to NSE at the same
+nucleon potentials. Measured on pre-stall trajectory rows: median
+\textbf{$+4.3$\,/\,$+4.1$\,MeV} \resultsref{2026-07-10}. At
+$kT \approx 0.35$\,MeV that is $\exp(12) \approx 2\times10^{5}$ --- the Si group
+is over five orders of magnitude \emph{over}-populated relative to NSE, which is
+exactly what ``mid-burn, not yet at the iron peak'' means quantitatively.
+Reading \uG{} is the cleanest single number for ``how far through silicon
+burning is this state''.
+\end{result}
+
+% =====================================================================
+\subsection{QSE as a slow manifold}
+\label{sec:slowmanifold}
+
+The reason QSE is a \emph{dynamical} statement and not just an algebraic one.
+
+Split the RHS by timescale:
+%
+\begin{equation}
+\dot Y \;=\; \frac{1}{\epsilon}f_{\mathrm{fast}}(Y) + f_{\mathrm{slow}}(Y),
+\qquad \epsilon \ll 1,
+\label{eq:timescalesplit}
+\end{equation}
+%
+where $f_{\rm fast}$ collects the near-balanced strong pairs and $f_{\rm slow}$
+the bridges and weak columns. Singular perturbation theory
+\citep[geometric form][]{tikhonov1952, fenichel1979} says: provided the fast
+subsystem's root is asymptotically stable (Tikhonov's hypothesis --- physically
+satisfied for relaxation toward detailed balance), from generic initial
+conditions the system relaxes on timescale $\epsilon$ onto the manifold
+$\Mslow = \{f_{\rm fast}(Y) = 0\}$, and thereafter moves \emph{within} \Mslow{}
+at the rate set by $f_{\rm slow}$. The same structure under the names ILDM and
+CSP is the workhorse of combustion kinetics reduction \citep{maas1992, lam1994}.
+
+\begin{itemize}
+\item \textbf{\Mslow{} is exactly the QSE manifold.} $f_{\rm fast} = 0$ is
+  ``every intra-cluster reaction balances'', which is the chemical-potential
+  ansatz of \S\ref{sec:qsecluster}.
+\item \textbf{Its dimension is the QSE parameter count}, $2 + g$ (plus \Ye),
+  which is why the reduction works at all.
+\item \textbf{The stiffness ratio is $1/\epsilon$.} So \emph{stiffness and QSE
+  are the same phenomenon} --- Tier~0 \S V.3 says this, and here is the reason:
+  a stiff system is one with an attracting low-dimensional manifold, and the
+  manifold is the equilibrium.
+\item \textbf{The group mass is the slow coordinate.} This is why QSE needs a
+  measured $X_G$: the reduction removes the fast directions and leaves the slow
+  ones to be supplied dynamically.
+\end{itemize}
+
+Two consequences that carry into \S\ref{part:integration} and Tier~4:
+
+\begin{enumerate}
+\item An implicit solver's step size is limited by the \emph{slow} dynamics once
+  on the manifold; an explicit solver's by the \emph{fast} ones forever. That is
+  the whole argument for BDF (\S\ref{sec:bdf}).
+\item An emulator learning one $\Delta t$ step is learning the \textbf{flow map
+  restricted to \Mslow} for states already on it, and the \emph{relaxation onto}
+  \Mslow{} for states off it. Those are different functions with different
+  smoothness. The training grid consists overwhelmingly of the second kind
+  (\S\ref{sec:vacuous} --- forward, and the last forward dependency this section
+  has: in the source that measurement precedes this one); deployment is the
+  first. Naming this makes the distribution-shift problem concrete rather than
+  vague.
+\end{enumerate}
+
+% =====================================================================
+\subsection{The group boundary is a config variant, not a fact}
+\label{sec:groupboundary}
+
+\code{configs/qse\_groups.yaml}:
+
+\begin{srclisting}
+default: {a_min: 24, a_max: 45, exclude_light: true}   # Hix & Thielemann span
+a28_up:  {a_min: 28,            exclude_light: true}
+a24_46:  {a_min: 24, a_max: 46, exclude_light: true}   # Sc45 inside the group
+\end{srclisting}
+
+\code{exclude\_light: true} forces $Z > 2$ --- free $n$, $p$, \nuc{He}{4} are
+never group members (they are the reservoir the group exchanges \emph{with};
+putting them inside would make the cluster the whole network).
+\code{load\_group\_mask} additionally refuses any variant that excludes
+\nuc{Si}{28}, the canonical anchor.
+
+Membership counts: 29\,/\,50 (\code{default}, \msn{80}\,/\,\msn{151}),
+40\,/\,105 (\code{a28\_up}). \resultsref{2026-07-10}
+
+\paragraph{Why the boundary matters and is not resolvable by argument.} A
+reaction is a \emph{bridge} iff it crosses the boundary.
+\nuc{Sc}{45}$(p,\gamma)$\nuc{Ti}{46} --- the literature high-\Ye{} bottleneck
+\citep[\S VIb]{wac1973}; \citep{ht1996} --- is a boundary crossing under
+\code{a24\_46} and an internal reaction under \code{default}. Under
+\code{a24\_46} it ranks \textbf{2/251} inter-group carriers (share 0.10--0.12)
+on relaxed high-\Ye{} QSE-window rows; under \code{default} its \emph{feeder}
+\code{Ca44(p,g)Sc45} ranks \#4 instead. \resultsref{2026-07-10\,/\,2026-07-12}
+
+\code{CLAUDE.md}'s rule --- every group\,/\,bridge\,/\,inter-group analysis
+reports \textbf{both} variants, and a verdict that flips between them is a
+\emph{measured decision} --- is the correct response to an unfalsifiable
+modelling choice. Measured outcome: the boundary variant changes top-$k$
+concentration by $\le 0.02$, so no verdict depends on it
+\resultsref{2026-07-12}. That is the result you want from a sensitivity variant:
+it was worth checking and it did not matter.
+
+% =====================================================================
+\subsection{What was measured: the solver is right}
+\label{sec:solververify}
+
+S9's headline outputs are negative, and each is informative in a different way.
+
+\begin{result}
+\textbf{(1) The solver is right.} NSE cross-check vs pynucastro on the canonical
+27-state grid: max $|\Delta\log_{10}X|$ over $X > 10^{-10}$ is
+\textbf{$2.7\times10^{-10}$} (\msn{80})\,/\,\textbf{$1.5\times10^{-10}$}
+(\msn{151}) against a $10^{-6}$ gate; 27/27 states, all Newton, no fallback
+needed. \resultsref{2026-07-10} Two independent solvers on shared data agreeing
+to ten digits is as strong as this kind of check gets.
+\end{result}
+
+\begin{aside}
+\textbf{Where the other two went, and why.} Results \textbf{(2)} the
+single-Si-cluster plateau is not confirmed, and \textbf{(3)} the maskable set is
+empty are both stated against \kap{} and against the departure diagnostics
+\kap{} is compared with, so this report derives them in
+\S\ref{sec:negresults}, after the flux algebra that gives them meaning. The
+source states all three together at \S III.12; splitting them is this report's
+editorial choice, not the source's, and the reading it suggests --- that
+everything in \emph{this} section is what makes the other two legible, since
+without a solver verified to ten digits ``the labels' equilibria are displaced''
+would be hard to tell from ``our reference is wrong'' --- is likewise the
+report's, not a claim the source makes.
+\end{aside}
+
+% =====================================================================
+\subsection{Code and oracles}
+\label{sec:codes9}
+
+\textbf{Read:} \code{qse/coeffs.py} (132 lines --- the derivation of
+\S\ref{sec:saha} as code), \code{qse/solver.py} (581 lines: scalar NSE $\to$
+scalar QSE $\to$ batched, in that order), \code{qse/diagnostics.py} (85 lines
+--- small and load-bearing).
+
+\textbf{Oracles:}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{7.0cm} Y@{}}
+\toprule
+\textbf{test} & \textbf{pins} \\
+\midrule
+\code{test\_qse\_coeffs.py::test\_mass\_fractions\_match\_at\_fixed\_u} &
+  \S\ref{sec:saha}, $\le 10^{-12}$ rel, solver excluded \\
+\code{test\_qse\_solver.py::TestNSECrossCheck::test\_matches\_pyna\_solver} &
+  the converged solution, 3 box states \\
+\code{test\_constraints\_satisfied} & $F_0$, $F_1$ at the returned solution \\
+\code{test\_degenerates\_to\_nse\_when\_group\_mass\_is\_nse} &
+  $\uG \to 0$ (\S\ref{sec:qsecluster}) \\
+\code{test\_offset\_group\_mass\_moves\_u\_group} &
+  the converse --- \uG{} responds \\
+\code{test\_group\_mask\_contains\_si28\_not\_light} &
+  the config contract (\S\ref{sec:groupboundary}) \\
+\code{test\_nse\_batch\_matches\_scalar\_loop},
+\code{test\_qse\_batch\_matches\_scalar\_loop} & \S\ref{sec:batching} \\
+\code{test\_weak\_columns\_structurally\_excluded} &
+  \textbf{invariant \#2} (\S\ref{sec:departure}) \\
+\code{test\_reaction\_delta\_max\_over\_participants} &
+  the conservative $\delta_r$ (\S\ref{sec:departure}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{repopointer}
+\textbf{\textcircled{4} SEE:} notebook \code{06-qse-bridges.ipynb} --- Fig 1 the
+Si group under both boundary conventions, Fig 2 inter-group carriers side by
+side, Fig 3 whether the boundary changes the answer (it does not).
+\end{repopointer}
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-s9}
+
+\begin{selfcheck}
+\item Show that nuclei are non-degenerate at box centre while electrons are not.
+  Which quantity differs, and by how much?
+\item Derive $u_i = Z_i \up + N_i \un + B_i$ and say where the binding energy
+  came from.
+\item Write $\log C_i$ and identify each of its six terms. Why is $A_{\rm nuc}$
+  used in one place and integer $A$ in another?
+\item Prove $\dd\Ye/\dd\up > 0$ along $\sum X = 1$. What does the result say
+  about when the solve is degenerate, and about why the Newton step is capped?
+\item QSE has three unknowns. Name them and name the three constraints. Which
+  one is dynamical rather than thermodynamic?
+\item Explain ``stiffness and QSE are the same phenomenon'' in terms of a slow
+  manifold.
+\end{selfcheck}
+
+\begin{aside}
+The source's remaining two S9 self-check questions --- $\delta$ vs \rQSE{}, and
+the empty maskable set against \kap's continuum --- test material that this
+report reaches in \S\ref{part:fluxes}, so they are asked there
+(\S\ref{sec:selfcheck-s8}). Appendix~\ref{app:concordance} records the move.
+\end{aside}

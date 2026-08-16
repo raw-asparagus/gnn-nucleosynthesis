@@ -1,0 +1,844 @@
+% =====================================================================
+%  5 -- STIFF INTEGRATION OF THE AUGMENTED FLUX STATE  (source node S10).
+%
+%  Source: tier2.md Part IV in full and in source order -- header
+%          (3660-3664), IV.1 (3668-3699), IV.2 (3703-3747),
+%          IV.3 (3751-3776), IV.4 (3780-3811), IV.4b (3815-3867),
+%          IV.5 (3871-3938), IV.6 (3942-3966), IV.7 (3970-3994),
+%          IV.8 (3998-4060), IV.8b (4064-4205), IV.9 (4209-4251),
+%          IV.10 (4255-4285), IV.11 self-check (4289-4306).
+%  Nothing is re-homed into or out of this range: the source's own
+%  order already runs stiffness -> method -> state -> identifiability
+%  -> Jacobian -> conservation -> error control -> energy -> cost.
+% =====================================================================
+
+\section{Stiff integration of the augmented flux state}
+\label{part:integration}
+
+\begin{repopointer}
+\textbf{Files:} \code{fluxes/integrate.py} (265 lines). \quad
+\textbf{Oracles:} \code{tests/test\_integrate.py} ---
+\S\ref{sec:codes10}. \quad
+\textbf{Notebook:} \code{11-integrator-and-handoff.ipynb}. \quad
+\textbf{ADR:} 0006 (reference integrator).
+\end{repopointer}
+
+The last node of the tier, and the one that produces something the shipped
+dataset does not contain: \textbf{per-reaction integrated fluxes \Phifl}, the
+labels Target A needs.
+
+% =====================================================================
+\subsection{Stiffness, from the Jacobian}
+\label{sec:stiffness}
+
+The network's Jacobian is a product of the two objects this tier is about:
+%
+\begin{equation}
+J_{ij} \;=\; \frac{\partial \dot Y_i}{\partial Y_j}
+\;=\; \sum_k \nu_{ik}\frac{\partial R_k}{\partial Y_j}
+\;=\; (\nu D)_{ij}, \qquad
+D = \frac{\partial R}{\partial Y}\in\mathbb{R}^{r\times n}.
+\label{eq:jacobian}
+\end{equation}
+%
+Its eigenvalues are (minus) inverse relaxation timescales. The spectrum here is
+spectacularly spread, and the spread is \emph{measured} rather than estimated:
+
+\begin{itemize}
+\item At the shortest label step $\dd t_1 \approx 1.011\times10^{-6}$\,s,
+  \textbf{99.99\%\,/\,100.00\%} of (state, isotope) cells on the training grid
+  have $\tau_i = Y_i/|\dot Y_i| < \dd t_1$ \resultsref{2026-07-10}. So the
+  fastest modes are $\ll 10^{-6}$\,s.
+\item Trajectories are integrated out to ${\sim}10^{8}$\,s.
+\end{itemize}
+
+That is a \textbf{stiffness ratio of at least $10^{14}$} within a single problem
+--- and it is not an artefact of a pathological state, it is the generic case
+here. Tier~0 \S0.7's timescale hierarchy, now with a number attached.
+
+\paragraph{Why this kills explicit methods.} Forward Euler on $\dot y = \lambda
+y$ is stable only for $|1 + h\lambda| \le 1$, i.e. $h \le 2/|\lambda|$ for real
+negative $\lambda$. With $|\lambda| \sim 10^{6}$\,s$^{-1}$ the step is capped at
+$2\times10^{-6}$\,s \textbf{regardless of how smooth the solution is}, and
+reaching $10^{8}$\,s needs ${\sim}5\times10^{13}$ steps. The fast modes are long
+dead --- they contribute nothing to the answer --- and they still dictate the
+cost. That is the definition of stiffness: \emph{step size limited by stability
+rather than by accuracy.}
+
+And \S\ref{sec:slowmanifold} says why the fast modes die: they are the
+relaxation onto the QSE manifold. \textbf{The stiffness and the equilibrium
+structure are the same fact.}
+
+% =====================================================================
+\subsection{Why BDF, and what L-stability buys}
+\label{sec:bdf}
+
+An implicit method evaluates $f$ at the new point, so the linear stability
+function does not blow up for large negative $h\lambda$. The relevant hierarchy:
+
+\begin{itemize}
+\item \textbf{A-stable}: stable for all $\mathrm{Re}(h\lambda) < 0$. Backward
+  Euler and the trapezoidal rule are; \textbf{Dahlquist's second barrier}
+  \citep{dahlquist1963} says no linear multistep method of order $> 2$ can be.
+  So high-order multistep methods must settle for A($\alpha$)-stability.
+\item \textbf{BDF-$k$} \citep{curtiss1952, gear1971}:
+  $\sum_{m} \alpha_m y_{n-m} = h \beta f(t_n, y_n)$. Zero-stable for $k \le 6$;
+  A-stable for $k \le 2$; A($\alpha$)-stable with shrinking $\alpha$ for
+  $k = 3\ldots6$ ($\alpha \approx 86\degree$, $73\degree$, $52\degree$,
+  $18\degree$; \citealp{hairer1996} --- the $k = 6$ wedge is so narrow it is
+  rarely used). scipy's \code{BDF} is variable-order 1--5 with adaptive steps,
+  which is the right compromise: it drops order where the $\alpha$-wedge bites.
+\item \textbf{L-stable} \citep{ehle1969}: A-stable \emph{and} the amplification
+  factor $\to 0$ as $h\lambda \to -\infty$. Backward Euler has
+  $R(z) = 1/(1-z) \to 0$~\yes. The trapezoidal rule has $R(z) \to -1$~\no{} ---
+  it is A-stable but leaves stiff transients \textbf{ringing} with undamped
+  sign-alternating error.
+\end{itemize}
+
+\begin{invariant}
+\textbf{L-stability is the property that matters here}, and it is worth being
+explicit about why: the physical content of a stiff transient in this system is
+\emph{relaxation onto the QSE manifold}. A method that keeps the transient
+oscillating at amplitude 1 does not merely lose accuracy, it produces a
+composition that oscillates around the manifold --- and since abundances near
+the manifold can be many orders below the dominant species, the oscillation goes
+negative.
+\end{invariant}
+
+Which is why \code{integrate.py} clips $Y$ at 0 inside rate evaluation:
+
+\begin{srclisting}
+Yc = np.maximum(np.asarray(Y, dtype=np.float64), 0.0)
+\end{srclisting}
+
+with the docstring's justification --- ``transient small negatives from the
+linear multistep are not propagated into powers''. Note the clip is applied
+\textbf{only inside rate evaluation}, not to the solver state: clipping the
+state would inject mass and break conservation. Clipping the rate argument is a
+regularisation of the RHS, and it is safe because the returned composition is
+reconstructed from \Phifl{} (\S\ref{sec:solverconservation}) rather than from
+the clipped values.
+
+\textbf{Radau IIA} (implicit RK, order 5, L-stable) is available for
+cross-checks, and the cross-check was run: BDF $\equiv$ Radau $\equiv$ BDF(rtol
+$10^{-10}$) to \textbf{$5\times10^{-8}$} rel on the stiffest test state.
+\resultsref{2026-07-12} Two structurally different integrators agreeing is the
+only honest way to establish that neither is lying --- \foreignreg{1}{R-23}'s
+Fortran-probe logic, applied to the ODE side.
+
+% =====================================================================
+\subsection{The augmented state \texorpdfstring{$[Y, \Phifl]$}{[Y, Phi]}}
+\label{sec:augmented}
+
+\code{integrate\_state} integrates
+%
+\begin{equation}
+\frac{\dd Y}{\dd t} = \nu R(Y; T,\rho), \qquad
+\frac{\dd\Phifl_j}{\dd t} = R_j(Y; T,\rho),
+\label{eq:augmented}
+\end{equation}
+%
+with $u = [Y, \Phifl] \in \mathbb{R}^{n+r}$ and $\Phifl(0) = 0$.
+
+\Phifl{} is a pure quadrature: $R$ depends on $Y$ only, never on \Phifl. So the
+\Phifl{} block adds no dynamics --- mathematically it is $n_{\rm rxn}$ running
+integrals carried alongside. What it adds is:
+
+\begin{itemize}
+\item \textbf{exactness}: $\Delta Y = \nu\Delta\Phifl$ becomes an identity of
+  the \emph{discretisation}, not just of the continuum equations, because both
+  are advanced by the same solver using the same $R$ at the same stages;
+\item \textbf{cost}: the state vector grows from $80 \to 687$ (\msn{80}) or
+  $151 \to 1669$ (\msn{151}), and --- more consequentially --- the error test
+  applies to all \Phifl{} components too (\S\ref{sec:errorcontrol},
+  \S\ref{sec:costwall}).
+\end{itemize}
+
+\textbf{Gross, not net.} $\dd\Phifl_j/\dd t = R_j$ is the \emph{gross}
+per-column rate, matching the engine's \fp{} convention exactly, so that the net
+view is recovered downstream through \code{pair\_col} in precisely the same way
+\code{store.py} does it (\S\ref{sec:store}). One convention, one place to be
+wrong. The docstring is explicit that this mirrors the flux engine, and
+\code{test\_rhs\_matches\_engine} pins it to $\le 10^{-12}$ rel.
+
+% =====================================================================
+\subsection{Why \texorpdfstring{\Phifl}{Phi} cannot be recovered from
+            \texorpdfstring{$\Delta Y$}{dY}}
+\label{sec:phinotrecoverable}
+
+\begin{warn}
+\warnglyph{}~This is the reason the node exists, and it is a one-line consequence
+of \S\ref{sec:rank}.
+\end{warn}
+
+Given a target $\Delta Y$, the solutions of $\nu\Phifl = \Delta Y$ form an
+affine set of dimension
+%
+\begin{equation}
+r - \rank(\nu) \;=\; 607 - 79 \;=\; \mathbf{528}\quad(\msn{80}),
+\qquad 1518 - 150 \;=\; \mathbf{1368}\quad(\msn{151}).
+\label{eq:fibredim}
+\end{equation}
+
+So:
+
+\begin{result}
+\textbf{The shipped Zenodo labels (initial and final $X$, per state per
+$\dd t$) do not determine \Phifl.} Not ``determine it noisily'' --- do not
+determine it at all, up to a 528-dimensional subspace.
+\end{result}
+
+Consequences, each of which shows up somewhere else in the repo:
+
+\begin{enumerate}
+\item \textbf{Target A cannot be supervised from the shipped labels alone.} A
+  loss on $\Delta Y = \nu\hat\Phifl$ constrains 79 of 607 directions. The
+  remaining 528 are free, and a network is free to put arbitrary structure there
+  --- including physically absurd flux patterns that happen to produce the right
+  $\Delta Y$. Hence \code{integrate.py}.
+\item \textbf{The minimum-norm pseudo-inverse $\Phifl = \nu^{+}\Delta Y$ is not
+  the physical answer.} It is \emph{a} solution, the one of smallest Euclidean
+  norm, and there is no reason the physics should choose it. (Near QSE the
+  physical \Phifl{} has enormous nearly cancelling components --- precisely a
+  \emph{large}-norm solution.) Anyone tempted by \code{np.linalg.lstsq} as a
+  shortcut should reread \S\ref{sec:vacuous}'s $\kap \approx 1$ vs the relaxed
+  continuum.
+\item \textbf{Conversely, the redundancy is what makes masking meaningful}
+  (\S\ref{sec:rank}) --- the same fact, read the other way.
+\end{enumerate}
+
+% ---------------------------------------------------------------------
+\subsection{The flux head is unidentifiable under a
+            \texorpdfstring{$\Delta Y$}{dY}-only loss}
+\label{sec:unidentifiable}
+
+\S\ref{sec:phinotrecoverable} drew the \emph{label} consequence of the 528-
+(1368-) dimensional solution set: \Phifl{} is not recoverable from $\Delta Y$,
+hence \code{integrate.py}. There is a second consequence, about
+\textbf{training}, and it is arguably the sharper one.
+
+Suppose Target A is trained with a loss on $\Delta Y$ alone (which is what the
+shipped labels permit). Then the loss depends on the flux head's output only
+through $\nu\hat\netflux$, so:
+%
+\begin{equation}
+\nabla_{\theta}\mathcal{L} \;=\;
+\Bigl(\tfrac{\partial \hat\netflux}{\partial\theta}\Bigr)^{\!\mathsf T}
+\nu\Tr\,\nabla_{\nu\hat\netflux}\mathcal{L},
+\label{eq:gradnull}
+\end{equation}
+%
+and \textbf{every parameter direction that moves $\hat\netflux$ within
+$\operatorname{null}(\nu)$ receives exactly zero gradient.} The optimisation
+problem is rank-deficient by 528 dimensions out of 607.
+
+What actually happens to those directions in practice:
+
+\begin{itemize}
+\item they are set by \textbf{initialisation} and moved only by weight decay,
+  regularisation, and the implicit bias of the optimiser --- i.e. by everything
+  except the physics;
+\item under SGD they can \textbf{random-walk}, since noise in the gradient
+  estimate has components there even when the true gradient does not;
+\item and they are \textbf{invisible to every validation metric defined on
+  $\Delta Y$}.
+\end{itemize}
+
+Three consequences:
+
+\begin{enumerate}
+\item \textbf{Target A's per-reaction interpretability is not guaranteed by a
+  $\Delta Y$ loss.} The selling point --- ``a flux error is attributable to a
+  named reaction'' (\S\ref{sec:bet}) --- requires the flux head to be predicting
+  \emph{the physical} \Phifl, and a $\Delta Y$-only loss does not ask it to. The
+  predicted fluxes could be arbitrarily wrong per column while $\Delta Y$ is
+  perfect. This substantially weakens the Target-A case \emph{unless} flux-space
+  supervision is used, which \S\ref{sec:costwall} showed is affordable only on
+  stratified subsets at $\Tn < 5$.
+\item \textbf{It interacts with the mask.} Masking a column changes
+  $\hat\netflux$ and therefore changes $\nu\hat\netflux$ \emph{only} through the
+  component outside $\operatorname{null}(\nu)$. A mask trained under a $\Delta Y$
+  loss is being optimised on a projection of its own effect.
+\item \textbf{It is a rollout hazard, and a mild one.} Drift within
+  $\operatorname{null}(\nu)$ does not affect $\Delta Y$ at all, so it cannot
+  destabilise the trajectory directly --- but it does mean the flux diagnostics
+  one would use to \emph{understand} an instability are unreliable.
+\end{enumerate}
+
+The cheap mitigations are worth naming: regularise $\hat\netflux$ toward small
+norm in $\operatorname{null}(\nu)$ (a fixed linear projection, exactly the
+machinery of \S\ref{sec:projector} applied to the flux space rather than the
+species space); or supervise on \Phifl{} for the subset where it is affordable
+and on $\Delta Y$ elsewhere; or report the null-space component of
+$\hat\netflux$ as a diagnostic so the drift is at least visible.
+
+Open (register: \reg{R-03}) --- it bears directly on the Target A vs B decision,
+which \S\ref{sec:equivalence} showed is not about expressivity. This is a
+second, independent cost of Target A, and \S\ref{sec:equivalence}'s trade table
+now carries it.
+
+% =====================================================================
+\subsection{\texorpdfstring{$\partial R/\partial Y$}{dR/dY} by the product rule}
+\label{sec:productrule}
+
+The dominant Jacobian term comes from the reactant product. With
+$R_j = \mathrm{base}_j \cdot \prod_{k} Y_{\mathrm{idx}[j,k]}$
+($\mathrm{base}_j$ collecting $\lambda$, $\rho$ powers, prefactor):
+%
+\begin{equation}
+D_{ji} \;=\; \frac{\partial R_j}{\partial Y_i}
+\;=\; \mathrm{base}_j \sum_{k\,:\,\mathrm{idx}[j,k]=i}\
+      \prod_{k'\neq k} Y_{\mathrm{idx}[j,k']}.
+\label{eq:dRdY}
+\end{equation}
+
+The code implements exactly the sum over slots:
+
+\begin{srclisting}
+for k in range(K):
+    pe = base.copy()
+    for k2 in range(K):
+        if k2 != k:
+            pe *= Ypad[cn.reactant_idx[:, k2]]
+    ...  # accumulate (row=j, col=idx[j,k], value=pe[j])
+\end{srclisting}
+
+Two properties this construction has and the obvious alternative does not:
+
+\begin{itemize}
+\item \textbf{Repeated reactants are handled by the slot sum.}
+  Triple-$\alpha$ has three slots all holding \nuc{He}{4}; the sum of three
+  products-of-the-other-two gives $3Y^2$, which is $\dd(Y^3)/\dd Y$. Correct by
+  construction, no special case.
+\item \textbf{No division.} The tempting shortcut is \code{R\_j / Y\_i}, which is
+  faster and wrong: $Y_i = 0$ happens routinely (species below the floor, or
+  exactly zero at $t = 0$), giving 0/0. Building the product with the
+  differentiated factor \emph{removed} is exact everywhere.
+\end{itemize}
+
+The sparse assembly \code{D.tocsr()} then feeds the block Jacobian
+%
+\begin{equation}
+J_{\mathrm{aug}} = \begin{pmatrix}\nu D & 0\\ D & 0\end{pmatrix},
+\label{eq:jaug}
+\end{equation}
+%
+whose (2,\,2) block is zero because $R$ does not depend on \Phifl.
+
+\paragraph{A structural observation worth making}\derivedhere: the BDF Newton
+matrix is $I - h\beta J_{\rm aug}$, i.e.
+%
+\begin{equation}
+M \;=\; \begin{pmatrix} I_n - h\beta\,\nu D & 0\\
+                        -h\beta\,D & I_r\end{pmatrix},
+\label{eq:newtonmatrix}
+\end{equation}
+%
+which is \textbf{block lower triangular with an identity block}. Solving
+$Mx = b$ is therefore exactly: solve the $n\times n$ system
+$(I - h\beta\nu D)x_Y = b_Y$, then $x_\Phifl = b_\Phifl + h\beta D x_Y$ --- no
+$r\times r$ factorisation is needed at all. scipy's \code{BDF} does not know
+this; it hands the whole $(n{+}r)\times(n{+}r)$ sparse matrix to \code{splu}.
+Whether that costs anything real depends on the fill-in the ordering produces,
+but it is a concrete optimisation candidate for the \S\ref{sec:costwall} cost
+wall, and it is \emph{not} the same as the ADR-0006 contingency (which is about
+Jacobian \emph{accuracy}). Logged in \reg{R-20}.
+
+\paragraph{The deliberately neglected chain (ADR 0006).}
+$\partial\lambda/\partial Y$ through (i) screening (the plasma state depends on
+composition) and (ii) the \Ye-weighting and tabular $\rho\Ye$ inputs is
+\emph{not} differentiated. The justification is standard and correct: \textbf{an
+approximate Jacobian affects only the Newton convergence rate and hence step
+efficiency, never the answer} --- the residual that BDF drives to zero uses the
+\emph{exact} RHS. Measured: the neglected chain is $\lesssim 1\%$ of entries
+(\code{test\_neglected\_screening\_chain\_is\_subdominant}), and the Jacobian is
+validated against finite differences unscreened
+(\code{test\_jacobian\_vs\_finite\_differences\_unscreened}).
+
+But \S\ref{sec:costwall} records the bill: at $\Tn \ge 5$ the neglected
+\textbf{tabular-EC $\rho\Ye$ chain dominates the weak-drift phase}, the
+quasi-Newton iteration stops converging well, and the cost explodes. ``Only
+affects efficiency'' is true and can still be the thing that makes a computation
+infeasible.
+
+% =====================================================================
+\subsection{Conservation by construction, inside the solver}
+\label{sec:solverconservation}
+
+The returned composition is \textbf{not} the solver's error-controlled $Y$. It
+is
+
+\begin{srclisting}
+Y = Y0 + cn.stoich.nu @ Phi
+\end{srclisting}
+
+so that:
+
+\begin{itemize}
+\item $\Delta Y = \nu\Phifl$ is an \textbf{identity}, not an approximation;
+\item baryon and charge conservation hold because $C\nut = 0$
+  (\S\ref{sec:targetatheorem}), with the same integer-exactness argument as
+  \S\ref{sec:exactzero};
+\item the solver's own $Y$ is exposed as a \emph{diagnostic},
+  \code{identity\_resid} $= \max|Y_{\rm solver} - Y|$.
+\end{itemize}
+
+Measured: \textbf{$2.1\times10^{-16}$ molar} --- machine precision.
+\resultsref{2026-07-12}
+
+\begin{invariant}
+This is a small design decision with a big property, and it is worth naming the
+pattern: \textbf{when two routes to a quantity exist and one is exactly
+conserving, return that one and report the other as a residual.} You get
+exactness \emph{and} a free consistency check, and the check is sensitive to
+anything that would break the correspondence (a wrong $\nu$ column, a solver
+bug, an inconsistent RHS).
+\end{invariant}
+
+\code{test\_success\_and\_identity\_by\_construction},
+\code{test\_solver\_consistency\_residual}, and
+\code{test\_conservation\_by\_construction} split those three claims apart.
+
+% =====================================================================
+\subsection{Error control for \texorpdfstring{\Phifl}{Phi}}
+\label{sec:errorcontrol}
+
+\begin{srclisting}
+rtol = 1e-8, atol_y = 1e-18, atol_phi = 1e-18
+atol = np.concatenate([np.full(n_s, atol_y), np.full(n_rxn, atol_phi)])
+\end{srclisting}
+
+Per-component absolute tolerances, which scipy supports and which matters here.
+Tier~0 \S V.6's point applies with force: \textbf{atol matters more than usual}
+when the dynamic range is 15+ decades. rtol alone would demand 8 significant
+digits on abundances at $10^{-30}$ --- unachievable and pointless.
+$\mathrm{atol} = 10^{-18}$ says ``below this, don't care'', and $10^{-18}$ molar
+is ${\sim}5\times10^{-17}$ in mass fraction for a mid-network $A \approx 50$ ---
+\textbf{about one and a half decades} below the $10^{-15}$ label floor (Tier~0
+\S III.6). (Compare the two in the \emph{same} units before quoting a margin:
+the three-decade figure is atol in molar against the floor in mass fraction,
+which is not a comparison.) One and a half decades is still the right call ---
+the floor is chosen relative to what the labels can express, with enough room
+that the integrator is never the binding constraint on a quantity the labels
+could resolve.
+
+The consequence for cost: the error test runs over \textbf{all} $n + r$
+components. For \msn{151} that is 1669 error tests per step, of which 1518 are
+\Phifl{} components whose magnitudes span the full range of reaction rates. A
+single fast-but-irrelevant column near its atol threshold can throttle the step.
+This is the second structural contributor to \S\ref{sec:costwall}, alongside the
+Jacobian one.
+
+% =====================================================================
+\subsection{The energy identity is a \emph{data} check, not a dynamics check}
+\label{sec:energyidentity}
+
+\begin{warn}
+\warnglyph{}~\code{CLAUDE.md} invariant \#5 requires the flux route and the
+composition route to agree on \enuc{} to $\le 1\%$. It is worth seeing what that
+actually tests, because it is not what it looks like.
+\end{warn}
+
+The $Q$-value of reaction $j$ is the mass-excess balance:
+%
+\begin{equation}
+Q_j \;=\; -\sum_i \nu_{ij}\,\Delta_i ,
+\label{eq:qvalue}
+\end{equation}
+%
+with $\Delta_i$ the mass excess of species $i$ (reactants carry $\nu < 0$, so
+this is $\sum_{\rm reactants}\Delta - \sum_{\rm products}\Delta$, as it should
+be). Then
+%
+\begin{equation}
+\underbrace{\sum_j Q_j\Phifl_j}_{\text{flux route}}
+\;=\; -\sum_j\sum_i \nu_{ij}\Delta_i\Phifl_j
+\;=\; -\sum_i \Delta_i(\nu\Phifl)_i
+\;=\; \underbrace{-\sum_i \Delta_i\,\Delta Y_i}_{\text{composition route}} .
+\label{eq:energycollapse}
+\end{equation}
+
+\textbf{The two routes are algebraically identical, given
+$\Delta Y = \nu\Phifl$} --- which \S\ref{sec:solverconservation} makes true by
+construction. So the residual \textbf{cannot} be measuring integration error.
+What it measures is the inconsistency between two nuclear-data sources: the
+$Q$-values attached to the rate objects (\code{Rate.Q}, ultimately
+REACLIB\,/\,tabular metadata) and the mass excesses attached to the nuclide
+objects (\code{Nucleus}). If those were derived from the same mass table to full
+precision, the residual would be at machine epsilon.
+
+Measured: median $6\times10^{-6}\ldots2.5\times10^{-5}$ rel, max
+$8.7\times10^{-4}$, \textbf{fraction $\le 1\% = 1.000$ in every measured
+stratum, both networks, including the whole 3--4\,GK band}.
+\resultsref{2026-07-12} Gate passed with $\ge 3$ orders of margin --- and now
+you know what the margin is margin \emph{on}: nuclear-data self-consistency at
+the $10^{-5}$ level, which is a perfectly reasonable thing to have measured and
+a perfectly unreasonable thing to describe as validating the integrator.
+
+\textbf{And the inconsistency is now measured directly.}
+\S\ref{sec:wegscheider} runs the test this argument implies --- project $Q$ onto
+$\mathrm{rowspace}(\nu)$ and look at the residual --- and finds that the
+strong-sector $Q$-values are \textbf{not} reproducible by any single mass table
+(rms 0.55\,keV, max 3.5\,keV per column, 331/561 and 972/1345 columns above
+0.1\,keV), while the stored $Q$'s differ from pynucastro's own nuclide masses by
+up to 17--31\,keV. On $Q \sim 3$--11\,MeV that is 0.2--0.6\% on the worst
+channels, which is exactly the shape of the residual distribution above: tiny in
+the median, $10^{-3}$-ish in the tail. The energy identity's residual is no
+longer an unexplained number.
+
+This does not devalue the check; it relocates it. \textbf{Ask of any green test
+what would still be wrong if it passed} (Tier~1 \S VIII.D): here, an integration
+error would still be wrong, and this test would not see it. That is what
+\code{identity\_resid}, the Radau cross-check, and the label handshake are for.
+That relocation is itself a register item --- the gate is real but is not
+measuring what its name suggests: \reg{R-23}.
+
+Two known gaps in the identity's coverage, both already on the register:
+
+\begin{itemize}
+\item \textbf{Neutrino losses.} Weak reactions emit neutrinos that free-stream
+  out (Tier~0 \S0.4.2), so the energy \emph{deposited} is less than $Q$. Whether
+  the tabular weak $Q$-values used here are already net-of-neutrino is a
+  per-source convention --- Tier~1 \S VIII.C.3's dropped-NU-column item.
+\item \textbf{Thermal $Q(T)$.} \code{CLAUDE.md} specifies
+  $\enuc = \sum_j Q_j(T)\Phifl_j$ with a \emph{temperature-dependent} $Q$; the
+  implementation uses the constant $Q$. Tier~1 \S VIII.E.2 flags it as
+  specified-but-unimplemented, and the current gate cannot detect the difference
+  precisely \emph{because} of the algebraic collapse above.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection{Wegscheider --- the rate set is not globally consistent, measured}
+\label{sec:wegscheider}
+
+\begin{warn}
+\warnglyph{}~\S\ref{sec:energyidentity} closed by saying the energy residual
+measures nuclear-data self-consistency rather than dynamics. This subsection
+measures it --- and the measurement has consequences well beyond the energy
+gate.
+\end{warn}
+
+\subsubsection{The condition}
+\label{sec:wegscheider-condition}
+
+Detailed balance constrains rate constants \emph{globally}, not just pairwise.
+Around any cycle in the reaction graph the free-energy changes must sum to zero,
+so the equilibrium constants must multiply to one \citep{wegscheider1901};
+generalised linear-algebraic form --- $\ln K$ must be orthogonal to the null
+space of the stoichiometric matrix --- \citep{schuster1989}. In this project's
+linear algebra the statement is startlingly simple.
+
+$Q$-values are mass-excess differences: $Q_j = -\sum_i \nu_{ij}\Delta_i$
+(\S\ref{sec:energyidentity}). Therefore for \textbf{any} $c$ in the right null
+space of $\nu$ --- i.e. any cycle ---
+%
+\begin{equation}
+\sum_j c_j Q_j \;=\; -\sum_j c_j\sum_i \nu_{ij}\Delta_i
+\;=\; -\sum_i \Delta_i(\nu c)_i \;=\; 0 .
+\label{eq:wegscheider}
+\end{equation}
+
+\begin{invariant}
+\textbf{Wegscheider condition, linear-algebraic form: $Q$ must lie in the row
+space of $\nu$.} Equivalently, $Q \perp \operatorname{null}(\nu)$. If it does
+not, no assignment of masses to nuclides reproduces the tabulated $Q$-values,
+the network has no globally consistent equilibrium, and \kap{} acquires an
+irreducible floor.
+\end{invariant}
+
+This is a \emph{free} consistency test on \code{Stoich.Q} --- no rates, no
+temperatures, no states. Nothing in the repo performs it.
+
+\subsubsection{The measurement: how far \texorpdfstring{$Q$}{Q} is from the row
+               space}
+\label{sec:wegscheider-measurement}
+
+Project $Q$ onto $\mathrm{rowspace}(\nu)$ via the SVD and take the residual.
+\derivedhere:
+
+\begin{srclisting}
+d = np.load("data/stoich/nu_mesa80.npz"); nu, Q = d["nu"], d["Q"]
+w = d["weak_mask"].astype(bool)
+U, S, Vt = np.linalg.svd(nu[:, ~w], full_matrices=False)
+Vr = Vt[:(S > 1e-12 * S[0]).sum()]              # orthonormal basis of rowspace
+r  = Q[~w] - Vr.T @ (Vr @ Q[~w])                # the Wegscheider residual
+\end{srclisting}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.0cm} L{3.0cm}@{}}
+\toprule
+ & \textbf{\msn{80}} & \textbf{\msn{151}} \\
+\midrule
+$\|$resid$\|$, \textbf{weak columns only} & $1.8\times10^{-14}$\,MeV &
+  $4.4\times10^{-14}$\,MeV \\
+$\|$resid$\|$, \textbf{strong\,/\,EM columns} & $1.31\times10^{-2}$\,MeV &
+  $1.98\times10^{-2}$\,MeV \\
+rms per strong column & $5.53\times10^{-4}$\,MeV &
+  $5.39\times10^{-4}$\,MeV \\
+max per strong column & $3.47\times10^{-3}$\,MeV &
+  $3.57\times10^{-3}$\,MeV \\
+strong columns with $|$resid$| > 10^{-4}$\,MeV & \textbf{331\,/\,561} &
+  \textbf{972\,/\,1345} \\
+$Q$ quantised to $10^{-5}$\,MeV & 94.1\% & 92.1\% \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+And separately, comparing the stored $Q$ against the \emph{nuclide mass table}
+directly ($Q_{\rm pred} = -m_u\cdot\nu\Tr A_{\rm nuc}$):
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.0cm} L{3.0cm}@{}}
+\toprule
+ & \textbf{\msn{80}} & \textbf{\msn{151}} \\
+\midrule
+max $|Q_{\rm stored} - Q_{\rm masstable}|$, strong & \textbf{17.2\,keV} &
+  \textbf{30.6\,keV} \\
+max $|Q_{\rm stored} - Q_{\rm masstable}|$, weak & 1.1\,keV & 1.1\,keV \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsubsection{Reading it}
+\label{sec:wegscheider-reading}
+
+\textbf{Three separate facts, and they are not the same fact.}
+
+\begin{enumerate}
+\item \textbf{The weak sector is exactly consistent} ($10^{-14} =$ machine
+  precision). Its $Q$-values come from a single coherent table. Good news, and a
+  control: it shows the test is not measuring an artefact of the method.
+
+\item \textbf{The strong sector is not consistent with any mass table
+  whatsoever.} The rowspace projection \emph{finds the best-fit mass vector};
+  the residual is what survives that fit. rms 0.55\,keV, max 3.5\,keV, and it is
+  not round-off: the tabulated $Q$'s are quantised at $10^{-5}$\,MeV $= 10$\,eV,
+  so the residual is ${\sim}50$--350 quanta. The top offenders are unmistakable
+  ---
+
+\begin{srclisting}
+C12_Ne20_to_p_P31      Q =  10.1040   resid = -3.47e-3 MeV
+C12_C12_to_He4_Ne20    Q =   4.6210   resid = +2.97e-3
+He4_Ne21_to_Mg25       Q =   9.8820   resid = -2.84e-3
+\end{srclisting}
+
+  --- REACLIB entries whose $Q$ is quoted to only 3--4 decimals, i.e. older or
+  experimentally-derived $Q$-values carried alongside $Q$'s computed from a
+  modern mass evaluation. (Forward and reverse of a pair show equal and opposite
+  residuals, which is a useful internal check on the method: they share $|Q|$
+  and have opposite $\nu$.)
+
+\item \textbf{The stored $Q$'s differ from pynucastro's own nuclide masses by up
+  to 31\,keV.} pynucastro's \code{Rate.\_set\_q()} computes $Q$ from
+  \code{Nucleus.A\_nuc}, but \code{ReacLibRate} overrides it with the library's
+  tabulated $Q$. So the export carries REACLIB's $Q$, and the \emph{mass
+  excesses} used elsewhere (NSE in \S\ref{sec:saha}, the composition-route
+  energy in \S\ref{sec:energyidentity}) are a different data source.
+\end{enumerate}
+
+\subsubsection{Why this matters, quantitatively}
+\label{sec:wegscheider-why}
+
+\paragraph{(a) It explains \S\ref{sec:energyidentity}'s residual, and retires it
+as a mystery.} The energy identity compares $\sum_j Q_j\Phifl_j$ (REACLIB $Q$)
+against $-\sum_i \Delta_i\Delta Y_i$ (nuclide masses). Since the two routes
+collapse algebraically given $\Delta Y = \nu\Phifl$, the measured residual
+\emph{is} fact (3): 17--31\,keV on $Q \sim 3$--11\,MeV is 0.2--0.6\% on the
+worst channels, and the measured energy residual was median
+$6\times10^{-6}\ldots2.5\times10^{-5}$ with max $8.7\times10^{-4}$ --- exactly
+what you expect when the bad channels are rare and low-flux.
+\S\ref{sec:energyidentity} said ``the residual measures nuclear-data
+self-consistency''; this subsection measures it.
+
+\paragraph{(b) It predicts a \kap{} floor.} A $Q$ error $\delta Q$ shifts
+$\fm/\fp \propto \exp(-Q/kT)$ by a relative $\varepsilon = \delta Q/kT$, and
+\S\ref{sec:kappa-db} turns that into $\kap \approx \varepsilon/2$. At
+$\Tn = 5$, $kT = 0.431$\,MeV:
+%
+\begin{equation}
+\kap_{\mathrm{floor}} \;\approx\; \frac{\delta Q}{2kT}
+\;=\; \begin{cases}
+  6.4\times10^{-4} & \delta Q = 0.55\ \text{keV (rms)}\\
+  4.0\times10^{-3} & \delta Q = 3.5\ \text{keV (max)}\end{cases}
+\label{eq:kappafloor}
+\end{equation}
+\derivedhere
+
+Now compare with \resultsref{2026-07-10}: \textbf{\kap{} at NSE for stock MESA
+r23.05.1 has median $3.6\times10^{-3}$\,/\,$3.3\times10^{-3}$}, recorded there
+as attributable to ``own pf-interpolation $+$ winvn provenance'' --- i.e.
+attributed loosely and not quantified. The predicted range brackets the measured
+value.
+
+\begin{result}
+\textbf{This is a hypothesis with a decisive test}, and the test is cheap: run
+the rowspace projection on MESA's \emph{own} $Q$ set against MESA's winvn
+masses. If the residual is ${\sim}3$--7\,keV, the stock-MESA \kap{} floor is
+explained, and the corollary follows immediately --- \textbf{that floor is
+irreducible without fixing the mass data, so no \kap{} threshold below
+${\sim}10^{-2}$ is measuring physics in MESA-derived quantities.} Given that
+\S\ref{sec:negresults}'s \kap-balance census reports ``strong pairs with
+$\kap < 10^{-3}$: $\le 0.4\%$ of carrying pairs'', knowing whether $10^{-3}$ is
+above or below the data floor is not optional.
+\end{result}
+
+Note this is \emph{not} a problem with the project's own engine:
+\code{DerivedRate} constructs reverses from the forward using consistent nuclide
+data, which is why the engine's \kap{} at NSE collapses to
+$2.6\times10^{-12}$ \resultsref{2026-07-10}. The inconsistency does not vanish
+--- it is \emph{relocated} into the forward-rate-vs-$Q$ mismatch, where nothing
+currently looks for it.
+
+\paragraph{(c) It is the general form of a bug the project already found.}
+\resultsref{2026-07-10} records, for MESA 24.08.1, ``a subset of
+$(n,\alpha)$\,/\,$(p,\alpha)$ pairs $\kap \sim 0.75$ that are clean in stock ---
+consistent with its newer REACLIB snapshot carrying independently-fitted
+non-DB-linked pair members; open observation''. That is a Wegscheider violation,
+unnamed. The cycle test above is the instrument that would have found it
+structurally rather than by noticing an odd \kap{} tail, and would find the next
+one.
+
+Open (register: \reg{R-06}). A two-line test that retires one open observation,
+quantifies \S\ref{sec:energyidentity}, and may put a floor under a threshold the
+kill-test depends on.
+
+% =====================================================================
+\subsection{The cost wall, diagnosed}
+\label{sec:costwall}
+
+\code{scripts/step6\_integrate\_check.py} measured feasibility on stratified
+Sobol states (36\,/\,24, one integration to $10^{2}$\,s serving all nine
+measured dts, 11 workers, 4800\,s deadline; censored states are lower bounds).
+\resultsref{2026-07-12}:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.4cm} L{3.4cm}@{}}
+\toprule
+ & \textbf{\msn{80}} & \textbf{\msn{151}} \\
+\midrule
+median wall per state & $\ge 383$\,s & $\ge 1519$\,s \\
+censored at 4800\,s & 17/36 & 10/24 \\
+\ldots and every censored state is & $\Tn \ge 5$ & $\Tn \ge 5$ \\
+throughput & $\le 9.4$ states/h/core & $\le 2.4$ \\
+\textbf{full-corpus cost} & \textbf{$\ge$ 110,647 core-h} &
+  \textbf{$\ge$ 439,302 core-h} \\
+stratified subset ($10^{3}$--$10^{4}$ states, $\Tn < 5$) &
+  $\approx 4$--40 core-days & feasible \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Full-corpus local \Phifl{} supervision is infeasible; stratified subsets
+are not.}
+
+And the diagnosis is specific rather than ``it's slow'': the deliberately
+neglected tabular-EC $\rho\Ye$ Jacobian chain (\S\ref{sec:productrule})
+dominates the weak-drift phase at $\Tn \ge 5$. The physical picture is clean ---
+once the strong sector reaches its attractor, all that is left is slow
+weak-driven \Ye{} drift through the tabular EC rates, whose $\lambda$ depends on
+$\rho\Ye$, i.e. on $Y$, through a chain the Jacobian does not see. The
+quasi-Newton iteration then converges poorly exactly in the phase that takes the
+most wall time. The ADR-0006 contingency (add the \Ye-chain term) is the named
+unlock.
+
+\textbf{Label agreement, where it could be measured:}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.6cm} Y@{}}
+\toprule
+\textbf{stratum} &
+\textbf{median species-fraction in the handshake band} \\
+\midrule
+QSE window $[3.3, 5.0)$ & 0.74--0.99 (best 0.99 at $[4.0, 5.0)$,
+  $\dd t = 10^{-1}$\,s) \\
+cold strata & 0.62--0.90 \\
+$\Tn \ge 5$ & unmeasurable within deadline \textbf{and} label-pathological \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+So: \textbf{local \Phifl-label generation is proven for $\Tn < 5$.} The
+$\Tn \ge 5$ gap is a double blocker --- cost \emph{and} the fact that the
+shipped labels there carry the Appendix-B bug (Tier~3, S13), so agreement would
+be uninterpretable anyway.
+
+\begin{repopointer}
+\textbf{\textcircled{4} SEE:} notebook \code{11-integrator-and-handoff.ipynb}
+--- Fig 1 conservation is exact by construction (not by tolerance), Fig 2 the
+cost wall, which is why the node is marked PARTIAL. The notebook deliberately
+gates the \code{compile\_network} cells; anything touching it is multi-minute.
+\end{repopointer}
+
+% =====================================================================
+\subsection{Code and oracles}
+\label{sec:codes10}
+
+\textbf{Read:} \code{fluxes/integrate.py} (265 lines). \code{StatePoint} first
+--- it hoists everything $Y$-independent for one $(T, \rho)$: the ReacLib set
+sums, the pf corrections, $\mathrm{prefactor}\cdot\rho^{\code{dens\_exp}}$. Then
+\code{\_lam} (what must be re-evaluated per call: screening, tabular
+$\rho\Ye$), \code{gross\_rates}, \code{rate\_jacobian}, \code{integrate\_state}.
+
+The hoisting is the reason this is usable at all: at constant $(T, \rho)$ the
+expensive part of Tier~1's machinery is evaluated \textbf{once}, and the RHS is
+reduced to a screening call, a tabular interpolation, and a product loop.
+
+\textbf{Oracles} (\code{tests/test\_integrate.py}):
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{6.4cm} Y@{}}
+\toprule
+\textbf{test} & \textbf{pins} \\
+\midrule
+\code{test\_rhs\_matches\_engine} &
+  the integrator's $R$ \textbf{is} the engine's $R$ ($\le 10^{-12}$ rel) --- no
+  second implementation of the physics \\
+\code{test\_jacobian\_vs\_finite\_differences\_unscreened} &
+  \S\ref{sec:productrule}'s product rule \\
+\code{test\_neglected\_screening\_chain\_is\_subdominant} &
+  the ADR-0006 approximation, quantified \\
+\code{test\_success\_and\_identity\_by\_construction} &
+  $\Delta Y = \nu\Phifl$ exactly \\
+\code{test\_solver\_consistency\_residual} &
+  \code{identity\_resid} at machine precision \\
+\code{test\_conservation\_by\_construction} &
+  $C\nu = 0$ propagated through the solve \\
+\code{test\_something\_burned} &
+  the anti-vacuity test --- the integration actually did something \\
+\code{test\_energy\_identity} & \S\ref{sec:energyidentity} \\
+\code{test\_t\_eval\_multiple\_dts} &
+  one integration serves all nine label dts \\
+\code{test\_vs\_shipped\_labels} & the external comparison \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\code{test\_something\_burned} deserves a note: it is the guard against a test
+suite that passes on a null integration. Every identity above holds trivially
+for $\Phifl = 0$. Without it, a bug that made the RHS return zeros would pass
+eight of the nine tests.
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-s10}
+
+\begin{selfcheck}
+\item Write $J = \nu D$ and explain why the stiffness ratio here exceeds
+  $10^{14}$, citing the measurement.
+\item Backward Euler and the trapezoidal rule are both A-stable. Why is only one
+  of them acceptable here?
+\item Why is \Phifl{} carried as a state variable rather than reconstructed from
+  $\Delta Y$ afterwards? Give the dimension of the ambiguity.
+\item Why does \code{rate\_jacobian} build products with the differentiated
+  factor removed instead of dividing?
+\item \code{integrate\_state} returns $Y_0 + \nu\Delta\Phifl$ rather than the
+  solver's $Y$. What is gained, and what does \code{identity\_resid} then
+  measure?
+\item Show that $\sum_j Q_j\Phifl_j = -\sum_i \Delta_i \Delta Y_i$ identically.
+  What, therefore, does the 1\% energy gate actually test?
+\item The augmented Newton matrix is block lower triangular. What does that
+  imply about the cost of carrying \Phifl, and does the current implementation
+  exploit it?
+\item Full-corpus \Phifl{} labels are infeasible. What is the measured cause,
+  and what is the named unlock?
+\end{selfcheck}

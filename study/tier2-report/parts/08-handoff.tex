@@ -1,0 +1,263 @@
+% =====================================================================
+%  HANDOFF.
+%  Source: tier2.md "Where Tier 2 hands off" (4842-4944):
+%          What Tier 2 upgraded (4844-4866, 19 rows),
+%          Threads that carry forward (4868-4889),
+%          The three ideas to carry (4891-4908),
+%          And one habit, from the negative results (4910-4925),
+%          And one more, from building the register (4927-4944).
+%  Unnumbered, following the tier-0 / tier-1 report convention.
+% =====================================================================
+
+\section*{Where Tier 2 hands off}
+\addcontentsline{toc}{section}{Where Tier 2 hands off}
+\markboth{Where Tier 2 hands off}{Where Tier 2 hands off}
+\label{sec:handoff}
+
+\subsection*{What Tier 2 upgraded}
+\addcontentsline{toc}{subsection}{What Tier 2 upgraded}
+\label{sec:upgraded}
+
+\begingroup
+\footnotesize
+\begin{longtable}{@{}L{4.4cm} L{10.6cm}@{}}
+\toprule
+\textbf{Statement, before} & \textbf{Now derived\,/\,measured} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Statement, before} & \textbf{Now derived\,/\,measured} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+``conservation is by construction'' &
+conserved quantities \textbf{are} the left null space of $\nu$;
+left-nullity$(\nu) = 1 = \mathrm{span}\{A\}$, left-nullity$(\nu$ restricted to
+strong$) = 2 = \mathrm{span}\{A, Z\}$, left-nullity$(\nut) = 3 =
+\mathrm{rowspace}(C)$ exactly --- so $C$ is \textbf{complete}
+(\S\ref{sec:rank}) \\
+
+``the tests demand \code{1e-12}'' &
+column sums are integer arithmetic in float64 and are exactly 0.0; only the
+random-\netflux{} sweep needs a tolerance, and its two-regime form (absolute at
+$O(1)$, relative-to-gross at \code{1e-20}) is what makes it non-vacuous
+(\S\ref{sec:exactzero}) \\
+
+``Target B projects onto the constraint manifold'' &
+$P$ is the \emph{minimum-Euclidean-correction} projector, derived from a
+Lagrangian; the QR form avoids squaring $\cond(C) \approx 200$
+(\S\ref{sec:projector}) \\
+
+``Target A and Target B are different designs'' &
+\textbf{$\image(\nut) = \operatorname{null}(C)$} --- same reachable set. The
+trade is parameterisation (528-dim fibre), conditioning
+($\cond\nut \approx 41/55$), and physical structure --- not expressivity
+(\S\ref{sec:equivalence}) \\
+
+``\kap{} is the cancellation ratio'' &
+$\kap = |\tanh(\aff/2kT)|$ --- a monotone reparameterisation of the reaction
+affinity in units of $kT$; hence $\kap \approx \varepsilon/2$ for a relative
+rate error $\varepsilon$, $1/\kap$ as the error-amplification factor, and the
+$\tanh$ form of the screening offset (\S\ref{sec:kappa}) \\
+
+``$\nu R$ sums over reactions'' &
+$\nu R = \sum_{\rm forward \cup unpaired} \nu\netflux$ exactly, because
+$\nu_{\cdot \mathrm{pair}(j)} = -\nu_{\cdot j}$; this is what licenses
+restricting every coverage statistic to net columns
+(\S\ref{sec:netidentity}) \\
+
+``$\kap \approx 1$ on the training grid'' &
+\ldots because Sobol compositions are nucleon-loaded, affinities are $\gg kT$,
+and \kap{} saturates. The pass is \textbf{vacuous}, the cancellation structure
+lives on relaxed states only, and the $\dd t = 10^{-6}$ grid handshake premise
+is void (\S\ref{sec:vacuous}) \\
+
+``NSE is Saha'' &
+$\log C_i$ derived term-by-term from the grand-canonical distribution, with
+$B_i$ emerging from rest-mass bookkeeping; nuclei are classical
+($n\lambda^3 \approx 3\times10^{-7}$) while electrons are degenerate
+(\S\ref{sec:ensemble}--\S\ref{sec:saha}) \\
+
+``the solver falls back to bisection'' &
+$\dd\Ye/\dd\up|_{\Sigma X=1} = W^2 \Var_w(Z/A)/(kT S_N) > 0$ --- a proof, which
+also explains the 2\,MeV damping cap and identifies the degenerate case
+(\S\ref{sec:monotonicity}) \\
+
+``QSE adds a cluster offset'' &
+\uG{} is the log over-population of the group relative to NSE; median
+$+4.3$\,MeV $\Rightarrow$ ${\sim}10^{5}\times$ over-populated mid-burn;
+$\uG = 0$ recovers NSE and that is a test (\S\ref{sec:qsecluster}) \\
+
+``QSE reduces the network'' &
+QSE \textbf{is} the slow manifold of a singular perturbation; stiffness ratio
+$= 1/\epsilon$; the group mass is the slow coordinate; hence ``stiffness and QSE
+are the same phenomenon'' (\S\ref{sec:slowmanifold}) \\
+
+``\Phifl{} labels come from the integrator'' &
+\ldots because they \emph{have} to: $\nu\Phifl = \Delta Y$ has a 528- (1368-)
+dimensional solution set, so \Phifl{} is not recoverable from the shipped labels
+at all (\S\ref{sec:phinotrecoverable}) \\
+
+``the energy check validates the flux route'' &
+the two routes collapse algebraically given $\Delta Y = \nu\Phifl$; the residual
+measures \textbf{nuclear-data self-consistency}, not dynamics
+(\S\ref{sec:energyidentity}) --- and \S\ref{sec:wegscheider} measures that
+inconsistency: rms 0.55\,keV, max 3.5\,keV, 331/561 columns \\
+
+``the rate set is detailed-balance consistent'' &
+\textbf{pairwise yes, globally no.} $Q \notin \mathrm{rowspace}(\nu)$ for the
+strong sector, so no mass table reproduces the tabulated $Q$'s; this is a
+Wegscheider violation and it predicts a \kap{} data floor of
+$6\times10^{-4}\ldots4\times10^{-3}$ that brackets the measured stock-MESA
+\kap{} floor (\S\ref{sec:wegscheider}) \\
+
+``$\kap > 0.1$ selects the reactions that matter'' &
+\kap{} alone is flux-blind. $\sigma_j = 2\kB s_j \kap_j \artanh \kap_j$ is the
+entropy production, quadratic in \kap{} and \textbf{linear in the gross flux}
+--- an entropy-weighted active set is parameter-free and cannot admit a
+high-\kap, no-flux column. It is defined on \textbf{strong\,/\,EM pairs only}:
+weak columns have $\kap \equiv 1$ by construction, so $\sigma$ diverges there
+and they must be admitted structurally, exactly as they are today
+(\S\ref{sec:kappa-entropy}, \S\ref{sec:entropy}, \S\ref{sec:weakkappa}) \\
+
+``the composition is 80- or 151-dimensional'' &
+the \emph{visited} manifold has effective dimension $\approx 3.4$\,/\,8.6
+(participation ratio); 7\,/\,14 PCs carry 90\% of $\Var(X)$. But the strong
+sector is \Ye-neutral by \S\ref{sec:rank}, so \textbf{\Ye{} hides in a long
+low-variance tail}: by $k = 30$, $\Var(X)$ is at 99.7\%/98.1\% and $\Var(\Ye)$
+stalls at 93.0\%/95.3\%, against a budget needing $1 - 6.5\times10^{-8}$ ---
+variance-truncated compression is arithmetically excluded
+(\S\ref{sec:effdim}) \\
+
+``657k samples'' &
+$\approx 300$ independent physical systems. Per-row quantities have ICC
+0.22--0.70 across trajectories (design effect 6.5--18.6), so every p-value and
+CI in the kill-test block is unstated or wrong --- point estimates and the
+empty-mask result survive (\S\ref{sec:clusterrobust}, \reg{R-08}) \\
+
+``the regime box is derived edge by edge'' &
+its \emph{support} is; its \textbf{measure} is not. The 20\,\Msun{} track sits
+within 0.12--0.18\,dex of a \emph{line}, and only 35\%\,/\,62\%\,/\,82\% of the
+box lies within 0.1\,/\,0.2\,/\,0.3\,dex of a visited point --- the training
+density is uniform where the physical density is a band
+(\S\ref{sec:samplingmeasure}, \reg{R-07}) \\
+
+``conservation-by-construction makes the update physical'' &
+it makes it \emph{conserving}. It does not make it \textbf{positive}
+(\S\ref{sec:positivity}) and it does not make it obey the \textbf{second law}
+--- a learned $\hat\netflux$ can point up the affinity gradient and pass every
+gate in \code{CLAUDE.md} (\S\ref{sec:secondlaw}). The second-law guard is
+available on strong\,/\,EM pairs; on the weak sector there is no
+detailed-balance affinity to guard with, so the blind spot is total exactly
+where \Ye{} lives (\S\ref{sec:secondlaw}) \\
+\end{longtable}
+\endgroup
+
+% ---------------------------------------------------------------------
+\subsection*{Threads that carry forward}
+\addcontentsline{toc}{subsection}{Threads that carry forward}
+\label{sec:threads}
+
+\begin{itemize}
+\item \textbf{To S11--S13 (bbq, trajectories, the label pathology):}
+  \S\ref{sec:vacuous}'s vacuous pass is \emph{why} Step 6 needed a bbq rerun
+  campaign at all --- the kill-test cannot be run on the training grid.
+  \S\ref{sec:negresults}'s displaced equilibria are the first symptom of the
+  Appendix-B bug that S13 diagnoses; the NSE solver of
+  \S\ref{part:equilibrium} is the instrument that measures the displacement
+  (terminal $\Tn \ge 5$ states sit 8.6/9.0\,dex from true NSE).
+\item \textbf{To S14 (the kill-test):} every measured quantity in the verdict
+  comes from this tier --- \kap{} (\S\ref{part:fluxes}), $\delta_r$ and
+  \code{eligible\_mask} (\S\ref{sec:departure}), \code{cond\_s\_active}
+  (\S\ref{sec:rank}'s rank-revealing definition), \code{carried\_fractions}
+  (\S\ref{sec:netidentity}'s net-column identity). The verdict document is a
+  reading of Tier~2 instruments on Tier~3 data.
+\item \textbf{To S15 (the ML target):} \S\ref{sec:equivalence} is the theorem
+  that reframes the choice; \S\ref{sec:laundering} is the warped-coordinates
+  constraint failure in its exact form (the trap \citealp{kim2026}'s signed-log
+  pipeline ran into empirically); \S\ref{sec:phinotrecoverable} is the label
+  requirement that makes Target A expensive.
+\item \textbf{To Tier 4 (the emulator):} the flux head's output dimension is
+  $r = 607$\,/\,1518 (\S\ref{sec:numap}); the mask is per-column and
+  structurally weak-excluded (\S\ref{sec:departure}); the conditioning from
+  \netflux{} to $\dd Y$ is ${\sim}41$--55 (\S\ref{sec:rank}); the
+  528-dimensional fibre is the reason a $\Delta Y$-only loss under-determines
+  the head (\S\ref{sec:phinotrecoverable}); and $K \approx 5$ with a
+  hub-dominated graph (\S\ref{sec:graphK}) is the backbone's starting point.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\subsection*{The three ideas to carry, if you carry nothing else}
+\addcontentsline{toc}{subsection}{The three ideas to carry}
+\label{sec:threeideas}
+
+\begin{enumerate}
+\item \textbf{Conservation is a rank statement.} Conserved quantities are the
+  left null space of $\nu$; the measurement says that space is exactly
+  3-dimensional in the extended system and exactly equals $\mathrm{rowspace}(C)$.
+  Nothing is missing, nothing is redundant, and the whole thing is integer
+  arithmetic --- which is why the tests can assert \code{== 0.0} and why no loss
+  term is involved.
+\item \textbf{$\kap = |\tanh(\aff/2kT)|$.} One identity that makes \kap{}
+  simultaneously a thermodynamic distance from equilibrium, a detailed-balance
+  error gauge ($\kap \approx \varepsilon/2$), and a condition number
+  (amplification $1/\kap$). If you can write it down cold,
+  \S\ref{part:fluxes} reconstructs itself --- and so does the screening offset,
+  the v-flag floor, and the \kap$\leftrightarrow\delta$ correlation.
+\item \textbf{Stiffness, QSE, and cancellation are one phenomenon.} A stiff
+  system has an attracting low-dimensional manifold; the manifold is the
+  equilibrium; the fast directions off it are the near-balanced pairs whose
+  gross fluxes cancel. Every difficulty in this project --- the integrator's
+  cost, the emulator's conditioning, the kill-test's premise, the training-grid
+  distribution shift --- is one face of that single structure.
+\end{enumerate}
+
+% ---------------------------------------------------------------------
+\subsection*{And one habit, from the negative results}
+\addcontentsline{toc}{subsection}{And one habit, from the negative results}
+\label{sec:habit-negative}
+
+Tier~1's closing habit was \emph{ask of any green test what would still be wrong
+if it passed.} Tier~2's is its mirror, and this tier produced three occasions to
+use it:
+
+\begin{invariant}
+\textbf{Ask of any negative result whether the instrument could have produced it
+anyway.}
+\end{invariant}
+
+The vacuous \kap{} pass (\S\ref{sec:vacuous}) --- the instrument was fine, the
+\emph{distribution} was wrong. The empty maskable set (\S\ref{sec:negresults})
+--- the instrument was fine, the \emph{reference} was displaced. The absent
+\rQSE{} plateau (\S\ref{sec:departure}, \reg{R-18}) --- here I genuinely do not
+know, and the honest move was to write down the null distribution I would need
+and log it rather than accept the verdict. A negative result is a measurement of
+the instrument and the world jointly; the tier that teaches that is worth its
+length.
+
+% ---------------------------------------------------------------------
+\subsection*{And one more, from building the register}
+\addcontentsline{toc}{subsection}{And one more, from building the register}
+\label{sec:habit-register}
+
+\S\ref{part:register} exists because of an exercise that is distinct from
+studying, and does not happen unless it is scheduled:
+
+\begin{invariant}
+\textbf{Ask what the \emph{problem} needs, not what the plan lists.}
+\end{invariant}
+
+A study map is a plan for covering known territory. It is silent by construction
+about what is not on it, and the silence looks exactly like coverage. Ripping
+the map out and asking what the problem needs found twenty-five open items, five
+of them measurable in an afternoon on data already on disk.
+
+\S\ref{sec:auditmethod} adds the refinement that makes it repeatable: \textbf{a
+single audit sweeps one axis}, so enumerate axes first and sweep each. And the
+stopping rule is not ``I cannot think of more'' --- it is the ratio in
+\S\ref{sec:converging}: \textbf{track how many candidate axes come back already
+covered.} On the first pass almost none did; on the second, thirteen of
+twenty-two. That number, not the item count, is what says the audit is
+converging.

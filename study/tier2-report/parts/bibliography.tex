@@ -1,0 +1,485 @@
+% =====================================================================
+%  References.
+%  Source: tier2.md:4948-5055 (97 entries), transcribed verbatim.
+%
+%  DO NOT strip the parenthetical audit notes ("Pre-arXiv; read from the
+%  ADS scan ...", "not opened -- cited via ...", "the tanh form of
+%  SS II.4 is not in this paper").  They are the record of the
+%  2026-08-14 literature audit and are part of the content: an entry
+%  that says how a pre-arXiv claim was checked, or that bounds what may
+%  be cited from a source, is doing work a bare citation does not.
+%  docs/CLAUDE.md Rule 7 in spirit.
+% =====================================================================
+
+\section*{References}
+\addcontentsline{toc}{section}{References}
+\markboth{References}{References}
+\label{sec:references}
+
+Sources verified during the 2026-08-14 literature audit (inline author--year
+citations in the text point here). Cite the papers, never any local snapshot:
+arXiv-available papers were verified against their arXiv \TeX{} sources
+(fetched via \code{scripts/fetch\_arxiv\_source.py} into the ephemeral
+\code{data/literature/} cache at audit time); pre-arXiv papers were read from
+the ADS scanned originals or verified through the secondary sources named in
+their provenance notes. Nuclear data were checked against AME2020\,/\,NUBASE2020
+and ENSDF via the IAEA Live Chart and NNDC.
+
+\begingroup
+\raggedright
+\begin{thebibliography}{99}
+
+\bibitem[Anderson et al.(2015)]{anderson2015}
+Anderson, D. F., Craciun, G., Gopalkrishnan, M. \& Wiuf, C. 2015,
+``Lyapunov Functions, Stationary Distributions, and Non-equilibrium Potential
+for Reaction Networks'', Bull. Math. Biol. 77, 1744.
+
+\bibitem[Arnett(1982)]{arnett1982}
+Arnett, W. D. 1982, ``Type I Supernovae. I. Analytic Solutions for the Early
+Part of the Light Curve'', ApJ 253, 785. (Pre-arXiv; rule and attribution
+verified via ADS and Lyman et al. 2016.)
+
+\bibitem[Beard \& Qian(2007)]{beard2007}
+Beard, D. A. \& Qian, H. 2007, ``Relationship between Thermodynamic Driving
+Force and One-Way Fluxes in Reversible Processes'', PLoS ONE 2, e144.
+\arxiv{q-bio/0607020}. (Exponential flux--force relation and sign statement
+only; the $\tanh$ form of \S\ref{sec:kappa-affinity} is not in this paper.)
+
+\bibitem[Bethe(1990)]{bethe1990}
+Bethe, H. A. 1990, ``Supernova Mechanisms'', Rev. Mod. Phys. 62, 801.
+(Pre-arXiv; full text read during the audit --- quotes trapped \emph{lepton}
+fraction $Y_L \approx 0.36$--$0.39$, not the modern \Ye{} values, see
+\S\ref{sec:delepton}.)
+
+\bibitem[Bodansky et al.(1968a)]{bcf1968apjs}
+Bodansky, D., Clayton, D. D. \& Fowler, W. A. 1968, ``Nuclear
+Quasi-Equilibrium during Silicon Burning'', ApJS 16, 299 (BCF68). (Pre-arXiv;
+read from the ADS scan --- describes a \emph{single} quasi-equilibrium group,
+$28 \le A \le 62$, see \S\ref{sec:history}.)
+
+\bibitem[Bodansky et al.(1968b)]{bcf1968prl}
+Bodansky, D., Clayton, D. D. \& Fowler, W. A. 1968, ``Nucleosynthesis During
+Silicon Burning'', Phys. Rev. Lett. 20, 161. (Companion announcement of the
+ApJS paper.)
+
+\bibitem[Burbidge et al.(1957)]{bbfh1957}
+Burbidge, E. M., Burbidge, G. R., Fowler, W. A. \& Hoyle, F. 1957, ``Synthesis
+of the Elements in Stars'', Rev. Mod. Phys. 29, 547 (B$^2$FH). (Pre-arXiv;
+e-process naming verified via BCF68's citation.)
+
+\bibitem[Burchard et al.(2003)]{burchard2003}
+Burchard, H., Deleersnijder, E. \& Meister, A. 2003, ``A high-order
+conservative Patankar-type discretisation for stiff systems of
+production--destruction equations'', Appl. Numer. Math. 47, 1.
+
+\bibitem[Cameron \& Miller(2015)]{cameron2015}
+Cameron, A. C. \& Miller, D. L. 2015, ``A Practitioner's Guide to
+Cluster-Robust Inference'', J. Human Resources 50, 317.
+
+\bibitem[Chandrasekhar(1931)]{chandrasekhar1931}
+Chandrasekhar, S. 1931, ``The Maximum Mass of Ideal White Dwarfs'', ApJ 74, 81.
+(Pre-arXiv.)
+
+\bibitem[Chandrasekhar(1939)]{chandrasekhar1939}
+Chandrasekhar, S. 1939, \emph{An Introduction to the Study of Stellar
+Structure} (University of Chicago Press).
+
+\bibitem[Clifford \& Tayler(1965)]{clifford1965}
+Clifford, F. E. \& Tayler, R. J. 1965, ``The Equilibrium Distribution of
+Nuclides in Matter at High Temperatures'', Mem. RAS 69, 21. (Pre-arXiv, not
+opened --- cited via the attributions in BCF68 and \citealp{ht1999b}.)
+
+\bibitem[Curtiss \& Hirschfelder(1952)]{curtiss1952}
+Curtiss, C. F. \& Hirschfelder, J. O. 1952, ``Integration of Stiff Equations'',
+Proc. Natl. Acad. Sci. 38, 235. (Origin of the term ``stiff'' and of BDF.)
+
+\bibitem[Dahlquist(1963)]{dahlquist1963}
+Dahlquist, G. 1963, ``A special stability problem for linear multistep
+methods'', BIT 3, 27.
+
+\bibitem[Davison \& Hinkley(1997)]{davison1997}
+Davison, A. C. \& Hinkley, D. V. 1997, \emph{Bootstrap Methods and their
+Application} (Cambridge University Press), \S3.8.
+
+\bibitem[De Donder \& Van Rysselberghe(1936)]{dedonder1936}
+De Donder, Th. \& Van Rysselberghe, P. 1936, \emph{Thermodynamic Theory of
+Affinity: A Book of Principles} (Stanford University Press).
+
+\bibitem[Donner(1986)]{donner1986}
+Donner, A. 1986, ``A review of inference procedures for the intraclass
+correlation coefficient in the one-way random effects model'', Int. Stat. Rev.
+54, 67.
+
+\bibitem[Ehle(1969)]{ehle1969}
+Ehle, B. L. 1969, \emph{On Pad\'e Approximations to the Exponential Function
+and A-stable Methods for the Numerical Solution of Initial Value Problems},
+Research Rep. CSRR 2010 (University of Waterloo). (L-stability.)
+
+\bibitem[ENSDF(2011)]{ensdf}
+ENSDF --- Evaluated Nuclear Structure Data File, National Nuclear Data Center,
+Brookhaven National Laboratory. ($A = 56$ chain: Huo Junde, Huo Su \& Yang Dong
+2011, Nucl. Data Sheets 112, 1513; accessed via the IAEA Live Chart API,
+2026-08-14.)
+
+\bibitem[Feinberg(1972)]{feinberg1972}
+Feinberg, M. 1972, ``Complex balancing in general kinetic systems'', Arch.
+Rational Mech. Anal. 49, 187.
+
+\bibitem[Feinberg(1987)]{feinberg1987}
+Feinberg, M. 1987, ``Chemical reaction network structure and the stability of
+complex isothermal reactors --- I. The deficiency zero and deficiency one
+theorems'', Chem. Eng. Sci. 42, 2229.
+
+\bibitem[Feinberg(2019)]{feinberg2019}
+Feinberg, M. 2019, \emph{Foundations of Chemical Reaction Network Theory},
+Applied Mathematical Sciences 202 (Springer).
+
+\bibitem[Fenichel(1979)]{fenichel1979}
+Fenichel, N. 1979, ``Geometric singular perturbation theory for ordinary
+differential equations'', J. Diff. Eq. 31, 53.
+
+\bibitem[Field \& Welsh(2007)]{field2007}
+Field, C. A. \& Welsh, A. H. 2007, ``Bootstrapping Clustered Data'', J. R.
+Stat. Soc. B 69, 369.
+
+\bibitem[Fowler et al.(1967)]{fcz1967}
+Fowler, W. A., Caughlan, G. R. \& Zimmerman, B. A. 1967, ``Thermonuclear
+Reaction Rates'', ARA\&A 5, 525. (Origin of the practical detailed-balance
+constant.)
+
+\bibitem[Fukuda \& Prodon(1996)]{fukuda1996}
+Fukuda, K. \& Prodon, A. 1996, ``Double description method revisited'', Lecture
+Notes in Computer Science 1120, 91.
+
+\bibitem[Fuller et al.(1980)]{ffn1980}
+Fuller, G. M., Fowler, W. A. \& Newman, M. J. 1980, ``Stellar weak-interaction
+rates for sd-shell nuclei'', ApJS 42, 447 (FFN). (Pre-arXiv; citation set
+verified via Heger et al. 2001's bibliography.)
+
+\bibitem[Fuller et al.(1985)]{ffn1985}
+Fuller, G. M., Fowler, W. A. \& Newman, M. J. 1985, ``Stellar weak interaction
+rates for intermediate-mass nuclei. IV'', ApJ 293, 1 (FFN). (Pre-arXiv; as
+above.)
+
+\bibitem[Gagneur \& Klamt(2004)]{gagneur2004}
+Gagneur, J. \& Klamt, S. 2004, ``Computation of elementary modes: a unifying
+framework and the new binary approach'', BMC Bioinformatics 5, 175.
+
+\bibitem[Gear(1971)]{gear1971}
+Gear, C. W. 1971, \emph{Numerical Initial Value Problems in Ordinary
+Differential Equations} (Prentice-Hall).
+
+\bibitem[Goldberg(1991)]{goldberg1991}
+Goldberg, D. 1991, ``What every computer scientist should know about
+floating-point arithmetic'', ACM Comput. Surv. 23, 5.
+
+\bibitem[Goldreich \& Weber(1980)]{goldreich1980}
+Goldreich, P. \& Weber, S. V. 1980, ``Homologously Collapsing Stellar Cores'',
+ApJ 238, 991. (Pre-arXiv.)
+
+\bibitem[Grichener et al.(2025)]{grichener2025}
+Grichener, A., Renzo, M., Kerzendorf, W. E., et al. 2025, ``Nuclear Neural
+Networks: Emulating Late Burning Stages in Core-collapse Supernova
+Progenitors'', ApJS 279, 49 (NNN). \arxiv{2503.00115}. (Volume\,/\,page
+confirmed via Kim et al. 2026's bibliography; the arXiv source predates final
+assignment.)
+
+\bibitem[Guidry(2012)]{guidry2012}
+Guidry, M. W. 2012, ``Algebraic Stabilization of Explicit Numerical Integration
+for Extremely Stiff Reaction Networks'', J. Comp. Phys. 231, 5266.
+\arxiv{1112.4778}.
+
+\bibitem[Guidry et al.(2013a)]{guidry2013pe}
+Guidry, M. W., Billings, J. J. \& Hix, W. R. 2013, ``Explicit Integration of
+Extremely-Stiff Reaction Networks: Partial Equilibrium Methods'', Comput. Sci.
+Disc. 6, 015003. \arxiv{1112.4738}. (Source of the $|y - \bar y|/\bar y <
+\varepsilon$ departure criterion, their eq.~8b, $\varepsilon = 0.01$.)
+
+\bibitem[Guidry et al.(2013b)]{guidry2013asym}
+Guidry, M. W., Budiardja, R., Feger, E., et al. 2013, ``Explicit Integration of
+Extremely-Stiff Reaction Networks: Asymptotic Methods'', Comput. Sci. Disc. 6,
+015001. \arxiv{1112.4716}.
+
+\bibitem[Guidry \& Harris(2013)]{guidry2013qss}
+Guidry, M. W. \& Harris, J. A. 2013, ``Explicit Integration of Extremely-Stiff
+Reaction Networks: Quasi-Steady-State Methods'', Comput. Sci. Disc. 6, 015002.
+\arxiv{1112.4750}.
+
+\bibitem[Hairer \& Wanner(1996)]{hairer1996}
+Hairer, E. \& Wanner, G. 1996, \emph{Solving Ordinary Differential Equations
+II: Stiff and Differential-Algebraic Problems} (2nd ed.; Springer).
+
+\bibitem[Hamada \& Salpeter(1961)]{hamada1961}
+Hamada, T. \& Salpeter, E. E. 1961, ``Models for Zero-Temperature Stars'',
+ApJ 134, 683. (Pre-arXiv.)
+
+\bibitem[Hartmann et al.(1985)]{hwe1985}
+Hartmann, D., Woosley, S. E. \& El Eid, M. F. 1985, ``Nucleosynthesis in
+Neutron-rich Supernova Ejecta'', ApJ 297, 837 (HWE85). (Pre-arXiv; Fig.~2 read
+from the ADS scan.)
+
+\bibitem[Heger et al.(2001)]{heger2001}
+Heger, A., Woosley, S. E., Mart\'inez-Pinedo, G. \& Langanke, K. 2001,
+``Presupernova Evolution with Improved Rates for Weak Interactions'', ApJ 560,
+307. \arxiv{astro-ph/0011507}. (Source of the FFN$\to$LMP shift $\dYe = 0.005$--$0.015$;
+PRL companion: Heger et al. 2001, Phys. Rev. Lett. 86, 1678,
+\arxiv{astro-ph/0007412}.)
+
+\bibitem[Higgins(1968)]{higgins1968}
+Higgins, J. 1968, ``Some remarks on Shear's Liapunov function for systems of
+chemical reactions'', J. Theor. Biol. 21, 293. (Corrects Shear 1967; cite as a
+pair.)
+
+\bibitem[Hix et al.(1998)]{hix1998}
+Hix, W. R., Khokhlov, A. M., Wheeler, J. C. \& Thielemann, F.-K. 1998, ``The
+Quasi-Equilibrium-reduced $\alpha$-Network'', ApJ 503, 332. (Cited via
+\citealp{ht1999b}'s bibliography.)
+
+\bibitem[Hix et al.(2003)]{hix2003}
+Hix, W. R., Messer, O. E. B., Mezzacappa, A., et al. 2003, ``Consequences of
+Nuclear Electron Capture in Core Collapse Supernovae'', Phys. Rev. Lett. 91,
+201102.
+
+\bibitem[Hix et al.(2007)]{hix2007}
+Hix, W. R., Parete-Koon, S. T., Freiburghaus, C. \& Thielemann, F.-K. 2007,
+``The QSE-reduced Nuclear Reaction Network for Silicon Burning'', ApJ 667, 476.
+(Journal-only, no arXiv posting.)
+
+\bibitem[Hix \& Thielemann(1996)]{ht1996}
+Hix, W. R. \& Thielemann, F.-K. 1996, ``Silicon Burning. I. Neutronization and
+the Physics of Quasi-Equilibrium'', ApJ 460, 869 (HT96).
+\arxiv{astro-ph/9511088}.
+
+\bibitem[Hix \& Thielemann(1999a)]{ht1999a}
+Hix, W. R. \& Thielemann, F.-K. 1999a, ``Silicon Burning. II. Quasi-Equilibrium
+and Explosive Burning'', ApJ 511, 862. \arxiv{astro-ph/9808203}.
+
+\bibitem[Hix \& Thielemann(1999b)]{ht1999b}
+Hix, W. R. \& Thielemann, F.-K. 1999b, ``Computational methods for
+nucleosynthesis and nuclear energy generation'', J. Comput. Appl. Math. 109,
+321. \arxiv{astro-ph/9906478}. (Review carrying the reduced-network scheme;
+vol\,/\,page from the published record.)
+
+\bibitem[Horn(1972)]{horn1972}
+Horn, F. 1972, ``Necessary and sufficient conditions for complex balancing in
+chemical kinetics'', Arch. Rational Mech. Anal. 49, 172.
+
+\bibitem[Horn \& Jackson(1972)]{hornjackson1972}
+Horn, F. \& Jackson, R. 1972, ``General mass action kinetics'', Arch. Rational
+Mech. Anal. 47, 81. (The pseudo-Helmholtz Lyapunov function.)
+
+\bibitem[Hoyle(1946)]{hoyle1946}
+Hoyle, F. 1946, ``The Synthesis of the Elements from Hydrogen'', MNRAS 106,
+343. (Pre-arXiv; read from the ADS scan --- equilibrium origin of the iron
+peak, \nuc{Fe}{56} most abundant in Table XIV; no electron-fraction variable,
+see \S\ref{sec:history}.)
+
+\bibitem[IEEE(2019)]{ieee754}
+IEEE 2019, \emph{IEEE Standard for Floating-Point Arithmetic}, IEEE Std
+754-2019 (IEEE).
+
+\bibitem[Janka(2012)]{janka2012}
+Janka, H.-T. 2012, ``Explosion Mechanisms of Core-Collapse Supernovae'', Annu.
+Rev. Nucl. Part. Sci. 62, 407. \arxiv{1206.2503}.
+
+\bibitem[Kasen \& Woosley(2009)]{kasen2009}
+Kasen, D. \& Woosley, S. E. 2009, ``Type II Supernovae: Model Light Curves and
+Standard Candle Relationships'', ApJ 703, 2205. \arxiv{0910.1590}.
+
+\bibitem[Kim et al.(2026)]{kim2026}
+Kim, C. H., Chae, K. Y., Ko, S., Mumpower, M. R. \& Smith, M. S. 2026,
+``NuGNN: a Graph Neural Network for Nuclear Reaction Network Equations'',
+\arxiv{2606.04491} (NuGNN). (arXiv preprint only as of the audit date.)
+
+\bibitem[Kircher \& Votsmeier(2025)]{kircher2025}
+Kircher, T. \& Votsmeier, M. 2025, ``Machine Learning Surrogate Models for
+Mechanistic Kinetics: Embedding Atom Balance and Positivity'', J. Phys. Chem.
+Lett. 16, 4715.
+
+\bibitem[Kish(1965)]{kish1965}
+Kish, L. 1965, \emph{Survey Sampling} (Wiley). (The design effect.)
+
+\bibitem[Klamt \& Stelling(2002)]{klamt2002}
+Klamt, S. \& Stelling, J. 2002, ``Combinatorial complexity of pathway analysis
+in metabolic networks'', Mol. Biol. Rep. 29, 233.
+
+\bibitem[Klamt \& Stelling(2003)]{klamt2003}
+Klamt, S. \& Stelling, J. 2003, ``Two approaches for metabolic pathway
+analysis?'', Trends Biotechnol. 21, 64.
+
+\bibitem[Kondepudi \& Prigogine(1998)]{kondepudi1998}
+Kondepudi, D. \& Prigogine, I. 1998, \emph{Modern Thermodynamics: From Heat
+Engines to Dissipative Structures} (Wiley).
+
+\bibitem[Kurfess et al.(1992)]{kurfess1992}
+Kurfess, J. D., Johnson, W. N., Kinzer, R. L., et al. 1992, ``Oriented
+Scintillation Spectrometer Experiment Observations of \nuc{Co}{57} in
+SN 1987A'', ApJ 399, L137. (Pre-arXiv.)
+
+\bibitem[Lam \& Goussis(1994)]{lam1994}
+Lam, S. H. \& Goussis, D. A. 1994, ``The CSP method for simplifying kinetics'',
+Int. J. Chem. Kinet. 26, 461.
+
+\bibitem[Langanke \& Mart\'inez-Pinedo(2000)]{lmp2000}
+Langanke, K. \& Mart\'inez-Pinedo, G. 2000, ``Shell-model calculations of
+stellar weak interaction rates: II. Weak rates for nuclei in the mass range
+$A = 45$--$65$ in supernovae environments'', Nucl. Phys. A 673, 481 (LMP).
+\arxiv{nucl-th/0001018}.
+
+\bibitem[Langanke et al.(2003)]{langanke2003}
+Langanke, K., Mart\'inez-Pinedo, G., Sampaio, J. M., et al. 2003, ``Electron
+Capture Rates on Nuclei and Implications for Stellar Core Collapse'', Phys.
+Rev. Lett. 90, 241102.
+
+\bibitem[Lyman et al.(2016)]{lyman2016}
+Lyman, J. D., Bersier, D., James, P. A., et al. 2016, ``Bolometric light curves
+and explosion parameters of 38 stripped-envelope core-collapse supernovae'',
+MNRAS 457, 328. \arxiv{1406.3667}.
+
+\bibitem[Maas \& Pope(1992)]{maas1992}
+Maas, U. \& Pope, S. B. 1992, ``Simplifying chemical kinetics: Intrinsic
+low-dimensional manifolds in composition space'', Combust. Flame 88, 239.
+
+\bibitem[Motzkin et al.(1953)]{motzkin1953}
+Motzkin, T. S., Raiffa, H., Thompson, G. L. \& Thrall, R. M. 1953, ``The double
+description method'', in \emph{Contributions to the Theory of Games II}
+(Princeton University Press), 51.
+
+\bibitem[Nakar et al.(2016)]{nakar2016}
+Nakar, E., Poznanski, D. \& Katz, B. 2016, ``The Importance of \nuc{Ni}{56} in
+Shaping the Light Curves of Type II Supernovae'', ApJ 823, 127.
+\arxiv{1506.07185}.
+
+\bibitem[Oberkampf \& Roy(2010)]{oberkampf2010}
+Oberkampf, W. L. \& Roy, C. J. 2010, \emph{Verification and Validation in
+Scientific Computing} (Cambridge University Press).
+
+\bibitem[Onsager(1931)]{onsager1931}
+Onsager, L. 1931, ``Reciprocal Relations in Irreversible Processes. I.'', Phys.
+Rev. 37, 405.
+
+\bibitem[Orth et al.(2010)]{orth2010}
+Orth, J. D., Thiele, I. \& Palsson, B. O. 2010, ``What is flux balance
+analysis?'', Nat. Biotechnol. 28, 245.
+
+\bibitem[Patankar(1980)]{patankar1980}
+Patankar, S. V. 1980, \emph{Numerical Heat Transfer and Fluid Flow}
+(Hemisphere). (The original destruction-weighting trick.)
+
+\bibitem[Popov(1993)]{popov1993}
+Popov, D. V. 1993, ``An Analytical Model for the Plateau Stage of Type II
+Supernovae'', ApJ 414, 712. (Pre-arXiv.)
+
+\bibitem[Rauscher \& Thielemann(2000)]{rauscher2000}
+Rauscher, T. \& Thielemann, F.-K. 2000, ``Astrophysical reaction rates from
+statistical model calculations'', At. Data Nucl. Data Tables 75, 1.
+\arxiv{astro-ph/0004059}. (The $9.8685\times10^{9}\,\Tn^{3/2}$ reciprocity
+constant, verified verbatim against the arXiv \TeX{} source.)
+
+\bibitem[Roache(1998)]{roache1998}
+Roache, P. J. 1998, \emph{Verification and Validation in Computational Science
+and Engineering} (Hermosa Publishers).
+
+\bibitem[Roache(2002)]{roache2002}
+Roache, P. J. 2002, ``Code Verification by the Method of Manufactured
+Solutions'', J. Fluids Eng. 124, 4.
+
+\bibitem[Salari \& Knupp(2000)]{salari2000}
+Salari, K. \& Knupp, P. 2000, \emph{Code Verification by the Method of
+Manufactured Solutions}, Sandia Report SAND2000-1444 (Sandia National
+Laboratories).
+
+\bibitem[Schilling et al.(2000)]{schilling2000}
+Schilling, C. H., Letscher, D. \& Palsson, B. O. 2000, ``Theory for the systemic
+definition of metabolic pathways and their use in interpreting metabolic
+function from a pathway-oriented perspective'', J. Theor. Biol. 203, 229.
+(Extreme pathways.)
+
+\bibitem[Schnakenberg(1976)]{schnakenberg1976}
+Schnakenberg, J. 1976, ``Network theory of microscopic and macroscopic behavior
+of master equation systems'', Rev. Mod. Phys. 48, 571.
+
+\bibitem[Schuster \& Hilgetag(1994)]{schuster1994}
+Schuster, S. \& Hilgetag, C. 1994, ``On elementary flux modes in biochemical
+reaction systems at steady state'', J. Biol. Syst. 2, 165.
+
+\bibitem[Schuster \& Schuster(1989)]{schuster1989}
+Schuster, S. \& Schuster, R. 1989, ``A generalization of Wegscheider's
+condition. Implications for properties of steady states and for
+quasi-steady-state approximation'', J. Math. Chem. 3, 25.
+
+\bibitem[Seitenzahl et al.(2008)]{seitenzahl2008}
+Seitenzahl, I. R., Timmes, F. X., Marin-Lafl\`eche, A., et al. 2008,
+``Proton-rich Nuclear Statistical Equilibrium'', ApJ 685, L129.
+\arxiv{0808.2033}.
+
+\bibitem[Seitenzahl et al.(2009)]{seitenzahl2009}
+Seitenzahl, I. R., Townsley, D. M., Peng, F. \& Truran, J. W. 2009, ``Nuclear
+statistical equilibrium for Type Ia supernova simulations'', At. Data Nucl.
+Data Tables 95, 96.
+
+\bibitem[Seitenzahl et al.(2014)]{seitenzahl2014}
+Seitenzahl, I. R., Timmes, F. X. \& Magkotsios, G. 2014, ``The Light Curve of
+SN 1987A Revisited: Constraining Production Masses of Radioactive Nuclides'',
+ApJ 792, 10. \arxiv{1408.5986}.
+
+\bibitem[Shapiro \& Teukolsky(1983)]{shapiro1983}
+Shapiro, S. L. \& Teukolsky, S. A. 1983, \emph{Black Holes, White Dwarfs, and
+Neutron Stars: The Physics of Compact Objects} (Wiley-Interscience).
+($\Mch = 1.457\,(2/\mu_e)^2\,\Msun$, eq.~3.3.17.)
+
+\bibitem[Shear(1967)]{shear1967}
+Shear, D. 1967, ``An analog of the Boltzmann H-theorem (a Liapunov function)
+for systems of coupled chemical reactions'', J. Theor. Biol. 16, 212.
+
+\bibitem[Shrout \& Fleiss(1979)]{shrout1979}
+Shrout, P. E. \& Fleiss, J. L. 1979, ``Intraclass correlations: uses in
+assessing rater reliability'', Psychol. Bull. 86, 420.
+
+\bibitem[Terzer \& Stelling(2008)]{terzer2008}
+Terzer, M. \& Stelling, J. 2008, ``Large-scale computation of elementary flux
+modes with bit pattern trees'', Bioinformatics 24, 2229. (\code{efmtool}.)
+
+\bibitem[Thielemann et al.(1996)]{thielemann1996}
+Thielemann, F.-K., Nomoto, K. \& Hashimoto, M. 1996, ``Core-Collapse Supernovae
+and Their Ejecta'', ApJ 460, 408. (Pre-arXiv era; ADS 1996ApJ...460..408T.)
+
+\bibitem[Tikhonov(1952)]{tikhonov1952}
+Tikhonov, A. N. 1952, ``Systems of differential equations containing a small
+parameter multiplying the derivative'', Mat. Sbornik 31(73), 575.
+
+\bibitem[van der Schaft et al.(2013)]{vanderschaft2013}
+van der Schaft, A., Rao, S. \& Jayawardhana, B. 2013, ``On the Mathematical
+Structure of Balanced Chemical Reaction Networks Governed by Mass Action
+Kinetics'', SIAM J. Appl. Math. 73, 953. \arxiv{1110.6078}.
+
+\bibitem[Varma \& Palsson(1994)]{varma1994}
+Varma, A. \& Palsson, B. O. 1994, ``Metabolic flux balancing: basic concepts,
+scientific and practical use'', Bio/Technology 12, 994.
+
+\bibitem[Wang et al.(2021)]{ame2020}
+Wang, M., Huang, W. J., Kondev, F. G., Audi, G. \& Naimi, S. 2021, ``The AME
+2020 atomic mass evaluation (II). Tables, graphs and references'', Chinese
+Phys. C 45, 030003 (AME2020).
+
+\bibitem[Wegscheider(1901)]{wegscheider1901}
+Wegscheider, R. 1901, ``\"Uber simultane Gleichgewichte und die Beziehungen
+zwischen Thermodynamik und Reactionskinetik homogener Systeme'', Monatsh. Chem.
+22, 849.
+
+\bibitem[Woosley et al.(1973)]{wac1973}
+Woosley, S. E., Arnett, W. D. \& Clayton, D. D. 1973, ``The Explosive Burning
+of Oxygen and Silicon'', ApJS 26, 231 (WAC73). (Pre-arXiv; read from the ADS
+scan --- the two-group structure and the \nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46}
+bridge, \S VIb, Fig.~17.)
+
+\bibitem[Woosley \& Janka(2005)]{woosleyjanka2005}
+Woosley, S. \& Janka, T. 2005, ``The physics of core-collapse supernovae'',
+Nat. Phys. 1, 147. \arxiv{astro-ph/0601261}. (Si-ignition 2.7--3.5\,GK;
+verified at abstract\,/\,secondary level.)
+
+\bibitem[Yahil(1983)]{yahil1983}
+Yahil, A. 1983, ``Self-similar Stellar Collapse'', ApJ 265, 1047. (Pre-arXiv.)
+
+\end{thebibliography}
+\endgroup

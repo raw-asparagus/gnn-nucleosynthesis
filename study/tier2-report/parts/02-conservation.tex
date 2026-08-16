@@ -1,0 +1,1556 @@
+% =====================================================================
+%  2 -- CONSERVATION AS LINEAR ALGEBRA  (source node S7).
+%
+%  Source: tier2.md 0.4 (743-837, RE-HOMED here from Part 0 -- it is the
+%          bridge from the astrophysics to the algebra, and every one of
+%          its three subsections is a statement about nu), then Part I
+%          in full and in order: header (1048-1058), I.1 (1062-1126),
+%          I.2 (1130-1272), I.2b (1276-1398), I.3 (1402-1437),
+%          I.4 (1441-1491), I.5 (1495-1533), I.6 (1537-1572),
+%          I.7 (1576-1611), I.7b (1615-1694), I.8 (1698-1763),
+%          I.9 (1767-1809), I.10 (1813-1858), I.10b (1862-2007),
+%          I.11 (2011-2051), I.12 (2055-2103), I.13 (2107-2163),
+%          I.14 self-check (2167-2185).
+%  Nothing from this range is re-homed out.
+% =====================================================================
+
+\section{Conservation as linear algebra}
+\label{part:conservation}
+
+\begin{repopointer}
+\textbf{Files:} \code{graph/stoich.py}, \code{graph/projector.py},
+\code{graph/isotopes.py}, \code{graph/network.py}, \code{graph/export.py},
+\code{graph/metrics.py}. \quad
+\textbf{Oracles:} \code{tests/test\_conservation.py},
+\code{tests/test\_projector.py} --- \S\ref{sec:oracles7}. \quad
+\textbf{Notebook:} \code{03-graph-conservation.ipynb}.
+\end{repopointer}
+
+\textbf{The floor.} \code{tests/test\_conservation.py} is the one test in the
+repo that is allowed to block training. This section is what it means.
+
+The plan of attack: state the theorem that makes conservation structural rather
+than learned (\S\ref{sec:whystructural}), build $\nu$ (\S\ref{sec:numap}),
+prove that conservation laws are its left null space and \emph{measure} that
+null space (\S\ref{sec:leftnullspace}), place the whole object in the two
+literatures that already own it (\S\ref{sec:crn}), watch the weak sector break
+charge conservation (\S\ref{sec:weakbreaks}), repair it with an independent
+lepton ledger (\S\ref{sec:ledgers}--\S\ref{sec:betaplus}), assemble $C$
+(\S\ref{sec:cmatrix}), get Target A's theorem for free
+(\S\ref{sec:targetatheorem}) and note what it does not give
+(\S\ref{sec:positivity}), derive the Target B projector twice
+(\S\ref{sec:projector}--\S\ref{sec:laundering}), prove the two targets reach the
+same set (\S\ref{sec:equivalence}), measure how big that set actually is
+(\S\ref{sec:effdim}), and read the graph, the code and the oracle
+(\S\ref{sec:graphK}--\S\ref{sec:oracles7}).
+
+% =====================================================================
+\subsection{Why conservation is structural, not a penalty term}
+\label{sec:whystructural}
+
+\subsubsection{Conservation laws are left null vectors}
+\label{sec:leftnull}
+
+Here is the theorem the entire S7 node rests on, stated cleanly.
+
+Let $\nu \in \mathbb{R}^{n\times r}$ be the stoichiometric matrix. A vector
+$c \in \mathbb{R}^n$ defines a \textbf{conserved quantity} $Q = c\cdot Y$ of the
+dynamics $\dot y = \nu R$ \textbf{iff} $c$ is a left null vector of $\nu$:
+%
+\begin{equation}
+\frac{\dd}{\dd t}(c\cdot Y) \;=\; c\Tr\nu R \;=\; 0 \ \ \forall R
+\quad\Longleftrightarrow\quad c\Tr\nu = 0.
+\label{eq:leftnull}
+\end{equation}
+%
+The ``for all $R$'' is the crucial quantifier. It says the conservation law
+holds \emph{regardless of the rates} --- regardless of temperature, density,
+screening, whether the rate library is right, whether the network is converged,
+or whether the thing producing $R$ is a stiff ODE solver or an untrained neural
+network with random weights. Conservation is a property of the
+\textbf{stoichiometry}, and stoichiometry is integer bookkeeping.
+
+The set of conserved quantities is therefore exactly the left null space of
+$\nu$, a linear subspace, and its dimension is $n - \rank(\nu)$. This is
+measurable, and \S\ref{sec:rank} measures it.
+
+% ---------------------------------------------------------------------
+\subsubsection{The soft-penalty failure mode, quantified}
+\label{sec:softpenalty}
+
+Suppose instead you train with a penalty: minimise
+$L = L_{\rm data} + \lambda\|C\cdot \dd Y\|^2$. Three things go wrong, in
+increasing order of severity.
+
+\paragraph{(i) The violation is $O(1/\lambda)$, never zero.} At the optimum the
+penalty gradient balances the data gradient:
+$\|C\cdot \dd Y\| \sim \|\nabla L_{\rm data}\| / (2\lambda\|C\|^2)$. You buy
+accuracy in conservation with accuracy in the fit, and never reach exact.
+
+\paragraph{(ii) The violation is systematic.} This is the part people miss. The
+penalty is minimised \emph{on the training distribution}; the residual violation
+is whatever the data loss pays for. That is a \emph{learned, input-dependent}
+function, not noise --- it has the same sign for similar inputs. Over a rollout
+on a smooth trajectory, consecutive states are similar, so the violations
+\emph{add coherently}. Referring to \S\ref{sec:budget}'s table: a soft-penalty
+violation accumulates as $N\cdot\delta$, not $\sqrt N\cdot\delta$.
+
+Do the arithmetic against the right budget, because it is easy to compare an
+\emph{accumulated} violation with a \emph{per-step} tolerance and get a wrong
+answer by three orders of magnitude. With $N = 1.6\times10^{3}$ the two budgets
+are $\delta \le 3\times10^{-6}$ per step and $5\times10^{-3}$ over the
+trajectory (\S\ref{sec:budget}):
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{3.0cm} L{4.2cm} Y@{}}
+\toprule
+\textbf{per-step violation} & \textbf{accumulated over
+  $N = 1.6\times10^{3}$} & \textbf{as a share of the $5\times10^{-3}$ total
+  budget} \\
+\midrule
+$10^{-8}$ & $1.6\times10^{-5}$ & 0.3\% --- genuinely negligible \\
+$10^{-7}$ & $1.6\times10^{-4}$ & 3\% \\
+$\mathbf{10^{-6}}$ & $\mathbf{1.6\times10^{-3}}$ &
+  \textbf{32\% --- a third of the budget, on bookkeeping} \\
+$3\times10^{-6}$ & $4.8\times10^{-3}$ &
+  96\% --- the entire budget, before the model errs at all \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+So the honest statement is \emph{not} that a penalty reaching $10^{-8}$ is
+disqualifying: at $10^{-8}$ it is fine. It is that (a) the penalty gives you no
+control over where on that table you land --- \S\ref{sec:softpenalty}(i) says
+the residual is set by $\lambda$ against the data gradient, not by a
+specification --- and (b) because the violation is systematic, the column that
+matters is the \emph{accumulated} one, so every decade you fail to buy costs a
+factor of ten on a budget you are also spending on real modelling error. The
+exact route costs nothing and lands at row zero.
+
+\paragraph{(iii) It corrupts the physics you care about.} The cheapest way for
+an optimiser to reduce $\|C\cdot \dd Y\|$ is to shrink $\dd Y$. The charge row
+of $C$ includes the weak-sector $\dYe$ signal. A penalty therefore applies
+gradient pressure \emph{against} the one quantity the project exists to predict.
+This is \code{CLAUDE.md} invariant \#3 stated as an optimisation fact: ``a
+design that zeroes it to make the drift residuals vanish is wrong.''
+
+\begin{invariant}
+\textbf{The alternative costs nothing.} $\dd Y = \nu\netflux$ is a matrix
+multiply with a fixed, integer-valued, precomputed $\nu$. It is \emph{cheaper}
+than the penalty (no extra loss term, no $\lambda$ to tune) and exactly
+conserving for any \netflux. There is no trade-off being made here --- which is
+why the repo treats it as a floor rather than a feature.
+\end{invariant}
+
+% ---------------------------------------------------------------------
+\subsubsection{The reachable manifold, restated}
+\label{sec:reachable}
+
+Tier~0 \S IV.2 introduced the reachable manifold: the set of compositions that a
+one-zone burner can actually be in. Tier~2 gives the \emph{linear-algebraic}
+version of the same idea, and it is sharper.
+
+At any state $Y$, the set of \emph{permissible} increments is
+%
+\begin{equation}
+\mathcal{M} \;=\; \bigl\{\,\dd\Yt \in \mathbb{R}^{n+3} :
+                   C\,\dd\Yt = 0\,\bigr\},
+\label{eq:manifold}
+\end{equation}
+%
+a linear subspace of codimension $\rank(C) = 3$. Target A's outputs live in
+$\image(\nut) \subseteq \mathcal{M}$ automatically. Target B's outputs are
+forced into $\mathcal{M}$ by projection. \S\ref{sec:equivalence} proves those
+two sets are \textbf{the same} --- which reframes the Target A/B choice
+entirely: it is not about \emph{what can be expressed}, it is about
+parameterisation and conditioning.
+
+% =====================================================================
+\subsection{\texorpdfstring{$\nu$}{nu} as a linear map}
+\label{sec:numap}
+
+\code{graph/stoich.py} builds $\nu$ in nine lines:
+
+\begin{srclisting}
+for j, rate in enumerate(rates):
+    for sp in rate.reactants:
+        nu[idx[sp], j] -= 1.0
+    for sp in rate.products:
+        nu[idx[sp], j] += 1.0
+\end{srclisting}
+
+That is the entire construction. $\nu[i, j]$ is the \textbf{net} change in the
+count of species $i$ per unit progress of reaction $j$: products positive,
+reactants negative, with repeated participants accumulating (triple-$\alpha$
+gives $\nu[\code{he4}, j] = -3$).
+
+Three structural facts follow immediately, and each matters later.
+
+\paragraph{(a) Column order is the contract.} $\nu$'s columns are
+\code{list(rc.get\_rates())} in pynucastro's order, and \emph{every} downstream
+array --- $\lambda$, $R$, \fp, \netflux, \kap, \Phifl, \code{pair\_col},
+\code{weak\_mask}, $Q$, \code{chapter} --- is indexed by the same $j$.
+\code{fluxes/compile.py} asserts this alignment against \code{Stoich.rate\_fnames}
+and raises if a v-flag replacement changed a column identity.
+\foreignreg{1}{R-17}'s canonical key exists so that ``same reaction'' is
+decidable; this is where that decidability is cashed in. A column-order bug
+would be silent and catastrophic: every conservation test would still pass
+(\S\ref{sec:leftnullspace} holds for \emph{any} $\nu$), while every flux would
+be attached to the wrong reaction.
+
+\paragraph{(b) $\nu$ is \emph{net}, so catalysts vanish.} A species that appears
+on both sides (consumed and produced) gets the difference. This is why
+\code{export.bipartite\_digraph} adds \emph{both} an I$\to$R and an R$\to$I edge
+for such a species: the graph keeps the information $\nu$ throws away. For the
+conservation algebra the net form is what you want; for message passing it is
+not, and the graph is the compensating structure.
+
+\paragraph{(c) $\nu$ is extremely sparse and hub-dominated.}\derivedhere{}
+Measured on the reconciled export:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.4cm} L{3.4cm}@{}}
+\toprule
+ & \textbf{\msn{80}} & \textbf{\msn{151}} \\
+\midrule
+shape ($n \times r$) & $80 \times 607$ & $151 \times 1518$ \\
+nonzeros & 2012 & 5004 \\
+density & 4.1\% & 2.2\% \\
+participants per column (mean\,/\,max) & 3.31\,/\,5 & 3.30\,/\,5 \\
+\nuc{He}{4} appears in & 319 columns (52.6\%) & 695 (45.8\%) \\
+\nuc{H}{1}\,/\,$n$ appear in & 246\,/\,247 & 644\,/\,643 \\
+next-highest species degree & \nuc{C}{12}, \nuc{O}{16}: 32 &
+  \nuc{O}{16}: 35 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{srclisting}
+import numpy as np
+d = np.load("data/stoich/nu_mesa80.npz"); nu = d["nu"]; sp = list(d["species"])
+part = nu != 0
+print(part.sum(), part.sum()/nu.size, part.sum(0).mean(), part.sum(0).max())
+print([(sp[i], int(part.sum(1)[i])) for i in np.argsort(-part.sum(1))[:6]])
+\end{srclisting}
+
+The degree distribution has a cliff: three light species with degree 250--700,
+then everything else at $\le 35$. \textbf{\nuc{He}{4}, \nuc{H}{1} and $n$ are
+not species in this network so much as they are the network's wiring.} This
+single fact explains \S\ref{sec:twoclusters}'s reservoir picture, the graph
+radius of 1 in the isotope projection (\S\ref{sec:graphK}), and a real
+architectural hazard: a message-passing model can route almost any influence
+through three hub nodes in two hops, which is both why $K = 5$ suffices and why
+an ablation that damages the hub features would be uninformative about whether
+the model learned the chemistry.
+
+% =====================================================================
+\subsection{Conservation is the left null space --- with the measurement}
+\label{sec:leftnullspace}
+
+\S\ref{sec:leftnull} stated the theorem. Here it is used.
+
+\subsubsection{The rank measurement --- and why it is the most informative
+               number in S7}
+\label{sec:rank}
+
+The left null space of $\nu$ is $\operatorname{null}(\nu\Tr)$ --- the set of all
+conserved linear combinations. Its dimension is $n - \rank(\nu)$. Measure it:
+
+\begin{srclisting}
+import numpy as np
+d  = np.load("data/stoich/nu_mesa80.npz")
+nu, A, Z = d["nu"], d["A"], d["Z"]
+U, S, Vt = np.linalg.svd(nu)
+k = (S > 1e-12 * S[0]).sum()                 # numerical rank
+L = U[:, k:]                                 # basis of the left null space
+print(nu.shape, k, nu.shape[0] - k, np.linalg.norm(L.T @ (A/np.linalg.norm(A))))
+\end{srclisting}
+
+\derivedhere, at the reconciled export:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{2.6cm} L{2.6cm}@{}}
+\toprule
+\textbf{quantity} & \textbf{\msn{80}} & \textbf{\msn{151}} \\
+\midrule
+$\rank(\nu)$ & 79 & 150 \\
+\textbf{left-nullity of $\nu$} & \textbf{1} & \textbf{1} \\
+$\|$proj of $\hat A$ onto left-null$(\nu)\|$ & 1.0000 & 1.0000 \\
+left-nullity of $\nu$ restricted to \emph{strong\,/\,EM} columns &
+  \textbf{2} & \textbf{2} \\
+\ldots and it is exactly $\mathrm{span}\{A, Z\}$ (both principal angles 0) &
+  \yes & \yes \\
+$\rank(\nut)$ (extended, with lepton rows) & 80 & 151 \\
+\textbf{left-nullity of $\nut$} & \textbf{3} & \textbf{3} \\
+\ldots and it is exactly $\mathrm{rowspace}(C)$ (all three principal angles 0) &
+  \yes & \yes \\
+right-nullity of $\nu$ ($= r - \rank$) & \textbf{528} & \textbf{1368} \\
+$\cond(\nu)$ (extreme nonzero singular values) & 41.57 & 57.86 \\
+$\cond(\nut)$ & 40.90 & 54.54 \\
+$\cond(CC\Tr)$ & $3.947\times10^{4}$ & $1.029\times10^{5}$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Read those rows one at a time; each is a physical statement.
+
+\paragraph{Left-nullity of $\nu$ is 1, and the null vector is $A$.} Mass number
+is the \emph{only} linear combination of nuclear abundances conserved by every
+column. There are no accidental extra conservation laws hiding in the network
+--- no coincidental degeneracy that a naive projector would have to be told
+about, and no missing constraint the gate could be blind to. It also means the
+constraint set cannot be \emph{over}-specified: $C$'s three rows are all doing
+work.
+
+\paragraph{Restricted to strong\,/\,EM columns, the nullity is 2, and the space
+is exactly $\mathrm{span}\{A, Z\}$.} This is \S\ref{sec:weakbreaks}'s fact,
+measured: charge is conserved by the strong sector and only by the strong
+sector. The measurement (principal angles between $\mathrm{span}\{A, Z\}$ and
+the computed left null space, both exactly 1.0 in cosine) is a much stronger
+statement than ``$Z\cdot\nu = 0$ on strong columns'' --- it says there is
+nothing \emph{else} conserved there either.
+
+\begin{result}
+\textbf{Corollary, and it is the most consequential thing in this table.} Every
+increment the strong sector can produce satisfies $Z\cdot \dd Y = 0$ exactly,
+i.e. $\dYe = 0$. The strong sector is fast and carries essentially all of the
+composition change; therefore essentially all of the \emph{composition variance}
+is \Ye-neutral, and the \Ye{} signal is structurally confined to the slow, small
+weak sector. Measured consequence: over the visited compositions, $\Var(X)$
+converges to 99.7\%\,/\,98.1\% by 30 principal components while $\Var(\Ye)$
+stalls at 93.0\%\,/\,95.3\% --- the \Ye{} signal is smeared across a long
+low-variance tail, and the per-step budget needs $1 - 6.5\times10^{-8}$ of it.
+Variance-truncated compression of the composition is therefore arithmetically
+excluded, not merely risky. \S\ref{sec:effdim} measures it; this row is the
+reason it must come out that way.
+\end{result}
+
+\paragraph{Left-nullity of $\nut$ is 3, and the space is exactly
+$\mathrm{rowspace}(C)$.} This is the completeness statement, and it is the one I
+would not have guessed. It says $C$ is neither missing a constraint (else the
+nullity would exceed 3) nor imposing a redundant one (else $\rank(C) < 3$,
+caught by \code{build\_projector}). \textbf{The projector removes exactly the
+physical constraints and nothing else.}
+
+\begin{srclisting}
+nx, C = d["nu_ext"], d["C"]
+Ue, Se, _ = np.linalg.svd(nx); ke = (Se > 1e-12*Se[0]).sum()
+Qc, _ = np.linalg.qr(C.T)
+print(np.linalg.svd(Qc.T @ Ue[:, ke:], compute_uv=False))   # -> [1. 1. 1.]
+\end{srclisting}
+
+\paragraph{Right-nullity is 528 (1368).} The map $\netflux \mapsto \nu\netflux$
+has a 528-dimensional kernel. Take this seriously: \textbf{the flux vector is
+not determined by the abundance change.} Given a target $\Delta Y$ there is a
+528-parameter family of \netflux{} producing it. Consequences, all of which
+reappear later:
+
+\begin{itemize}
+\item A loss defined only on $\Delta Y$ leaves 528 directions of \netflux{}
+  completely unconstrained. Target A therefore \emph{needs} flux-space
+  supervision, which is why \code{integrate.py} exists
+  (\S\ref{sec:augmented}--\S\ref{sec:phinotrecoverable}) and why the shipped
+  Zenodo labels (which carry only $\Delta X$) are insufficient for it.
+\item Conversely, the redundancy is what makes the mask meaningful: killing a
+  column changes \netflux{} without necessarily changing $\nu\netflux$ much.
+\item And it is why $\cond(\nu)$ alone does not settle the kill-test.
+  $\cond(\nu) = 41.6$ is benign; the kill-test's $\cond(\Sact)$ restricts to the
+  \emph{active} columns, which is a different matrix (\resultsref{2026-07-12}:
+  41.8\,/\,57.4, essentially the full-$\nu$ value, because the active set turned
+  out to be everything).
+\end{itemize}
+
+\paragraph{$\cond(\nu) \approx 42$--58 is small, and that is a real result.} It
+bounds how much a relative error in \netflux{} can be amplified into $\dd Y$:
+$\|\delta(\nu\netflux)\|/\|\nu\netflux\| \le
+\cond(\nu)\cdot\|\delta\netflux\|/\|\netflux\|$ for \netflux{} in the row space.
+Two orders of magnitude of headroom below the $10^{6}$ gate. The dangerous
+conditioning in this project is \emph{not} in $\nu$; it is in the cancellation
+within \netflux{} itself (\S\ref{sec:kappa}).
+
+% ---------------------------------------------------------------------
+\subsubsection{Why the tests can demand exactly 0.0}
+\label{sec:exactzero}
+
+\code{tests/test\_conservation.py::test\_exported\_columns\_conserve\_exactly}
+asserts
+
+\begin{srclisting}
+assert dA[j] == 0.0
+\end{srclisting}
+
+Zero tolerance. That is unusual enough to justify.
+
+$\nu$'s entries are small integers --- measured over both exports, the set is
+exactly $\{-3, -2, -1,$ $+1, +2, +3\}$, with max 5 participants per column and no
+coefficient beyond 3 ($\pm3$ is triple-$\alpha$ and its reverse). $A$ and $Z$
+are integers $\le 151$ and $\le 28$. The column sum $\sum_i A_i\nu_{ij}$ is
+therefore a sum of at most 5 products of integers bounded by ${\sim}450$ in
+magnitude. \textbf{Every intermediate value is exactly representable in float64}
+(integers up to $2^{53}$), and IEEE-754 addition of exactly-representable
+integers whose exact sum is also representable is exact \citep{ieee754,
+goldberg1991}. So the computed sum is the exact mathematical sum, and the exact
+sum is 0 by construction of the reaction.
+
+This is why \code{build\_stoich} uses \code{!= 0.0} rather than a tolerance in
+its fail-loud validation, and why \code{graph/metrics.drift\_metrics} reports
+$D_A = D_Q = 0.0$ exactly rather than ``$\le 10^{-16}$''. \resultsref{2026-07-08}
+records the column drifts as exactly 0.0.
+
+The \emph{random-\netflux} drift test is a different animal, because \netflux{}
+is not an integer. There, $\sum_i A_i(\nu\netflux)_i =
+\sum_j (\sum_i A_i\nu_{ij})\netflux_j = \sum_j 0\cdot\netflux_j$ mathematically,
+but the computation does the sums in the other order and float64 rounding of the
+intermediate $\nu\netflux$ survives. The residual is bounded by float64
+$\varepsilon$ times the \emph{gross} throughput
+$G = |A|\cdot(|\nu|\cdot|\netflux|)$, which is exactly the tolerance the module
+docstring defines:
+%
+\begin{equation}
+\text{tol} \;=\; \max\!\bigl(10^{-12} s,\ 10^{-13} G\bigr),
+\qquad s = \min\bigl(1, \max_j|\netflux_j|\bigr).
+\label{eq:drifttol}
+\end{equation}
+%
+The rationale is Tier~0 \S V.4's: an absolute bound is the right statement at
+$O(1)$ magnitudes and \emph{vacuous} at $\netflux \sim 10^{-20}$ (where any
+implementation passes), so the small end gets a relative-to-gross bound instead
+--- at $10^{-13}\cdot G$, about a thousand times looser than float64
+$\varepsilon$ accumulation, i.e. tight enough to catch a real bug and loose
+enough not to be a fp-noise flake. \textbf{Every threshold in this project sits
+just above a measured floor} (Tier~1's closing habit); this one sits above
+$\varepsilon\cdot G$.
+
+% =====================================================================
+\subsection{The same object in another literature --- CRN theory, deficiency,
+            and the flux cone}
+\label{sec:crn}
+
+Everything \S\ref{sec:leftnullspace} just derived --- $\nu$, its left null space
+as conservation laws, its right null space as flux redundancy, the reachable set
+as an affine subspace intersected with the positive orthant --- is standard
+material in two mature literatures that nuclear astrophysics and this repo do
+not appear to cite. Worth knowing here rather than later: the vocabulary unlocks
+fifty years of results, and one of the theorems very nearly applies.
+
+\begin{itemize}
+\item \textbf{Chemical Reaction Network Theory} \citep{hornjackson1972};
+  Feinberg's deficiency theory, 1972--1987 \citep{feinberg1972, feinberg1987},
+  with \citet{horn1972} as co-founder --- collected in \citet{feinberg2019};
+\item \textbf{Stoichiometric\,/\,metabolic network analysis}
+  \citep{schuster1994} on elementary flux modes; flux balance analysis in the
+  Palsson school \citep{varma1994, orth2010}; extreme pathways are
+  \citet{schilling2000}, with \citet{klamt2003} the EFM/EP comparison.
+\end{itemize}
+
+\subsubsection{The vocabulary map}
+\label{sec:crnvocab}
+
+Worth memorising, because it unlocks fifty years of results and algorithms:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y Y L{3.6cm}@{}}
+\toprule
+\textbf{this project} & \textbf{CRN\,/\,systems biology} &
+\textbf{where in Tier~2} \\
+\midrule
+$\nu$, stoichiometric matrix & $S$, the stoichiometric matrix &
+  \S\ref{sec:numap} \\
+left null space of $\nu$ & \emph{conservation relations}, moiety conservation &
+  \S\ref{sec:rank} \\
+right null space of $\nu$ & the \textbf{null space of $S$}; steady-state flux
+  space & \S\ref{sec:rank}, \S\ref{sec:phinotrecoverable} \\
+\netflux, net flux vector & $v$, the flux vector & \S\ref{sec:lambdatoR} \\
+$Y_0 + \image(\nu) \cap \{Y \ge 0\}$ &
+  \textbf{stoichiometric compatibility class} &
+  Tier~0 \S IV.2, \S\ref{sec:positivity} \\
+the equilibrium mask & \emph{blocked}\,/\,\emph{fixed} reactions &
+  \S\ref{sec:departure} \\
+bridge reactions carrying the net flow & \textbf{elementary flux modes},
+  extreme pathways & \S\ref{sec:twoclusters} \\
+Target A (predict \netflux, map through $\nu$) & flux-based network
+  parameterisation & \S\ref{sec:targetatheorem} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsubsection{Deficiency --- measured, and the honest answer}
+\label{sec:deficiency}
+
+The headline theorems of CRN theory are stated in terms of the
+\textbf{deficiency}
+%
+\begin{equation}
+\delta \;=\; n_{\mathrm{complexes}} \;-\; \ell \;-\; \rank(\nu),
+\label{eq:deficiency}
+\end{equation}
+%
+with $n_{\rm complexes}$ the number of distinct reactant/product multisets and
+$\ell$ the number of linkage classes (connected components of the complex
+graph). The \textbf{Deficiency Zero Theorem} \citep{feinberg1987} says: a weakly
+reversible network with $\delta = 0$ has, under mass-action kinetics, for
+\emph{every} choice of positive rate constants, exactly one positive equilibrium
+in each positive stoichiometric compatibility class, and it is asymptotically
+stable relative to its compatibility class. That would be an extraordinarily
+strong statement about this system --- existence and uniqueness of NSE, and
+stability of the QSE manifold, \emph{for free}, independent of the rate library.
+
+It does not apply. \derivedhere:
+
+\begin{srclisting}
+# complexes = distinct reactant / product multisets, one edge per column
+\end{srclisting}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{2.6cm} L{2.6cm}@{}}
+\toprule
+ & \textbf{\msn{80}} & \textbf{\msn{151}} \\
+\midrule
+complexes $n_c$ & 278 & 561 \\
+linkage classes $\ell$ & 73 & 84 \\
+$\rank(\nu)$ & 79 & 150 \\
+\textbf{deficiency $\delta$} & \textbf{126} & \textbf{327} \\
+strongly connected components (directed complex graph) & 81 & 93 \\
+weakly connected components & 73 & 84 \\
+\textbf{weakly reversible?} & \textbf{no} & \textbf{no} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Both hypotheses fail, and instructively:
+
+\begin{itemize}
+\item \textbf{$\delta = 126$\,/\,327 is enormous}, not marginal. Deficiency
+  counts the mismatch between the \emph{complex}-level and \emph{species}-level
+  descriptions; a network of 607 reactions built from three light particles
+  interacting with 77 heavy species has an enormous number of distinct complexes
+  relative to its stoichiometric rank. No amount of tidying reduces this to
+  zero.
+\item \textbf{Weak reversibility fails by exactly the weak sector.} The
+  SCC\,/\,WCC gap is 8 and 9 --- the same order as the number of one-way weak
+  channel families. $\beta$-decay and electron capture have no inverse in this
+  regime (\S\ref{sec:pairmap}), which is a \emph{physical} irreversibility, not
+  a modelling omission.
+\end{itemize}
+
+So: the theorems give nothing. That is a real, checkable, negative result, and
+it is worth having because the natural hope (``surely CRN theory tells us the
+QSE manifold is stable'') is now closed rather than open.
+
+\subsubsection{What CRN theory \emph{does} give: the flux cone}
+\label{sec:fluxcone}
+
+The part that transfers directly is the geometry of the flux space.
+
+With irreversibility constraints (weak columns are one-way, $\netflux_j \ge 0$),
+the set of admissible steady-state flux vectors is a \textbf{polyhedral cone}
+%
+\begin{equation}
+\mathcal{C} \;=\; \{\netflux : \nu\netflux = 0,\
+                   \netflux_j \ge 0 \ \forall j \in \text{irrev}\},
+\label{eq:fluxcone}
+\end{equation}
+%
+and the \textbf{elementary flux modes} are its support-minimal flows --- the
+minimal sets of reactions that can sustain a steady flow; they coincide with the
+cone's extreme rays once reversible reactions are split into forward/backward
+halves \citep{gagneur2004}. ``Which small set of reactions carries the net flow
+from the silicon group to the iron group'' (\S\ref{sec:twoclusters}, the whole
+bridge programme) \emph{is} the extreme-pathway question, and it has:
+
+\begin{itemize}
+\item an exact algorithm (the double-description method, \citealp{motzkin1953};
+  \citealp{fukuda1996}; \code{efmtool} --- \citealp{terzer2008} --- and
+  successors),
+\item a large literature on \textbf{network reduction} driven by the same
+  question,
+\item and known scaling limits (EFM enumeration is combinatorially explosive ---
+  \citealp{klamt2002} --- which is why flux-\emph{sampling} and flux-balance
+  optimisation are used instead at scale).
+\end{itemize}
+
+The repo's bridge discovery (\code{scripts/step5\_bridges.py}) is an empirical,
+flux-weighted, per-state version: rank columns by $|\nu\netflux|$ across the
+group boundary. That is a perfectly reasonable estimator, and it answers a
+slightly different question --- \emph{which bridges are used on this manifold},
+not \emph{which bridges exist}. Both are worth having, and the second is
+currently unasked.
+
+\textbf{What remains open} (register: \reg{R-09}). Not because the project is
+doing anything wrong, but because (i) a reviewer from computational systems
+biology will ask why elementary flux modes are not cited, (ii) the reduction
+literature there is directly relevant to the network-reduction prior art
+\code{tier1.md} \S VIII.C.7 already flags as under-surveyed, and (iii) the flux
+cone is the correct geometric object for ``what fluxes are admissible'' ---
+exactly what a flux-predicting emulator should be constrained to. A literature
+and framing gap, not a correctness gap.
+
+% =====================================================================
+\subsection{The weak sector breaks charge conservation --- on purpose}
+\label{sec:weakbreaks}
+
+For a strong or electromagnetic reaction, both $A$ and $Z$ are conserved by the
+\emph{nuclei alone}:
+%
+\begin{equation}
+\sum_i A_i \nu_{ij} = 0, \qquad
+\sum_i Z_i \nu_{ij} = 0 \qquad (j \text{ strong\,/\,EM}).
+\label{eq:strongcons}
+\end{equation}
+%
+For a weak reaction, the first still holds --- $\beta$-decay and electron
+capture move a nucleon between the proton and neutron states without changing
+$A$ --- but the second does not:
+%
+\begin{equation}
+\sum_i Z_i \nu_{ij} = \Delta Z_j = \pm 1 \qquad (j \text{ weak}).
+\label{eq:weakdz}
+\end{equation}
+%
+Measured over the whole export: \code{(Z @ nu)[\textasciitilde weak]} is exactly
+0 everywhere, and \code{(Z @ nu)[weak]} takes exactly the values $\{-1, +1\}$
+--- no other value occurs, in either network.\derivedhere
+
+This is not a defect to be repaired; \textbf{it is the physics the project
+exists to predict.} $\Ye = \sum_i Z_iY_i$, so
+%
+\begin{equation}
+\frac{\dd \Ye}{\dd \netflux_j} \;=\; \sum_i Z_i \nu_{ij} \;=\; \Delta Z_j,
+\label{eq:dyedphi}
+\end{equation}
+%
+and a network in which $\sum_i Z_i\nu_{ij} = 0$ for \emph{every} column is a
+network in which \Ye{} can never change. \code{CLAUDE.md} invariant \#3 is the
+guard against ``fixing'' it: any design that zeroes the weak \dYe{} to make
+residuals vanish has deleted the answer.
+
+So the constraint cannot be ``charge is conserved''. It has to be \textbf{charge
+is conserved once you count the leptons}, which requires knowing, per column,
+where the charge went. That is the ledger.
+
+% =====================================================================
+\subsection{Lepton ledgers --- and the tautology trap}
+\label{sec:ledgers}
+
+\code{stoich.py} assigns three extra rows per column from the rate's
+\code{weak\_type}:
+
+\begin{center}
+\begin{tabular}{@{}lcccl@{}}
+\toprule
+\textbf{\code{weak\_type}} & \textbf{$d_{e^-}$} & \textbf{$d_\nu$} &
+\textbf{$d_{\bar\nu}$} & \textbf{effect on \Ye} \\
+\midrule
+\code{electron\_capture} & $-1$ & $+1$ & 0 & lowers \\
+\code{beta\_neg}         & $+1$ & 0    & $+1$ & raises \\
+\code{beta\_pos}         & $-1$ & $+1$ & 0 & lowers \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Then $\nut = \mathrm{vstack}(\nu, d_e, d_\nu, d_{\bar\nu})$, shape
+$(n{+}3) \times r$.
+
+\paragraph{The trap, and why the docstring shouts about it.} There is an obvious
+way to fill these rows: read $\Delta Z_j = \sum_i Z_i\nu_{ij}$ off the nuclear
+part and set $d_e = \Delta Z$. It would always work, would never fail a test,
+and would make the entire charge-to-lepton closure check \textbf{a tautology}
+--- you would be verifying that a number equals itself.
+
+Instead the ledger is assigned from the rate's \emph{declared type}, which comes
+from a completely different place: pynucastro's classification of the rate
+object (\code{rate.weak\_type}, ultimately from the REACLIB\,/\,tabular
+metadata), reconciled against MESA in Tier~1 \S VI. The closure check
+
+\begin{srclisting}
+if dq != d_e[j]:
+    raise ValueError(f"... nuclear dZ = {dq} but ledger d_electron = {d_e[j]} "
+                     "- charge-to-lepton closure broken")
+\end{srclisting}
+
+is then a genuine cross-check between two independent descriptions of the same
+reaction: \emph{the stoichiometry of the nuclei} and \emph{the declared weak
+channel}. If a rate were mislabelled --- an EC filed as a $\beta^-$ --- this
+catches it, loudly, by name, at build time.
+
+\begin{invariant}
+This is Tier~1 \S VIII.D's habit applied prospectively rather than
+retrospectively: \emph{ask of any green test what would still be wrong if it
+passed.} A back-derived ledger passes always and detects nothing. Two of the
+build's five fail-loud validations ($|\Delta Z| \ne 1$; \code{dq != d\_e[j]})
+exist only because the ledger is independent.
+\end{invariant}
+
+\paragraph{The lepton-number row.} The third row makes lepton number close per
+column:
+%
+\begin{equation}
+\Delta L_j \;=\; d_{e^-,j} + d_{\nu,j} - d_{\bar\nu,j} \;=\; 0.
+\label{eq:leptonclose}
+\end{equation}
+%
+Check each: EC gives $(-1) + (+1) - 0 = 0$~\yes; $\beta^-$ gives
+$(+1) + 0 - (+1) = 0$~\yes; $\beta^+$ gives $(-1) + (+1) - 0 = 0$~\yes. The sign
+on $\bar\nu$ is $-1$ because an antineutrino carries lepton number $-1$.
+\code{test\_toy\_lepton\_number\_closes\_per\_weak\_column} and
+\code{test\_exported\_lepton\_ledgers\_close} assert exactly this, and
+additionally that the ledger rows are identically zero on strong columns.
+
+% =====================================================================
+\subsection{\texorpdfstring{$\beta^+$}{beta+} and the annihilated positron}
+\label{sec:betaplus}
+
+$\beta^+$ and EC share a ledger signature --- $(-1, +1, 0)$ --- which looks
+wrong at first sight, because $\beta^+$ \emph{emits} a positron whereas EC
+\emph{absorbs} an electron.
+
+The resolution is the plasma. A positron emitted into silicon-burning matter at
+$\Tn \sim 4$, $\rho \sim 10^{8}$ has a mean free path against annihilation
+vastly shorter than anything else in the problem: it finds an ambient electron
+and annihilates essentially instantly (the $e^+e^- \to 2\gamma$ cross-section at
+thermal energies, times $n_e \sim 10^{31}$\,cm$^{-3}$, gives a lifetime far
+below any timestep in the regime box). So the \emph{net} effect of a $\beta^+$
+decay on the composition is:
+
+\begin{srclisting}
+  nucleus:      Z -> Z-1              (dZ_nuclear = -1)
+  positron:     emitted, then annihilates with a plasma electron
+  net electron ledger:  -1           (one electron removed from the sea)
+  neutrino:     +1 nu_e emitted
+  photons:      2 x 511 keV, thermalised
+\end{srclisting}
+
+Charge closes: the nucleus loses one unit, the electron sea loses one electron,
+total change zero. Lepton number closes through the $\nu_e$: the emitted $e^+$
+($L = -1$) and the absorbed $e^-$ ($L = +1$) cancel, leaving the $\nu_e$'s $+1$
+balanced against\ldots{} nothing? No --- the emitted $e^+$ has $L = -1$, so the
+pair $(e^+, \nu_e)$ from the decay already has $\Delta L = 0$, and the
+\emph{subsequent} annihilation removes an ambient $e^-$ ($L = +1$) together with
+the $e^+$ ($L = -1$), also $\Delta L = 0$. In the ledger's bookkeeping, which
+tracks only the persistent species, the composite process is ``one electron
+removed, one neutrino emitted'': $(-1) + (+1) - 0 = 0$.~\yes
+
+\textbf{Both EC and $\beta^+$ therefore lower \Ye; only $\beta^-$ raises it.}
+Which is why the weak-sector census counts \emph{directions}: \msn{80} has 46
+weak columns $= 21$ EC $+$ 19 $\beta^-$ $+$ 6 $\beta^+$ (27 lower \Ye, 19
+raise); \msn{151} has $174 = 84 + 85 + 5$ (89 lower, 85 raise).
+\resultsref{2026-07-08} --- note this is the provisional 610\,/\,1522 export;
+the reconciled export has 46\,/\,173 weak columns.\derivedhere
+
+The 511\,keV photons are \emph{not} in any ledger, and that is a deliberate
+omission worth noting: they go into the thermal bath, i.e. into \enuc.
+\S\ref{sec:energyidentity}'s energy identity accounts for them only insofar as
+the rate $Q$-value does. Tier~1 \S VIII.C.3's dropped-neutrino-column item lives
+in the same neighbourhood.
+
+% =====================================================================
+\subsection{The constraint matrix \texorpdfstring{$C$}{C}}
+\label{sec:cmatrix}
+
+\begin{srclisting}
+def constraint_matrix(A, Z):
+    n = len(A)
+    C = np.zeros((3, n + 3))
+    C[0, :n] = A                # baryon number
+    C[1, :n] = Z; C[1, n] = -1  # charge  (electron carries -1)
+    C[2, n] = +1; C[2, n+1] = +1; C[2, n+2] = -1   # lepton number
+    return C
+\end{srclisting}
+
+Three rows over the extended species list $[\text{nuclei}\ldots, e^-, \nu,
+\bar\nu]$:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{1.6cm} L{3.4cm} Y@{}}
+\toprule
+\textbf{row} & \textbf{reads} & \textbf{why the entries are what they are} \\
+\midrule
+baryon & $\sum_i A_i \dd Y_i$ & leptons have $A = 0$ \\
+charge & $\sum_i Z_i \dd Y_i - \dd Y_{e^-}$ &
+  the electron's charge is $-1$, so its \emph{column} entry is $-1$; $\nu$,
+  $\bar\nu$ are neutral \\
+lepton & $\dd Y_{e^-} + \dd Y_\nu - \dd Y_{\bar\nu}$ &
+  $e^-$ and $\nu$ carry $L = +1$, $\bar\nu$ carries $-1$; nuclei carry 0 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+And the build asserts \code{max |C @ nu\_ext| == 0.0} exactly, for the same
+integer-arithmetic reason as \S\ref{sec:exactzero}.
+
+\paragraph{Why the charge row is the interesting one.} It does \emph{not} say
+``nuclear charge is conserved''. It says nuclear charge change is exactly
+matched by the electron ledger. \Ye{} is free to move; the \emph{books} must
+balance. This is the formal version of \S\ref{sec:leak}'s third point.
+
+\paragraph{$\rank(C) = 3$, and $\cond(CC\Tr) = 3.95\times10^{4}$\,/\,%
+$1.03\times10^{5}$.} \derivedhere; matches \resultsref{2026-07-08}. The
+conditioning is entirely a units artefact: row 0 has entries up to 151, row 2
+has entries of size 1, so $CC\Tr$ has diagonal entries spanning ${\sim}4$--5
+orders. \code{build\_projector} sidesteps it by never forming $CC\Tr$
+(\S\ref{sec:projector}). Nothing here is near-singular in any physical sense ---
+rank-deficiency would mean one of the three bookkeeping laws was a combination
+of the others, which it manifestly is not, and
+\code{test\_projector\_rejects\_rank\_deficient\_C} checks that the guard fires
+when it is.
+
+% =====================================================================
+\subsection{Target A's theorem}
+\label{sec:targetatheorem}
+
+Now everything is in place, and the central result is one line.
+
+\begin{invariant}
+\textbf{Theorem (Target A conserves).} For \emph{any} $\netflux \in
+\mathbb{R}^r$, $\dd\Yt = \nut\netflux$ satisfies
+$C\cdot \dd\Yt = (C\nut)\netflux = 0\cdot\netflux = 0$.
+\end{invariant}
+
+That is it. No assumption on \netflux: not smallness, not sign, not smoothness,
+not that it came from a trained model. A randomly initialised flux head
+satisfies it. A flux head predicting nonsense satisfies it. A flux head with
+NaNs satisfies it in the sense that the constraint residual is NaN$\cdot$0 ---
+which is why the gate also checks finiteness implicitly through the magnitude
+sweep.
+
+\textbf{Accuracy determines \emph{which} conserving update is produced; it can
+never determine \emph{whether} it conserves.} That sentence is the docstring of
+\code{tests/test\_conservation.py} and the design principle of the entire
+project.
+
+Two immediate corollaries used later:
+
+\paragraph{Corollary 1 (masking is safe).} If the flux head's output is
+multiplied elementwise by any gate $g \in \mathbb{R}^r$, the result
+$\nut(g \odot \netflux)$ is still in $\operatorname{null}(C)$ --- because
+$g \odot \netflux$ is still just some vector in $\mathbb{R}^r$. Column-scaling a
+stoichiometric matrix cannot break its column sums.
+\code{test\_toy\_mask\_never\_touches\_weak\_columns} and
+\code{test\_exported\_mask\_contract\_on\_real\_matrix} verify this with a
+\emph{random} gate, which is the right test: the point is that no property of
+the gate is required.
+
+But note carefully what that corollary does \emph{not} license. Masking is safe
+for conservation and unsafe for physics: gating a weak column to zero conserves
+everything perfectly while deleting \dYe. Hence invariant \#2 is a
+\emph{separate} structural rule --- \code{eligible\_mask} takes
+\code{weak\_mask} and excludes it by construction --- rather than something
+conservation could have enforced.
+
+\paragraph{Corollary 2 (the update is exact in float64 too).}
+$\dd Y = \nu\netflux$ is a matvec with integer entries; the error is bounded by
+$\varepsilon\cdot(|\nu|\cdot|\netflux|)$, the gross throughput, which is exactly
+the tolerance shape of \S\ref{sec:exactzero}.
+
+% =====================================================================
+\subsection{What Target A does \emph{not} guarantee --- positivity}
+\label{sec:positivity}
+
+\S\ref{sec:targetatheorem}'s theorem holds for \emph{any} \netflux, and its
+corollaries drew out what that buys. This subsection draws out what it does
+\textbf{not}. Conservation is enforced to machine precision by a matrix
+multiply; \textbf{positivity is not enforced at all}, at any point in the
+emulator design. The same ``for all \netflux'' quantifier is responsible for
+both.
+
+\subsubsection{The geometry}
+\label{sec:posgeometry}
+
+The physical state space is not a linear subspace. It is the polytope
+%
+\begin{equation}
+\mathcal{P} \;=\; \Bigl\{\,Y \in \mathbb{R}^n \ :\ Y_i \ge 0\ \forall i,\ \
+                  \textstyle\sum_i A_iY_i = 1 \,\Bigr\},
+\label{eq:polytope}
+\end{equation}
+%
+a simplex-like object with $n$ facets. In CRN language (\S\ref{sec:crn}) the
+reachable set from $Y_0$ is the \textbf{stoichiometric compatibility class}
+$(Y_0 + \image(\nu)) \cap \mathcal{P}$ --- Tier~0 \S IV.2's ``reachable
+manifold'', now with its correct geometry: an affine subspace intersected with a
+cone.
+
+Conservation-by-construction handles the \emph{affine subspace} exactly. Nothing
+handles the \emph{cone}.
+
+\subsubsection{Why it is not a small problem here}
+\label{sec:posnotsmall}
+
+\begin{itemize}
+\item \textbf{$\dd Y = \nu\netflux$ can take any species negative}, for the same
+  reason it conserves: the theorem holds for arbitrary \netflux, and
+  ``arbitrary'' includes fluxes that drain a species past zero. The projector
+  $P$ has the same property.
+\item \textbf{Abundances span 15+ decades}, so ``slightly negative'' is not
+  well-defined --- a species at $10^{-25}$ is thirty orders below the dominant
+  one, and an absolute error of $10^{-18}$ makes it negative.
+\item \textbf{Rates are built from products of $Y$} (\S\ref{sec:lambdatoR}). A
+  negative $Y$ propagates into $R$ with an unphysical sign, and for a column
+  with a repeated reactant ($Y^3$ in triple-$\alpha$) it propagates with an
+  unphysical \emph{magnitude} too.
+\item \textbf{In rollout it compounds}: a negative abundance produces a negative
+  destruction rate, which \emph{grows} the negative value. This is a divergence
+  mechanism entirely separate from the usual rollout-instability story, and it
+  belongs in the Tier-4 S20 node that does not exist yet.
+\end{itemize}
+
+The reference integrator does address it, minimally and correctly: $Y$ is
+clipped at 0 \textbf{inside rate evaluation only}, never in the solver state
+(\S\ref{sec:bdf}), so the regularisation cannot inject mass. That is the right
+pattern, and it is a \emph{solver} pattern --- nothing equivalent exists on the
+emulator side.
+
+\subsubsection{What the literature offers}
+\label{sec:poslit}
+
+Two families, and the second is the one the project has not met:
+
+\begin{enumerate}
+\item \textbf{Positivity-preserving projection} --- project onto the constraint
+  manifold, then backtrack along the correction until positivity holds. The
+  architecture docs cite \citet{kircher2025} for exactly this --- atom-balance
+  projection with linear-interpolation backtracking, in ML surrogates for
+  chemical kinetics --- so this is known to the project at the \emph{citation}
+  level; it is absent from the study map, from the code, and from the gate list.
+\item \textbf{Modified Patankar schemes} --- \citet{burchard2003}. These are
+  built for exactly the system shape here, $\dot y = P(y) - D(y)$, and are
+  \textbf{unconditionally positive \emph{and} exactly conservative},
+  simultaneously, for any step size. The trick is to weight \emph{both} the
+  production and the destruction terms by $y^{n+1}/y^{n}$ factors, which makes
+  the scheme implicit in a way that cannot cross zero --- weighting destruction
+  alone (the classic \citealp{patankar1980} trick) buys positivity but breaks
+  conservation; the symmetric weighting is what restores it. That is a strong
+  existence result: \textbf{conservation and positivity are not in tension}, and
+  a scheme achieving both already exists in the production--destruction
+  literature.
+\end{enumerate}
+
+Whether an MPRK-style construction can be made differentiable and cheap enough
+to sit in a decode step is an open question --- but the fact that the two
+constraints are jointly achievable is exactly the sort of thing you want to know
+before designing around a supposed trade-off.
+
+\subsubsection{The minimum that should exist now}
+\label{sec:posminimum}
+
+A diagnostic, not an architecture: on any predicted update, report
+\code{min\_i (Y\_i + dY\_i)} and the fraction of (state, species) cells going
+negative, stratified by abundance decade. Zero cost, and it converts an unknown
+into a number. Open (register: \reg{R-04}).
+
+% =====================================================================
+\subsection{The Target B projector, derived twice}
+\label{sec:projector}
+
+Target B predicts $\dd\Yt$ directly and repairs it. The repair operator:
+
+\subsubsection{Derivation 1 --- minimum correction (Lagrange)}
+\label{sec:projlagrange}
+
+Given a raw output $v \in \mathbb{R}^{n+3}$, find the nearest point on the
+constraint manifold:
+%
+\begin{equation}
+\min_{w}\ \tfrac12\|w - v\|_2^2 \quad\text{s.t.}\quad Cw = 0 .
+\label{eq:projmin}
+\end{equation}
+%
+Lagrangian $L = \tfrac12\|w-v\|^2 + \lambda\Tr Cw$. Stationarity:
+$w - v + C\Tr\lambda = 0 \Rightarrow w = v - C\Tr\lambda$. Impose the
+constraint: $Cv - CC\Tr\lambda = 0 \Rightarrow \lambda = (CC\Tr)^{-1}Cv$
+(invertible because $\rank(C) = 3$). Substitute:
+%
+\begin{equation}
+w \;=\; \bigl(I - C\Tr(CC\Tr)^{-1}C\bigr)\,v \;\equiv\; P v .
+\label{eq:projector}
+\end{equation}
+%
+So \textbf{$P$ is the orthogonal projector, and orthogonality is a choice}: it
+is the projector that makes the \emph{smallest Euclidean correction}. That is a
+real modelling assumption, not a mathematical necessity --- any oblique
+projector onto $\operatorname{null}(C)$ would also conserve. The Euclidean
+metric treats a correction of $10^{-6}$ to $Y_{\rm neut}$ and to $Y_{\rm si28}$
+as equally costly, which is not obviously right when their abundances differ by
+ten orders of magnitude. See \reg{R-17}.
+
+\subsubsection{Derivation 2 --- QR, which is what ships}
+\label{sec:projqr}
+
+\begin{srclisting}
+Q, R = np.linalg.qr(C.T)      # reduced: Q is (m, 3) with orthonormal columns
+P = np.eye(m) - Q @ Q.T
+\end{srclisting}
+
+$Q$'s columns are an orthonormal basis for
+$\mathrm{rowspace}(C) = \mathrm{colspace}(C\Tr)$. $QQ\Tr$ is the orthogonal
+projector \emph{onto} that space, so $I - QQ\Tr$ projects onto its orthogonal
+complement, which is $\operatorname{null}(C)$. Equality with Derivation 1: write
+$C = R\Tr Q\Tr$. Then $CC\Tr = R\Tr Q\Tr QR = R\Tr R$, and
+%
+\begin{equation}
+C\Tr(CC\Tr)^{-1}C \;=\; QR(R\Tr R)^{-1}R\Tr Q\Tr
+\;=\; QRR^{-1}R^{-\mathsf{T}}R\Tr Q\Tr \;=\; QQ\Tr. \qquad\yes
+\label{eq:qrequiv}
+\end{equation}
+
+\paragraph{Why QR is the one that ships.} The normal-equations form requires
+inverting $CC\Tr$, whose condition number is $\cond(C)^2$. With
+$\cond(CC\Tr) \approx 4\times10^{4}$, $\cond(C) \approx 200$ --- so the
+normal-equations route throws away ${\sim}2.3$ decimal digits for nothing. Here
+that is harmless ($10^{-16} \to 10^{-14}$, still far inside the $10^{-12}$
+gate), but the QR form is free and additionally gives symmetry and idempotence
+to near machine precision by construction rather than by luck. The docstring
+says exactly this, and the measured result confirms it:
+$\|P^2 - P\|_\infty \le 1.0\times10^{-15}$, $P$ symmetric to 0.0 exactly,
+$\rank(P) = m - 3$ exactly, max relative constraint residual over 20 decades of
+$\dd Y = 6.68\times10^{-17}$ (\msn{80})\,/\,$1.04\times10^{-16}$ (\msn{151})
+against a $10^{-12}$ gate. \resultsref{2026-07-08}
+
+\code{build\_projector} also guards rank explicitly:
+
+\begin{srclisting}
+if np.abs(np.diag(R)).min() <= 1e-12 * np.abs(np.diag(R)).max():
+    raise ValueError("C is rank-deficient - constraint rows are not independent")
+\end{srclisting}
+
+which is a rank test on $R$'s diagonal --- valid because for a full-rank matrix
+QR gives $|R_{ii}| > 0$, and the ratio to the largest is the natural scale-free
+threshold.
+
+% =====================================================================
+\subsection{Why the projector acts on the extended vector --- the laundering
+            trap}
+\label{sec:laundering}
+
+$P$ is $(n{+}3) \times (n{+}3)$, not $n \times n$. If instead you built a
+nuclei-only constraint matrix $C_{\rm nuc} = [A; Z]$ ($2 \times n$) and
+projected $\dd Y_{\rm nuclei}$, you would be imposing
+%
+\begin{equation}
+\sum_i Z_i\,\dd Y_i = 0 \quad\Longleftrightarrow\quad \dd Y_e = 0 .
+\label{eq:launder}
+\end{equation}
+
+\begin{warn}
+\warnglyph{}~\textbf{The projector would delete the weak signal.} Not degrade it
+--- delete it, exactly, by orthogonal projection. And it would do so while
+making every conservation diagnostic look perfect. This is the sharpest instance
+in the repo of ``ask what would still be wrong if the test passed'': a
+nuclei-only projector passes baryon conservation, passes charge conservation,
+passes idempotence, passes symmetry, and has destroyed the physics.
+\end{warn}
+
+\code{test\_projection\_preserves\_weak\_dYe\_signal} is the guard: build a
+weak-only flux, compute $\dd\Yt = \nut\netflux$, record
+$\dYe = Z\cdot \dd Y_{\rm nuclei} \ne 0$, project, and require the value to be
+unchanged to $10^{-12}$ relative. Measured change: $\le 3.4\times10^{-21}$.
+\resultsref{2026-07-08}
+
+Why is it unchanged? Because $\nut\netflux$ is \emph{already} in
+$\operatorname{null}(C)$ (\S\ref{sec:targetatheorem}), and $P$ is the identity on
+$\operatorname{null}(C)$ --- \code{test\_on\_manifold\_input\_is\_unchanged}
+states this directly. The extended projector's action on a genuinely conserving
+update is the identity; only the \emph{nuclei-only} projector would move it, and
+it would move it in exactly the \dYe{} direction.
+
+\paragraph{The other half of invariant \#4: $P$ is valid in a LINEAR output
+space only.} Suppose the head emits $u = \asinh(\dd Y/s)$ or a signed-log, and
+you project $u$. Then $C\cdot P(u) = 0$ says a linear constraint holds \emph{in
+the warped coordinates}. Mapping back,
+$\sum_i A_i \cdot \sinh(u_i)\cdot s \ne 0$ in general --- the constraint you
+imposed is not the constraint you wanted. This mathematical argument is the
+project's own \derivedhere; what NuGNN itself documents is the empirical half:
+\citet{kim2026} emit $\mathrm{sign}(f)\cdot\log_{10}|f|$ outputs, attempted
+explicit conservation enforcement, found that back-transforming through the
+signed log made optimisation unstable, and shipped without enforcement ---
+relying on implicitly learned conservation plus a rollout-time retry heuristic
+(a step whose predicted $\sum\Delta X$ drifts far from zero is retried at
+smaller $\Delta t$). The rule that falls out is stated in \code{CLAUDE.md}
+invariant \#4 and in \code{projector.py}'s docstring: \textbf{conservation lives
+in the decode step; no nonlinear transform may sit between the conservation map
+and the output.} $\asinh$\,/\,signed-log are legitimate \emph{latent}
+representations (\foreignreg{0}{R-18}) --- they must simply not be the space
+where the sum is evaluated.
+
+% =====================================================================
+\subsection{Target A and Target B reach the same set}
+\label{sec:equivalence}
+
+A result I had assumed was false until I measured the ranks, and which changes
+how the Target A/B decision should be framed. \S\ref{sec:reachable} asserted it;
+here it is proved.
+
+\begin{invariant}
+\textbf{Theorem}\derivedhere. $\image(\nut) = \operatorname{null}(C)$.
+\end{invariant}
+
+\emph{Proof.} ($\subseteq$) $C\nut = 0$, so every $\nut\netflux$ lies in
+$\operatorname{null}(C)$. ($\supseteq$) Dimension count:
+$\dim\operatorname{null}(C) = (n{+}3) - \rank(C) = (n{+}3) - 3 = n$. And
+$\rank(\nut) = n$ --- measured: 80 for \msn{80}, 151 for \msn{151}
+(\S\ref{sec:rank}). A subspace contained in another of the same finite dimension
+is equal to it. $\square$
+
+The measurement is what makes the second half non-trivial: $\rank(\nut)$
+\emph{could} have been less than $n$ (a network too small to reach every
+conserving direction), and for a sufficiently truncated network it would be. It
+is not, for either network here.
+
+\paragraph{What this means.}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.2cm} Y Y@{}}
+\toprule
+ & \textbf{Target A} & \textbf{Target B} \\
+\midrule
+output & $\netflux \in \mathbb{R}^r$ (607\,/\,1518) &
+  $\dd\Yt \in \mathbb{R}^{n+3}$ (83\,/\,154) \\
+conserving? & by construction ($C\nut = 0$) & by construction ($P$) \\
+\textbf{reachable set} & $\mathbf{\operatorname{null}(C)}$ &
+  $\mathbf{\operatorname{null}(C)}$ \\
+parameterisation & redundant: 528-\,/\,1368-dim fibre & minimal \\
+error amplification into $\dd Y$ & $\cond(\nut) \approx 41$\,/\,55 &
+  1 ($P$ is an orthogonal projection) \\
+per-output physical meaning & a named reaction's flux &
+  a species' abundance change \\
+maskable? & yes, per reaction & no natural analogue \\
+needs \Phifl{} labels? & \textbf{yes} (\S\ref{sec:augmented}) &
+  no --- $\Delta X$ suffices \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+So the choice is \textbf{not} about expressivity. Both can express exactly the
+conserving updates and nothing else. The trade is:
+
+\begin{itemize}
+\item Target A buys physical structure --- per-reaction attribution, the
+  equilibrium mask, reaction-level loss weighting, direct comparability to the
+  bridge sets --- at the cost of a badly over-parameterised output (528
+  unconstrained directions), a conditioning factor of ${\sim}40$--60 from
+  \netflux{} to $\dd Y$, and a label requirement the shipped dataset does not
+  meet.
+\item Target B buys a minimal, well-conditioned parameterisation and works with
+  the labels that exist, at the cost of throwing away every per-reaction handle.
+\end{itemize}
+
+Framed that way, \code{CLAUDE.md}'s switch condition --- ``Target A $\to$ Target
+B if $\cond(\Sact) > 10^{6}$, or if $>{\sim}90\%$ of reactions carry net flux
+below the \Ye{} floor'' --- reads correctly: it is triggered by the
+\emph{conditioning} and the \emph{structure}, which is exactly what Target A is
+being bought for. When the structure is not there, Target A's costs remain and
+its benefits do not.
+
+That reframing has a documentation consequence, which is why this section is a
+register anchor: no project document should frame the Target A vs B choice as an
+\emph{expressivity} difference, because the theorem above says it is not. Open
+(register: \reg{R-22}).
+
+% =====================================================================
+\subsection{The effective dimension of the reachable set --- and where
+            \texorpdfstring{\Ye}{Ye} hides}
+\label{sec:effdim}
+
+\S\ref{sec:equivalence} established \emph{which increments} are reachable --- the
+whole of $\operatorname{null}(C)$, by either target. The complementary question
+is which \textbf{states} are actually visited. Tier~0 \S IV.2 introduced the
+reachable manifold qualitatively; nothing anywhere puts a number on it, and the
+number matters in a way I did not anticipate.
+
+\subsubsection{The measurement: how many directions the compositions occupy}
+\label{sec:effdim-measurement}
+
+PCA over pre-stall rows of 80 randomly chosen shipped trajectories per network
+($\le 25$ log-spaced rows each;
+\code{data/trajectories.select\_rows(prestall=True)}). \derivedhere:
+
+\begin{srclisting}
+X = np.vstack(...)                     # (rows, n_species) mass fractions
+Xc = X - X.mean(0)
+s = np.linalg.svd(Xc, compute_uv=False)
+c = np.cumsum(s**2) / (s**2).sum()
+\end{srclisting}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.2cm} L{3.2cm}@{}}
+\toprule
+ & \textbf{\msn{80}} ($n = 80$) & \textbf{\msn{151}} ($n = 151$) \\
+\midrule
+rows\,/\,trajectories & 2079\,/\,80 & 2076\,/\,80 \\
+PCs for 90\% of $\Var(X)$ & \textbf{7} & \textbf{14} \\
+PCs for 99\% & 22 & 38 \\
+PCs for 99.9\% & 37 & 61 \\
+participation ratio $(\sum\lambda)^2/\sum\lambda^2$ & 3.42 & 8.58 \\
+PCs for 90\% of $\Var(X)$ in \textbf{$\log_{10}$} space & 6 & 5 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{The compositions actually visited occupy an effective manifold of
+dimension $\approx 3$--14, not 80 or 151.} The participation ratio --- a
+basis-free effective rank --- is 3.4 and 8.6.
+
+This is worth internalising, because it reframes the difficulty of the learning
+problem. It is very likely \emph{why} a plain feed-forward network (the NNN
+baseline, S16) works at all on a nominally 151-dimensional map: the target is
+not a 151-dimensional function, it is a ${\sim}10$-dimensional one embedded in
+151 coordinates. It also gives the size-transfer question (\msn{80} $\to$
+\msn{151}) a sharper form: the effective dimension roughly \emph{doubles}
+($3.4 \to 8.6$), which is a more informative statement about ``how much harder
+is the big network'' than $80 \to 151$ is.
+
+\begin{warn}
+\textbf{Caveats, stated up front.} These are the \emph{shipped} trajectories,
+which stall at a bug-displaced attractor (Tier~3, S13) and are
+constant-$(T, \rho)$; 80 files per network; linear-$X$ PCA is dominated by the
+few abundant species. The number is a lower bound on the diversity a full corpus
+would show, and the measurement should be repeated on the clean reruns and
+across the $(T, \rho)$ box. The \emph{qualitative} conclusion --- effective
+dimension $\ll n$ --- is robust; the specific integer is not.
+\end{warn}
+
+\subsubsection{The part that changes a design decision}
+\label{sec:effdim-design}
+
+The obvious next move is dangerous, so it is worth doing the second measurement
+before anyone makes it: if the manifold is ${\sim}10$-dimensional, why not
+compress --- a PCA basis, a latent bottleneck, a variance-weighted loss?
+
+Because \textbf{\Ye{} does not live in the leading directions.}
+$\Ye = \sum_i (Z_i/A_i)X_i$ is a linear functional $w\cdot X$, so the fraction
+of $\Var(\Ye)$ captured by the top-$k$ PCs of $X$ is computable exactly.
+\derivedhere:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.2cm} L{3.2cm}@{}}
+\toprule
+ & \textbf{\msn{80}} & \textbf{\msn{151}} \\
+\midrule
+std$(\Ye)$ across the sample & $1.18\times10^{-2}$ & $1.61\times10^{-2}$ \\
+PCs for 90\% of \textbf{$\Var(X)$} & 7 & 14 \\
+PCs for 90\% of \textbf{$\Var(\Ye)$} & \textbf{16} & 11 \\
+PCs for 99\% of $\Var(X)$ & 22 & 38 \\
+PCs for 99\% of \textbf{$\Var(\Ye)$} & \textbf{43} & \textbf{65} \\
+cumulative $\Var(X)$\,/\,$\Var(\Ye)$ at $k = 10$ &
+  0.9491\,/\,0.8716 & 0.8565\,/\,0.8799 \\
+\ldots at $k = 20$ & 0.9875\,/\,0.9082 & 0.9521\,/\,0.9426 \\
+\ldots at $k = 30$ & \textbf{0.9966\,/\,0.9295} &
+  \textbf{0.9811\,/\,0.9527} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{warn}
+\warnglyph{}~Read this carefully, because the effect is \textbf{in the tail, not
+in the leading directions}. At small $k$ the two are comparable --- \msn{151} at
+$k = 10$ even captures \Ye{} slightly \emph{better} than $X$. What differs is
+convergence: to reach 99\%, \Ye{} needs \textbf{43 vs 22} components (\msn{80})
+and \textbf{65 vs 38} (\msn{151}), i.e. 1.7--2$\times$ as many; and by $k = 30$,
+$X$ has converged to 99.7\%\,/\,98.1\% while \Ye{} has stalled at
+93.0\%\,/\,95.3\%. \textbf{The last few percent of the \Ye{} signal is smeared
+across many low-variance directions and cannot be recovered by truncation.}
+\end{warn}
+
+\subsubsection{The arithmetic that settles it}
+\label{sec:effdim-arithmetic}
+
+That tail behaviour would be a mild caution if the \Ye{} tolerance were loose.
+It is not. The per-step budget is $3\times10^{-6}$ (\S\ref{sec:budget}) against
+$\mathrm{std}(\Ye) = 1.18\times10^{-2}$, so the tolerable \emph{relative} error
+is
+%
+\begin{equation}
+\frac{3\times10^{-6}}{1.18\times10^{-2}} \;=\; 2.5\times10^{-4},
+\label{eq:reltol}
+\end{equation}
+%
+and a rank-$k$ truncation's \Ye{} error is
+$\sqrt{1 - \mathrm{cumVar}_{\Ye}(k)}\cdot\mathrm{std}(\Ye)$. Meeting the budget
+therefore requires
+%
+\begin{equation}
+\mathrm{cumVar}_{\Ye}(k) \;\ge\; 1 - (2.5\times10^{-4})^2
+\;=\; 1 - 6.5\times10^{-8} \;=\; 99.999993\% .
+\label{eq:cumvarreq}
+\end{equation}
+\derivedhere
+
+\textbf{No truncation achieves that.} Not $k = 30$, not $k = 60$, not any $k$
+short of the full rank --- the measured curve is at 93\% by $k = 30$. So this is
+not ``variance compression is risky for \Ye''; it is \textbf{arithmetically
+excluded}: any variance-truncated reduction of the composition --- PCA basis,
+POD, a linear autoencoder bottleneck sized by reconstruction error --- destroys
+the \Ye{} budget by three to four orders of magnitude before the model has made
+a single error of its own.
+
+\subsubsection{And it is not an accident --- it is the rank measurement}
+\label{sec:effdim-stoich}
+
+This is not an empirical quirk of these trajectories; it is forced by the
+stoichiometry, and the proof is a result already in this document.
+
+\S\ref{sec:rank} measured that the left null space of $\nu$ restricted to
+strong\,/\,EM columns is exactly $\mathrm{span}\{A, Z\}$. So \emph{every}
+increment produced by the strong sector satisfies $Z\cdot \dd Y = 0$, i.e.
+$\dYe = 0$ exactly. The strong sector is fast, carries essentially all the
+composition change, and is therefore responsible for essentially all the
+composition variance --- and every bit of it is \Ye-neutral.
+
+\begin{result}
+\textbf{\Ye{} moves only through the weak sector, which is slow. The dominant
+variance directions are therefore \Ye-blind by construction, and the \Ye{}
+signal is pushed into the low-variance tail.}\derivedhere
+\end{result}
+
+Consequences, all actionable:
+
+\begin{enumerate}
+\item \textbf{Never size a latent bottleneck by explained composition variance.}
+  The requirement is $1 - 6.5\times10^{-8}$ of $\Var(\Ye)$; reconstruction error
+  is simply the wrong instrument, by four orders of magnitude. If a bottleneck
+  is used at all, \Ye{} must be carried \emph{outside} it --- as an explicit
+  conserved coordinate, not as something reconstructed.
+\item \textbf{A plain MSE-on-$X$ (or on $\Delta X$) loss is variance-weighted},
+  hence subject to the same blindness. An explicit \Ye{} term is not a nicety,
+  it is structurally required. (\code{CLAUDE.md}'s loss-weighting discussion and
+  the $|\dot{\dYe}|$ concentration measurements --- top-5 weak channels carrying
+  0.96\,/\,0.75, \resultsref{2026-07-12} --- are the right instinct; this is the
+  quantitative argument for it.)
+\item \textbf{Any PCA\,/\,POD\,/\,autoencoder-based reduction must be validated
+  on \Ye{} separately}, not on reconstruction error.
+\item \textbf{It suggests a genuinely better decomposition}: split the update as
+  $\dd Y = \dd Y_{\rm strong} + \dd Y_{\rm weak}$ with
+  $\dd Y_{\rm strong} \in \operatorname{null}(Z\Tr)$ enforced structurally. The
+  strong part then lives in a lower-dimensional, well-conditioned space, and the
+  weak part --- small, slow, and \emph{the entire \Ye{} signal} --- is a
+  separate head with its own loss and its own error budget. That is a Tier-4
+  architecture idea and, like \S\ref{sec:entropyactive}'s, it needs a novelty
+  check before anyone gets attached to it.
+\end{enumerate}
+
+Open (register: \reg{R-02}) --- repeat on the clean reruns and across the
+$(T, \rho)$ box before the Tier-4 choices above are made.
+
+% =====================================================================
+\subsection{The bipartite graph, the radius, and \texorpdfstring{$K$}{K}}
+\label{sec:graphK}
+
+\code{export.bipartite\_digraph} builds a heterogeneous digraph: isotope nodes
+and reaction nodes; I$\to$R edges for reactants (coefficient = consumed count,
+positive), R$\to$I edges for products (signed net production). A catalyst-like
+species gets both.
+
+\code{metrics.graph\_extents} reports three undirected views.
+\resultsref{2026-07-08}, identical for both networks:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{5.2cm} L{1.6cm} L{1.9cm} Y@{}}
+\toprule
+\textbf{view} & \textbf{radius} & \textbf{diameter} & \textbf{reading} \\
+\midrule
+bipartite (incidence only) & 3 & 6 &
+  I$\to$R$\to$I = 2 hops, so this counts half-reactions \\
+bipartite $+$ I$\to$I coupling edges & 2 & 4 & shortcut edges added \\
+isotope projection (I$\to$I only) & \textbf{1} & \textbf{2} &
+  one reaction = one hop \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+All connected, one component.
+
+\textbf{Isotope-projection radius 1} is the hub structure of
+\S\ref{sec:numap}(c) restated: there exists a species (\nuc{He}{4}) adjacent to
+\emph{every} other species --- it shares a reaction with all of them. Diameter
+2: any two species are at most two reactions apart.
+
+\textbf{$K = \lceil\text{radius}\rceil + 2 = 5$} on the bipartite graph is the
+checklist's implied processor depth (\code{GraphExtent.implied\_K}). The
+reasoning that makes it coherent: in the bipartite view one \emph{reaction hop}
+costs two message-passing layers, so $K = 5$ layers $\approx 2.5$ reaction hops
+--- which covers the isotope-projection \emph{diameter} of 2 reaction hops with
+one layer to spare. That is the honest justification; note that the formula as
+written uses \textbf{radius}, which for a graph-level readout from a central
+node would be the right base, but for a node-level output (which this is ---
+every species needs its own $\dd Y$) the stricter base is eccentricity, and the
+fact that $K = 5$ also clears the diameter is a happy coincidence of this
+particular graph rather than something the formula guarantees. Logged as an open
+item in \reg{R-19}.
+
+\textbf{The hazard the number hides.} A radius of 1 in the isotope projection
+means the graph carries almost no long-range structure to learn: everything is
+two hops from everything through three hub nodes. Depth beyond $K \approx 4$--5
+buys nothing topologically, and --- more importantly --- an architecture that
+appears to ``use the graph'' may in fact be routing all information through
+$n$\,/\,$p$\,/\,\nuc{He}{4} node features. That is a Tier-4
+experimental-design problem, but it is \emph{this} number that raises it.
+
+% =====================================================================
+\subsection{Code walkthrough}
+\label{sec:codes7}
+
+Reading order, ${\sim}600$ lines total.
+
+\paragraph{\code{graph/isotopes.py}} --- the isotope table: names, $A$, $Z$,
+pynucastro \code{Nucleus} objects, and \code{index()}. The row order of $\nu$ is
+the YAML order, which is the CSV-header order of the training data. This is the
+join key for everything. (Tier~0 \S II.7 covers it.)
+
+\paragraph{\code{graph/network.py}} --- builds the pynucastro
+\code{RateCollection} with duplicate resolution and the reconciliation
+disposition applied. Tier~1 \S VI.4.
+
+\paragraph{\code{graph/stoich.py}} (211 lines) --- the node. Read in this order:
+\begin{enumerate}
+\item The module docstring --- it \emph{is} the spec for the conservation layer.
+\item \code{WEAK\_LEDGERS} --- the three-row table of \S\ref{sec:ledgers}.
+\item \code{constraint\_matrix} --- \S\ref{sec:cmatrix}.
+\item \code{build\_stoich}: the $\nu$ loop, then the \textbf{five fail-loud
+  validations} (baryon leak; strong-column charge leak; weak $|\Delta Z| \ne 1$;
+  ledger\,/\,$\Delta Z$ mismatch; unrecognised weak classification), then
+  \code{C @ nu\_ext} residual, then the frozen dataclass.
+\item \code{Stoich} --- note what it carries beyond $\nu$: \code{weak\_mask},
+  \code{weak\_type}, \code{Q}, \code{is\_tabular}, \code{derived\_from\_inverse},
+  \code{chapter}, \code{source\_label}. Every one of those is a Tier-1 output
+  becoming a Tier-2 column attribute (Tier~1's ``threads that carry forward'').
+\end{enumerate}
+
+\paragraph{\code{graph/projector.py}} (47 lines) --- \S\ref{sec:projector}. Two
+functions; the docstring carries the invariant.
+
+\paragraph{\code{graph/export.py}} --- serialisation. Two details worth
+noticing: \code{content\_hash} hashes the \emph{content} (sorted keys, dtypes,
+shapes, bytes) rather than the file, because \code{.npz} embeds zip timestamps
+and would otherwise differ between identical exports. This is Tier~0 \S VII.5
+(non-regenerable artifacts are persisted) meeting reproducibility: the artifact
+\emph{is} regenerable, so what gets recorded in \code{RESULTS.md} is a content
+hash that proves the regeneration is identical.
+
+\paragraph{\code{graph/metrics.py}} --- the measurement layer:
+\code{reaction\_census}, \code{weak\_inventory}, \code{graph\_extents},
+\code{condition\_numbers}, \code{drift\_metrics}. Everything here exists to
+produce a \code{RESULTS.md} row. Note \code{\_SVD\_RANK\_RTOL = 1e-12} and the
+\emph{rank-revealing} condition number (ratio of extreme \textbf{nonzero}
+singular values): using the naive $\sigma_{\max}/\sigma_{\min}$ would report
+$\infty$, because the structural left-null vector $A$ guarantees a zero singular
+value. The same definition is reused by \code{killtest.active\_set.cond\_s\_active},
+and that consistency is deliberate --- the kill-test's cond gate would be
+meaningless if the two definitions differed.
+
+\paragraph{\code{scripts/export\_stoich\_matrix.py}},
+\textbf{\code{scripts/check\_conservation.py}},
+\textbf{\code{scripts/check\_projector.py}} --- the reproducible entry points
+behind the \code{RESULTS.md} rows.
+
+% =====================================================================
+\subsection{The oracle: what the 30-test gate actually asserts}
+\label{sec:oracles7}
+
+\code{tests/test\_conservation.py} has two layers, and the \emph{layering} is
+the design.
+
+\paragraph{Layer 1 --- the synthetic toy network.} Ten species, eight columns,
+hand-built in the test file: triple-$\alpha$, an $\alpha$-capture chain, an
+$(\alpha,\gamma)$, a $(p,\gamma)$ bottleneck, a photodisintegration, and
+\textbf{one of each weak type}. No pynucastro. No I/O.
+
+Its purpose is to isolate \emph{the convention} from \emph{the export}. If Layer
+1 fails, the bookkeeping convention itself is wrong --- the ledger table, the
+sign of $\bar\nu$ in the lepton row, the $\beta^+$ treatment. If Layer 1 passes
+and Layer 2 fails, the convention is fine and the pynucastro export is wrong.
+Two failure modes, cleanly separated by construction. This is worth stealing as
+a habit.
+
+Layer 1 also encodes the physics-direction assertions that the production
+matrices cannot conveniently state:
+
+\begin{srclisting}
+@pytest.mark.parametrize(("col", "expected_sign"),
+    [(5, -1.0), (6, +1.0), (7, -1.0)],
+    ids=["EC_lowers_Ye", "beta_minus_raises_Ye", "beta_plus_lowers_Ye"])
+\end{srclisting}
+
+--- i.e. \S\ref{sec:betaplus}'s conclusion, as a test with human-readable ids.
+
+\paragraph{Layer 2 --- the production matrices.} Auto-generated by the session
+fixture in \code{conftest.py} if absent (${\sim}7$\,s/net), so this layer
+\textbf{never skips}. That is a deliberate anti-pattern-avoidance: a gate that
+silently skips when its data is missing is not a gate. Assertions:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.5cm} Y L{2.2cm}@{}}
+\toprule
+\textbf{test} & \textbf{asserts} & \textbf{tolerance} \\
+\midrule
+\code{test\_exported\_shapes\_and\_species} &
+  $n = 80/151$, $C$ is $3 \times (n{+}3)$, $\nut$ is $(n{+}3) \times r$ &
+  exact \\
+\code{test\_exported\_columns\_conserve\_exactly} &
+  per column: $\sum A\nu = 0$; strong $\sum Z\nu = 0$; weak $|\Delta Z| = 1$ and
+  $\Delta Z = d_e$ & \textbf{\code{== 0.0}} (\S\ref{sec:exactzero}) \\
+\code{test\_exported\_lepton\_ledgers\_close} &
+  $\Delta L = 0$ on weak; ledgers zero on strong; $\max|C\nut| = 0$ &
+  \code{== 0.0} \\
+\code{test\_exported\_weak\_mask\_matches\_weak\_type} &
+  \code{weak\_mask} $\Longleftrightarrow$ \code{weak\_type != ""}; types
+  $\subseteq$ the three known & exact \\
+\code{test\_exported\_random\_flux\_drift} &
+  \textbf{the blocking gate}: 10 seeds $\times$ 6 scales
+  (\code{1e0}\ldots\code{1e-20}) $\times$ 2 networks; baryon drift and
+  charge-to-lepton closure within
+  $\max(10^{-12}s,\ 10^{-13}G)$; \dYe{} through weak columns $\ne 0$ & scaled \\
+\code{test\_exported\_mask\_contract\_on\_real\_matrix} &
+  random gate on the eligible set ($=$ \textasciitilde weak,
+  \emph{structurally}) leaves conservation intact and weak columns unscaled &
+  scaled \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The magnitude sweep is the part I would have under-specified if writing it
+myself. One scale is not a test: at $\netflux \sim 1$ an absolute $10^{-12}$
+bound is meaningful; at $\netflux \sim 10^{-20}$ it is vacuous, and a broken
+implementation would pass. Six scales spanning 20 decades with a tolerance that
+\emph{changes character} across them (absolute at the top, relative-to-gross at
+the bottom) is what makes the gate informative everywhere.
+
+\code{tests/test\_projector.py} mirrors the structure for Target B: shape,
+symmetry ($\le 10^{-14}$), idempotence ($\le 10^{-13}$), rank $= m - 3$ via
+eigenvalue sum, constraint residuals across the same 20 decades with a
+\emph{relative} bound ($P$ is linear hence exactly scale-equivariant, so the
+meaningful statement is relative), fixed-point on the manifold, weak-\dYe{}
+preservation, and the rank-deficiency guard.
+
+\begin{repopointer}
+\textbf{\textcircled{4} SEE:} notebook \code{03-graph-conservation.ipynb} ---
+Figure 1 the $\nu$ sparsity structure, Figure 2 drift vs \netflux{} magnitude
+(the tolerance's two regimes visible as a kink), Figure 3 the projector residual
+across 20 decades, Figure 4 the graph extents and $K$.
+\end{repopointer}
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-s7}
+
+\begin{selfcheck}
+\item State the theorem relating conserved quantities to $\nu$, with the
+  quantifier.
+\item left-nullity$(\nu) = 1$, left-nullity$(\nu$ restricted to strong
+  columns$) = 2$, left-nullity$(\nut) = 3$. Say what each of the three numbers
+  rules out.
+\item Why can \code{test\_exported\_columns\_conserve\_exactly} assert
+  \code{== 0.0} while \code{test\_exported\_random\_flux\_drift} cannot?
+\item Why is the lepton ledger assigned from \code{weak\_type} rather than from
+  $Z\cdot\nu$? What would the closure test detect if it were back-derived?
+\item Derive $P = I - C\Tr(CC\Tr)^{-1}C$ from a constrained least-squares
+  problem, then show the QR form is equal to it.
+\item What exactly goes wrong if $P$ is built from a nuclei-only $C$? Which test
+  catches it?
+\item Prove $\image(\nut) = \operatorname{null}(C)$, and say which half of the
+  proof required a measurement.
+\item The right-nullity of $\nu$ is 528. Give two distinct consequences for the
+  emulator's design.
+\item Why is \code{cond\_s\_active} defined with the ratio of extreme
+  \emph{nonzero} singular values rather than
+  $\sigma_{\max}/\sigma_{\min}$?
+\end{selfcheck}

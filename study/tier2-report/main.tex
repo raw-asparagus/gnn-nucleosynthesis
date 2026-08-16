@@ -1,0 +1,292 @@
+% =====================================================================
+%  Tier 2 -- Network Algebra.  Standalone report.
+%
+%  Source:  study/tier2.md  (literature audit 2026-08-14)
+%  Build:   latexmk -pdf -cd study/tier2-report/main.tex
+%
+%  This file re-architects the Markdown source from its node-by-node
+%  order (Part 0 astrophysics -> I (S7) stoichiometry -> II (S8) fluxes
+%  -> III (S9) NSE/QSE -> IV (S10) stiff integration -> V policy ->
+%  VI register -> VII method) into a PHYSICS ARC in which the S7--S10
+%  curriculum labels are dissolved:
+%
+%      1  the astrophysical setting
+%      2  conservation as linear algebra
+%      3  statistical equilibrium (NSE, QSE)
+%      4  fluxes, cancellation, entropy production
+%      5  stiff integration of the augmented state [Y, Phi]
+%      6  executable policy and measurement discipline
+%      7  the open register, and how it was built
+%
+%  The one substantive re-sequencing is that EQUILIBRIUM PRECEDES
+%  FLUXES.  The tier's hinge identity is kappa = |tanh(A/2kT)|, and the
+%  affinity A comes from the chemical potentials that the Saha
+%  coefficients produce; in the source, II.4b forward-references III.3
+%  explicitly and II.4(c) does so in its heading ("the bridge to S9").
+%  Putting equilibrium first turns those into backward
+%  references.  The price is that the two S9 sections which are defined
+%  against kappa -- III.10 (delta vs r_QSE) and III.12's results (2) and
+%  (3) -- travel forward into section 4 with it.
+%
+%  Measured numbers stay attached to the derivation that produces them;
+%  the front matter carries an index of them instead of a results part.
+%
+%  No content is omitted.  Appendix B is the concordance that proves it,
+%  and check_coverage.py is the mechanical audit.
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- fonts and encoding (pdfLaTeX) ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+% The .tex sources here are ASCII (accents are written \'e, \"u); utf8 is
+% loaded for future-proofing rather than necessity.
+\usepackage{mathpazo}                % Palatino text + math; same design as
+                                     % TeX Gyre Pagella, and what docs/qse uses
+\usepackage[scaled=0.85]{beramono}   % Bitstream Vera Mono, DejaVu Sans Mono's
+                                     % ancestor, so \code{} keeps its texture
+
+% ---------- layout ----------
+\usepackage[a4paper,margin=2.4cm,bottom=2.8cm]{geometry}
+\usepackage{microtype}
+\usepackage{parskip}
+\linespread{1.04}
+\emergencystretch=3em
+\setcounter{tocdepth}{3}
+\setcounter{secnumdepth}{3}
+
+% ---------- maths ----------
+\usepackage{amsmath}
+\usepackage{amssymb}   % \checkmark, \gtrsim, \lesssim, \simeq, \varnothing
+\usepackage{mathrsfs}  % \mathscr for the affinity and the flux cone
+\allowdisplaybreaks
+
+% ---------- tables ----------
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\renewcommand{\arraystretch}{1.18}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}[1]{>{\hsize=#1\hsize\raggedright\arraybackslash}X}
+
+% ---------- lists ----------
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt,parsep=0pt}
+
+% ---------- graphics ----------
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,
+                backgrounds,calc,decorations.pathmorphing}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf,skip=6pt}
+
+% ---------- callouts ----------
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+% ---------- citations (inline author-year, backed by \cite) ----------
+\usepackage[authoryear,round]{natbib}
+\bibpunct{(}{)}{;}{a}{}{,}
+\setlength{\bibsep}{2pt plus 0.4ex}
+
+% ---------- hyperref must load last ----------
+\usepackage[hidelinks,unicode]{hyperref}
+\hypersetup{
+  pdftitle={Tier 2 -- Network Algebra: stoichiometry, conservation as
+            linear algebra, statistical equilibrium, flux cancellation,
+            and the stiff integration of the augmented flux state for a
+            conservation-by-construction GNN emulator of silicon burning},
+  pdfsubject={Personal study material; not project spec},
+  pdfkeywords={stoichiometric matrix, conservation laws, null space,
+               nuclear statistical equilibrium, quasi-statistical
+               equilibrium, Saha equation, detailed balance, entropy
+               production, stiff integration, BDF, silicon burning}}
+
+% =====================================================================
+%  Notation macros.  Repo convention: superscript isotopes in prose,
+%  lowercase handles (si28) in anything code-adjacent.
+% =====================================================================
+\newcommand{\nuc}[2]{\ensuremath{{}^{#2}\mathrm{#1}}}
+\newcommand{\Ye}{\ensuremath{Y_{e}}}
+\newcommand{\dYe}{\ensuremath{\Delta Y_{e}}}
+\newcommand{\Tn}{\ensuremath{T_{9}}}
+% \code inserts zero-width breakpoints after / _ . : - so that long
+% identifiers (tests/test_conservation.py::test_exported_random_flux_drift)
+% wrap instead of running into the margin.
+\ExplSyntaxOn
+\tl_new:N \l__code_tl
+\NewDocumentCommand{\code}{m}{%
+  \tl_set:Nn \l__code_tl {#1}
+  \regex_replace_all:nnN { \c{_} }  { \c{_}\c{allowbreak} }  \l__code_tl
+  \regex_replace_all:nnN { / }      { /\c{allowbreak} }      \l__code_tl
+  \regex_replace_all:nnN { \. }     { .\c{allowbreak} }      \l__code_tl
+  \regex_replace_all:nnN { : }      { :\c{allowbreak} }      \l__code_tl
+  \texttt{\tl_use:N \l__code_tl}%
+}
+\ExplSyntaxOff
+\newcommand{\msn}[1]{\texttt{mesa\_#1}}
+\newcommand{\Msun}{\ensuremath{M_{\odot}}}
+\newcommand{\gcc}{\ensuremath{\mathrm{g\,cm^{-3}}}}
+\newcommand{\enuc}{\ensuremath{e_{\mathrm{nuc}}}}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\Tr}{^{\mathsf{T}}}
+\newcommand{\arxiv}[1]{\href{https://arxiv.org/abs/#1}{arXiv:#1}}
+\DeclareMathOperator{\asinh}{asinh}
+\DeclareMathOperator{\artanh}{artanh}
+\DeclareMathOperator{\cond}{cond}
+\DeclareMathOperator{\image}{image}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator*{\Var}{Var}
+\newcommand{\degree}{\ensuremath{^{\circ}}}
+% ticks and warning glyphs used inline in the source
+\newcommand{\yes}{\ensuremath{\checkmark}}
+\newcommand{\no}{\ensuremath{\times}}
+
+% ---------- Tier 2 notation ----------
+% The source's two "fluxes" -- see the convention table in the front matter.
+\newcommand{\fp}{\ensuremath{f^{+}}}
+\newcommand{\fm}{\ensuremath{f^{-}}}
+\newcommand{\netflux}{\ensuremath{\varphi}}          % net INSTANTANEOUS flux
+\newcommand{\Phifl}{\ensuremath{\Phi}}               % time-INTEGRATED flux
+\newcommand{\kap}{\ensuremath{\kappa}}
+\newcommand{\aff}{\ensuremath{\mathscr{A}}}          % thermodynamic affinity
+\newcommand{\nut}{\ensuremath{\tilde\nu}}            % extended stoichiometry
+\newcommand{\Yt}{\ensuremath{\tilde Y}}
+\newcommand{\uG}{\ensuremath{u_{G}}}
+\newcommand{\up}{\ensuremath{u_{p}}}
+\newcommand{\un}{\ensuremath{u_{n}}}
+\newcommand{\Mch}{\ensuremath{M_{\mathrm{ch}}}}
+\newcommand{\kB}{\ensuremath{k_{B}}}
+\newcommand{\dex}{\,\text{dex}}
+\newcommand{\Sact}{\ensuremath{S_{\mathrm{active}}}}
+\newcommand{\Mslow}{\ensuremath{\mathcal{M}_{\mathrm{slow}}}}
+\newcommand{\rQSE}{\ensuremath{r_{\mathrm{QSE}}}}
+% Cross-tier register items.  Tier 2's own register is R-01..R-25; the source
+% also cites Tier 0 R-18 / R-21 and Tier 1 R-17 / R-23, whose numbers COLLIDE
+% with Tier 2's.  Foreign items must always be rendered through this macro and
+% must never be \ref'd into this report's register.
+\newcommand{\foreignreg}[2]{\textbf{Tier~#1 #2}}
+% Tier 2's own register items, rendered as a live link to Appendix VI.1.
+\newcommand{\reg}[1]{\hyperref[sec:register]{\textbf{#1}}}
+
+% =====================================================================
+%  Provenance tags.
+%
+%  The source carries two provenance markers, used more heavily than in
+%  tier1.md:
+%
+%    [derived here]  x26 -- reproducible from the snippets given in the
+%                           source, but NOT a RESULTS.md row.
+%    [RESULTS <date>] x47 -- a measured project number whose source of
+%                           truth is RESULTS.md, with script + commit +
+%                           data provenance.  If a number here disagrees
+%                           with RESULTS.md, RESULTS.md wins.
+%
+%  Both must survive the conversion; check_coverage.py counts them.
+% =====================================================================
+\definecolor{provrule}{HTML}{6B6151}
+\newcommand{\derivedhere}{\,{\footnotesize\textcolor{provrule}{\textsc{[derived here]}}}}
+\newcommand{\resultsref}[1]{\,{\footnotesize\textcolor{provrule}{[\textsc{results}~#1]}}}
+
+% =====================================================================
+%  Callout environments.
+%  Five kinds, plus a repo-pointer box; all breakable, all accepting \par.
+% =====================================================================
+\definecolor{resultrule}{HTML}{1F5C8B}
+\definecolor{warnrule}  {HTML}{A33A16}
+\definecolor{rulerule}  {HTML}{4A3B77}
+\definecolor{exrule}    {HTML}{1E6B4F}
+\definecolor{asiderule} {HTML}{5A5A5A}
+\definecolor{pointrule} {HTML}{6B6151}
+
+\newcommand{\warnglyph}{\textbf{\textcolor{warnrule}{!\!}}}
+
+\tcbset{
+  calloutbase/.style={
+    breakable, enhanced, sharp corners,
+    boxrule=0pt, leftrule=2.2pt, colback=white,
+    left=8pt, right=6pt, top=5pt, bottom=5pt,
+    parbox=false, before skip=8pt, after skip=8pt}}
+
+\newtcolorbox{result}  {calloutbase, colframe=resultrule,
+                        colback=resultrule!4!white}
+\newtcolorbox{warn}    {calloutbase, colframe=warnrule,
+                        colback=warnrule!5!white}
+\newtcolorbox{invariant}{calloutbase, colframe=rulerule,
+                        colback=rulerule!5!white}
+\newtcolorbox{exercise} {calloutbase, colframe=exrule,
+                        colback=exrule!4!white}
+\newtcolorbox{aside}    {calloutbase, colframe=asiderule,
+                        colback=asiderule!4!white}
+
+% Repo pointers: "In the code:", "Files:", "Oracle:", "Notebook:".
+\newtcolorbox{repopointer}[1][]{
+  breakable, enhanced, sharp corners, boxrule=0pt, leftrule=1.4pt,
+  colframe=pointrule, colback=pointrule!5!white,
+  left=7pt, right=6pt, top=4pt, bottom=4pt, fontupper=\small,
+  parbox=false, before skip=7pt, after skip=7pt, #1}
+
+% =====================================================================
+%  Self-check environment.  40 questions in total across the document,
+%  every one preserved from the source's five blocks; the physics-arc
+%  architecture redistributes them, and Appendix B records every
+%  relocation.
+% =====================================================================
+\newlist{selfcheckenum}{enumerate}{1}
+\setlist[selfcheckenum]{label=\arabic*., leftmargin=1.9em,
+                        itemsep=4pt, topsep=4pt}
+\newenvironment{selfcheck}
+  {\par\addvspace{6pt}\noindent
+   {\bfseries\sffamily\small SELF-CHECK}\par\addvspace{2pt}
+   \begin{selfcheckenum}}
+  {\end{selfcheckenum}\par\addvspace{6pt}}
+
+% =====================================================================
+%  Verbatim listings that must keep their exact spacing (code excerpts,
+%  measurement dumps, config fragments, ASCII layouts).
+% =====================================================================
+\usepackage{fancyvrb}
+\DefineVerbatimEnvironment{srclisting}{Verbatim}
+  {fontsize=\small, xleftmargin=1.2em, samepage=false}
+\DefineVerbatimEnvironment{srclistingtiny}{Verbatim}
+  {fontsize=\footnotesize, xleftmargin=0.6em, samepage=false}
+
+% =====================================================================
+\begin{document}
+
+\include{parts/00-front}
+
+% ---- 1  the astrophysical setting -----------------------------------
+\include{parts/01-setting}
+
+% ---- 2  conservation as linear algebra ------------------------------
+\include{parts/02-conservation}
+
+% ---- 3  statistical equilibrium -------------------------------------
+\include{parts/03-equilibrium}
+
+% ---- 4  fluxes, cancellation, entropy production ---------------------
+\include{parts/04-fluxes}
+
+% ---- 5  stiff integration of [Y, Phi] -------------------------------
+\include{parts/05-integration}
+
+% ---- 6  executable policy and measurement discipline -----------------
+\include{parts/06-policy}
+
+% ---- 7  the open register -------------------------------------------
+\include{parts/07-register}
+
+% ---- handoff ---------------------------------------------------------
+\include{parts/08-handoff}
+
+\appendix
+\include{parts/A-sectionmap}
+\include{parts/B-concordance}
+
+\include{parts/bibliography}
+
+\end{document}

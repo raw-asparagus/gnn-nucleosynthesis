@@ -1,0 +1,174 @@
+% =====================================================================
+%  Appendix A -- the source document's own section map.
+%  Source: tier2.md:113-191 (the Contents table and the collapsed
+%  "Full section list"), reproduced so that the source's own
+%  Part 0 / I / II / III / IV / V / VI / VII architecture survives the
+%  re-architecture into a physics arc.
+% =====================================================================
+
+\section{The source document's section map}
+\label{app:sectionmap}
+
+This report re-architects \code{study/tier2.md} into a physics arc
+(\hyperref[sec:status]{Status of this document}). The source's own organisation --- Part~0 the astrophysics,
+then node by node from S7 to S10, then policy, register and method --- is
+reproduced here so that nothing about it is lost, and so that a reader who knows
+the source document can navigate this one.
+Appendix~\ref{app:concordance} is the heading-by-heading map between them.
+
+\subsection{The source's Contents table}
+\label{app:sourcecontents}
+
+\begingroup
+\small
+\begin{longtable}{@{}L{2.2cm} L{12.8cm}@{}}
+\toprule
+\textbf{Part} & \textbf{Covers} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Part} & \textbf{Covers} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{0} --- Astrophysical prerequisites &
+The equilibrium hierarchy (kinetics $\to$ QSE $\to$ NSE) and its history;
+silicon burning as photodisintegration rearrangement; the \Ye{} $\to$ observable
+chain derived end to end \textbf{and the derivative nobody has assembled}; why
+conservation is structural; \textbf{what consumes the output and what speedup is
+achievable (the $1/f$ ceiling)}; the kill-test as a matrix question \\
+
+\textbf{I} (S7) --- Stoichiometry \& conservation &
+$\nu$ as a linear map; conservation laws \textbf{are} the left null space (with
+the rank measurement proving $C$ is complete); \textbf{the same object in CRN
+theory --- deficiency, weak reversibility, the flux cone}; lepton ledgers and
+the tautology trap; Target A's theorem \textbf{and what it does not guarantee
+(positivity)}; the projector derived twice; the \textbf{Target-A $\equiv$
+Target-B reachability theorem}; \textbf{the effective dimension of the reachable
+set and where \Ye{} hides}; the graph and $K$ \\
+
+\textbf{II} (S8) --- Fluxes \& cancellation &
+The pair map and the net identity; \kap{} four ways --- DB diagnostic, condition
+number, \textbf{thermodynamic affinity}, \textbf{entropy production};
+\textbf{the entropy-weighted active set, the second-law constraint on a learned
+flux, and the Lyapunov bound}; the weak $\kap \equiv 1$ contract; the store; the
+handshake \textbf{and the $\Delta t/\tau$ conditioning variable it implies}; the
+vacuous pass \\
+
+\textbf{III} (S9) --- NSE and QSE &
+Statistical equilibrium from the grand canonical ensemble;
+$\mu_i = Z\mu_p + N\mu_n$ derived; the Saha coefficient term-by-term; the Newton
+system and its analytic Jacobian; \textbf{the monotonicity proof}; QSE clusters
+and \uG; QSE as a slow manifold; the Guidry $\delta$ criterion; the empty-mask
+verdict \\
+
+\textbf{IV} (S10) --- Stiff integration &
+Stiffness from the Jacobian spectrum; BDF and L-stability; the augmented
+$[Y, \Phifl]$ state; \textbf{why \Phifl{} cannot be recovered --- and why that
+makes the flux head unidentifiable under a $\Delta Y$-only loss}; the analytic
+$\partial R/\partial Y$; the energy identity as a \emph{data} check \textbf{and
+the Wegscheider measurement that explains its residual}; the cost wall \\
+
+\textbf{V} --- Policy \& measurement discipline &
+The structural invariants encoded in code that refuses --- then the three the
+repo does \textbf{not} encode: \textbf{the sampling measure on the regime box},
+\textbf{cluster-robust inference (657k samples $\approx$ 300 independent ones)},
+and verification practice (convergence order, manufactured solutions, trivial
+baselines) \\
+
+\textbf{VI} --- The open register &
+\textbf{The single register: 25 items (R-01 \ldots R-25), each pointing at the
+section that derives it, plus a ranked top eight.} R-24 (learning theory) and
+R-25 (shelf life) are written out here, having no home section \\
+
+\textbf{VII} --- How the register was built &
+The two gap-audit passes and the axes each swept; \textbf{thirteen candidate
+axes checked and found already covered}; is the audit converging? (yes, with
+three qualifications) \\
+\end{longtable}
+\endgroup
+
+\subsection{The source's full section list}
+\label{app:sourcelist}
+
+Reproduced verbatim from the source's collapsed ``Full section list'' block.
+
+\begin{srclistingtiny}
+0.1  The equilibrium hierarchy          NSE / QSE / kinetics as flux statements
+     counting DOF . the historical arc . what the project bets on it
+0.2  Silicon burning, mechanically      why ~3 GK . two clusters, one bridge set
+                                        the Fe-peak endpoint . not a ladder
+0.3  The Ye chain, end to end           M_ch ~ Ye^2 . deleptonisation . the observable
+     0.3.4 the error budget -> the 3e-6 gate
+     0.3.5 (!) the OUTPUT end: dM_Ni/dYe has never been assembled
+0.4  Why conservation is structural      left null vectors . the soft-penalty failure
+0.5  What breaks on a leak
+0.5b Deployment                          what consumes the output . imposed vs fed-back
+                                         (!) the cost ceiling is 1/f, not the raw speed
+0.6  The decision this tier serves        0.7 what is NOT here . 0.8 self-check
+
+I.1  nu as a linear map                  I.8  The projector derived twice
+I.2  Conservation = left null space      I.9  Extended space & the laundering trap
+     the rank measurement                I.10 Target A = Target B (reachability)
+     why float64 is exact here           I.10b (!) effective dimension; Ye in the tail
+I.2b CRN theory, deficiency, flux cone   I.11 The bipartite graph, radius, K
+     deficiency 126/327 - the DZT does   I.12 Code walkthrough
+     NOT apply, measured, and why        I.13 Oracles: the 30-test gate
+I.3-I.6 weak sector . ledgers . b+ . C   I.14 self-check
+I.7  Target A's theorem
+I.7b (!) ...and what it does NOT guarantee: positivity
+
+II.1 From lambda to R to f+/f-           II.6  The store: lossless derivation
+II.2 The pair map                        II.7  The handshake: premise & tolerance
+II.3 The net identity, proved            II.7b (!) condition on dt/tau, not log dt
+II.4 kappa four ways: DB . condition number  II.8  Cancellation-aware residuals
+     . affinity . entropy production        II.9  Measured: the vacuous pass
+II.4b (!) sigma = 2k_B s kappa artanh kappa II.10 Code + oracles
+      -> entropy-weighted active set        II.11 self-check
+      -> sign(phi-hat) from the affinity
+      -> the Lyapunov bound in F (S20)      II.5 weak columns: kappa = 1 structurally
+      ALL strong/EM-only: sigma, A and F
+      are undefined on weak columns
+
+III.1-III.7  Saha derived; the two constraints; Newton + analytic Jacobian;
+             (!) the dYe/du_p > 0 proof; batching & the scalar fallback
+III.8-III.11 QSE clusters & u_G; the slow manifold; delta vs r_QSE; the group boundary
+III.12-III.14 the three negative results; code + oracles; self-check
+
+IV.1 Stiffness from the spectrum         IV.6  Conservation by construction
+IV.2 Why BDF, and what L-stability buys  IV.7  Error control for Phi
+IV.3 The augmented state [Y, Phi]        IV.8  The energy identity is a DATA check
+IV.4 (!) Why Phi is not recoverable      IV.8b (!) Wegscheider: Q _|_ null(nu) FAILS
+IV.4b (!) ...so the flux head is               rms 0.55 keV, max 3.5 keV
+      unidentifiable in 528 directions         predicts the stock-MESA kappa floor
+IV.5 dR/dY by the product rule           IV.9  The cost wall, diagnosed
+                                         IV.10 Code + oracles . IV.11 self-check
+
+V.1  Invariants encoded in code that refuses
+V.2  (!) the sampling MEASURE on the box (not its support): 35/62/82% within .1/.2/.3 dex
+V.3  (!) cluster-robust inference: ICC 0.22-0.70, deff 6.5-18.6, n_eff ~ 300
+V.4  V&V: convergence order . manufactured solutions . NSE-as-a-baseline
+
+VI.1 The register, R-01 ... R-25         VII.1 The method: two passes, which axes
+VI.2 R-24 learning theory                VII.2 13 axes checked, 13 already covered
+     R-25 shelf life                     VII.3 Is the audit converging?
+VI.3 Ranked: the top eight
+\end{srclistingtiny}
+
+\begin{aside}
+\textbf{Glyph substitutions in the listing above.} The block is set in a
+monospaced face, so a handful of source glyphs were transliterated rather than
+risk a missing glyph: $\nu \to$ \code{nu}, $\kap \to$ \code{kappa},
+$\sigma \to$ \code{sigma}, $\aff \to$ \code{A}, $\hat\netflux \to$
+\code{phi-hat}, $\Phifl \to$ \code{Phi}, $\Delta t \to$ \code{dt},
+$\tau \to$ \code{tau}, $\delta \to$ \code{delta}, $\Ye \to$ \code{Ye},
+$\beta^+ \to$ \code{b+}, $\Mch \propto \Ye^2 \to$ \code{M\_ch \textasciitilde{}
+Ye\textasciicircum2}, $\equiv\ \to$ \code{=}, $\to\ \to$ \code{->},
+$\perp\ \to$ \code{\_|\_}, the interpunct $\to$ \code{.}, and the warning glyph
+to \code{(!)}. Nothing else was changed: the wording, the line breaks, the
+two-column layout, and the ordering are the source's --- only the column
+padding of the \S II.4\,/\,\S II.4b stanza was widened, because transliterating
+$\kap$ and $\sigma$ to their names lengthens the left column.
+\end{aside}

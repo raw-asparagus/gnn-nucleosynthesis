@@ -1,0 +1,411 @@
+% =====================================================================
+%  Front matter.
+%  Source: tier2.md:1-191 (title blurb, status, maths-formatting note,
+%          the flux-convention table, how-to-study, Contents, and the
+%          collapsed "Full section list").
+%  The Contents table and the full section list are NOT dropped -- they
+%  are reproduced verbatim as Appendix A, because they are the source
+%  document's own architecture and this report re-orders it.
+%  The measured-results index (sec:resultsindex) is NEW: it exists
+%  because measurements stay attached to the derivation that produces
+%  them, so a reader who wants them together needs one index.  Every
+%  row is a pointer; no number originates here.
+% =====================================================================
+
+\begin{titlepage}
+\centering
+\vspace*{3.2cm}
+
+{\Huge\bfseries Tier 2 --- Network Algebra\par}
+
+\vspace{1.2em}
+{\Large Stoichiometry, conservation as linear algebra,\\[0.3em]
+statistical equilibrium, flux cancellation,\\[0.3em]
+and the stiff integration of the augmented flux state\par}
+
+\vspace{0.8em}
+{\large\itshape A study report for the conservation-by-construction GNN\\
+emulator of silicon burning\par}
+
+\vspace{2.6em}
+\begin{minipage}{0.84\textwidth}
+\small
+Complete deep dive: from rates to $\dd Y$, exactly and conservatively. Tier~1
+ended with a number, $\lambda_j(T, \rho, \Ye)$, one per reaction, trustworthy to
+0.004\,dex against an independent Fortran code. Tier~2 is what you do with 607
+(or 1518) such numbers. It is the tier where the project's central design
+commitment --- \emph{conservation by construction} --- stops being a slogan and
+becomes a rank computation, and where the equilibrium structure that the whole
+emulator bets on (QSE) gets defined, solved for, and measured. Everything
+needed before Tier~3 (silicon burning proper, the labels, the kill-test
+verdict), in one document.
+\end{minipage}
+
+\vfill
+{\small Literature audit 2026-08-14\par}
+\vspace{0.5em}
+{\small Source document: \code{study/tier2.md}\par}
+\end{titlepage}
+
+% ---------------------------------------------------------------------
+\section*{Status of this document}
+\addcontentsline{toc}{section}{Status of this document}
+\label{sec:status}
+
+\begin{warn}
+\textbf{Personal study material, not project spec.} Deliberately written without
+reference to \code{docs/} --- everything is derived from first principles or
+read off the business code, configs, notebooks, and tests.
+\end{warn}
+
+\begin{itemize}
+\item Textbook physics and derivations here are \textbf{mine to check}, not
+      citable project output. Where I compute something myself --- rank and
+      null-space structure, the Saha monotonicity proof, the energy-identity
+      collapse, the Target-A\,/\,Target-B equivalence theorem --- it is tagged
+      \derivedhere: reproducible from the snippets given, but not a
+      \code{RESULTS.md} row.
+
+\item Measured project numbers quoted here originate in \code{RESULTS.md} with
+      script $+$ commit $+$ data provenance, tagged \resultsref{date}. This
+      document is \textbf{not} their source of truth; if a number here
+      disagrees with \code{RESULTS.md}, \code{RESULTS.md} wins.
+
+\item \textbf{Bibliographic details were verified in the 2026-08-14 literature
+      audit} (the former \textbf{[sourced --- verify]} tags are resolved). Every
+      externally-attributable claim now carries an inline author--year citation
+      resolved in the References section at the end; corrections found by the
+      audit (the BCF68 single-group picture, the Bethe 1990 \Ye/$Y_L$
+      conflation, the Guidry journals, the Patankar weighting, the BDF
+      A($\alpha$) range, the extreme-pathway attribution) were applied in place,
+      with an inline note where the physics content itself changed. This is the
+      sourced\,/\,derived\,/\,assumed discipline of Tier~0 \S VII.1 applied to
+      myself.
+\end{itemize}
+
+Notation follows the repo, Tier~0, and Tier~1: \nuc{Ni}{56} in prose,
+\code{ni56} in code-adjacent contexts, \Ye{} / $\nu$ / $\netflux$ / $\kap$ as in
+the codebase. Section references of the form \S0.x, \S I.x, \S V.x point back
+into \code{study/tier0.md}; of the form \S II.x, \S III.x with an (S2)\ldots(S6)
+label, into \code{study/tier1.md}. References \emph{within} this report are live
+\S-links.
+
+\begin{invariant}
+\textbf{One convention worth stating loudly up front}, because two different
+objects in this tier are both called ``the flux'':
+
+\begin{center}
+\begin{tabularx}{0.95\textwidth}{@{}L{1.8cm} Y L{2.6cm} L{2.9cm}@{}}
+\toprule
+\textbf{symbol} & \textbf{meaning} & \textbf{units} & \textbf{where} \\
+\midrule
+$R_j$, $\fp_j$ & \textbf{gross} rate of reaction $j$, one direction &
+  mol\,g$^{-1}$\,s$^{-1}$ & engine, integrator \\
+$\netflux_j$ & \textbf{net instantaneous} flux, $\fp_j - \fm_j$ &
+  mol\,g$^{-1}$\,s$^{-1}$ & \kap, kill-test \\
+$\Phifl_j$ & \textbf{time-integrated} flux over a label step,
+  $\int R_j\,\dd t$ & mol\,g$^{-1}$ & Target A's label \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Target A predicts \textbf{\Phifl}, not \netflux. \code{integrate.py} produces
+\Phifl{} as a \emph{gross} per-column cumulative ($\dd\Phifl/\dd t = R$), and
+the net view is recovered downstream through \code{pair\_col} exactly as
+\code{store.py} does it. Mixing these up makes \S\ref{part:integration}
+incomprehensible.
+\end{invariant}
+
+% ---------------------------------------------------------------------
+\paragraph{A note on this edition.} The source document is organised
+\emph{node by node}: Part~0 the astrophysics, then S7 stoichiometry, S8 fluxes,
+S9 NSE\,/\,QSE, S10 stiff integration, then policy, the open register, and the
+method audit. Each of those parts interleaves five different \emph{kinds} of
+statement --- astrophysical theory, description of the object, a derivation, the
+code that implements it, and the measured claim that closes it. That
+interleaving is the DERIVE\,/\,READ\,/\,ORACLE\,/\,SEE study loop the source was
+written around.
+
+This report re-architects the same material into a \textbf{physics arc}, in
+which the S7--S10 curriculum labels are dissolved and the argument runs in the
+order the physics does:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{1.1cm} L{4.4cm} Y@{}}
+\toprule
+\textbf{\S} & \textbf{Theme} & \textbf{Covers} \\
+\midrule
+\ref{part:setting} & The astrophysical setting &
+  the equilibrium hierarchy and its history; silicon burning as
+  photodisintegration rearrangement; the \Ye{} chain derived end to end and the
+  derivative nobody has assembled; what breaks on a leak; deployment and the
+  $1/f$ cost ceiling; the kill-test as a matrix question \\
+\ref{part:conservation} & Conservation as linear algebra &
+  why conservation is structural; $\nu$ as a linear map; conservation laws
+  \textbf{are} the left null space, with the rank measurement proving $C$
+  complete; the same object in CRN theory; the weak sector, the ledgers and the
+  tautology trap; Target A's theorem and what it does not guarantee; the
+  projector derived twice; the A~$\equiv$~B reachability theorem; the effective
+  dimension of the reachable set and where \Ye{} hides; the graph and $K$ \\
+\ref{part:equilibrium} & Statistical equilibrium &
+  equilibrium from the grand canonical ensemble; $\mu_i = Z\mu_p + N\mu_n$
+  derived; the Saha coefficient term by term; the Newton system and its analytic
+  Jacobian; the monotonicity proof; QSE clusters and \uG; QSE as a slow
+  manifold; the group boundary as a config variant; the solver cross-check \\
+\ref{part:fluxes} & Fluxes, cancellation, entropy production &
+  the pair map and the net identity; \kap{} four ways --- DB diagnostic,
+  condition number, thermodynamic affinity, entropy production; the
+  entropy-weighted active set, the second-law constraint and the Lyapunov bound;
+  the weak $\kap \equiv 1$ contract; the two departure diagnostics; the store;
+  the handshake and the $\Delta t/\tau$ conditioning variable; the vacuous pass
+  and the two remaining negative results \\
+\ref{part:integration} & Stiff integration of $[Y, \Phifl]$ &
+  stiffness from the Jacobian spectrum; BDF and L-stability; the augmented
+  state; why \Phifl{} cannot be recovered and why that makes the flux head
+  unidentifiable; the analytic $\partial R/\partial Y$; the energy identity as a
+  \emph{data} check and the Wegscheider measurement that explains its residual;
+  the cost wall \\
+\ref{part:policy} & Policy and measurement discipline &
+  the structural invariants encoded in code that refuses --- then the three the
+  repo does \textbf{not} encode: the sampling measure on the regime box,
+  cluster-robust inference, and verification practice \\
+\ref{part:register} & The open register &
+  the single register, R-01 \ldots R-25, each pointing at the section that
+  derives it, plus a ranked top eight; and how the register was built ---
+  two passes, thirteen candidate axes found already covered, and whether the
+  audit is converging \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\emph{No content has been omitted.} The cost of the physics arc is that the
+source's node boundaries no longer align with this report's sections. Three
+things hold that together: every relocated argument carries cross-references in
+both directions; Appendix~\ref{app:sectionmap} reproduces the source document's
+own contents table and full section list verbatim; and
+Appendix~\ref{app:concordance} is a heading-by-heading concordance from the
+source's numbering to this one, including every self-check question that moved
+so that no question tests material the reader has not yet reached; and
+the \hyperref[sec:resultsindex]{index of measured results} lists every measured result, since measurements stay
+attached to the derivations that produce them. All of it is checked
+mechanically by \code{study/tier2-report/check\_coverage.py}.
+
+Four blocks of material were re-homed across the source's part boundaries,
+rather than merely re-ordered:
+
+\begin{itemize}
+\item \textbf{Why conservation is structural} (source \S0.4) now opens
+  \S\ref{part:conservation}, immediately before the algebra it is a statement
+  about, rather than sitting in the astrophysical part.
+\item \textbf{Equilibrium precedes fluxes.} The tier's hinge identity is
+  $\kap = |\tanh(\aff/2kT)|$, and the affinity comes from the chemical
+  potentials the Saha coefficients produce; in the source, \S II.4b
+  forward-references \S III.3 explicitly (``the Saha coefficients of \S III.3''),
+  and \S II.4(c) forward-references the same node in its own heading (``the
+  bridge to S9''). Deriving equilibrium first (\S\ref{part:equilibrium}) turns
+  both into backward references.
+\item \textbf{The two departure diagnostics} (source \S III.10) travel forward
+  with \kap{} into \S\ref{sec:departure}: $\delta$ and \kap{} are the tier's two
+  distance-from-equilibrium measures and belong side by side.
+\item \textbf{Two of the three negative results} (source \S III.12, items 2 and
+  3) join the vacuous pass in \S\ref{sec:negresults}, because all three are
+  mask-and-near-balance verdicts. The third --- the solver cross-check that
+  licenses them --- stays with the solver at \S\ref{sec:solververify}.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section*{How to study each node}
+\addcontentsline{toc}{section}{How to study each node}
+\label{sec:howtostudy}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  stepbox/.style={draw, rounded corners=2pt, line width=0.7pt,
+               minimum height=8mm, inner xsep=6pt, fill=resultrule!6},
+  num/.style={circle, draw, line width=0.7pt, inner sep=1.2pt,
+              minimum size=5.2mm, font=\footnotesize\bfseries,
+              fill=white}]
+
+\node[stepbox] (a) {\textbf{DERIVE}};
+\node[stepbox, below=5mm of a] (b) {\textbf{READ}};
+\node[stepbox, below=5mm of b] (c) {\textbf{ORACLE}};
+\node[stepbox, below=5mm of c] (d) {\textbf{SEE}};
+
+\node[num] at ([xshift=-9mm]a.west) {1};
+\node[num] at ([xshift=-9mm]b.west) {2};
+\node[num] at ([xshift=-9mm]c.west) {3};
+\node[num] at ([xshift=-9mm]d.west) {4};
+
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]a.east)
+  {pen-and-paper: get the equation from physics before reading code};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]b.east)
+  {the module, top-to-bottom; its docstring states the contract};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]c.east)
+  {the test file --- it encodes what ``correct'' means, numerically};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]d.east)
+  {the notebook figure --- the measured behaviour on real data};
+
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (a) -- (b);
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (b) -- (c);
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (c) -- (d);
+\end{tikzpicture}
+\caption{The four-step study loop for each node of the curriculum. In this
+report step 2 lives in the ``code walkthrough'' subsections
+(\S\ref{sec:codes7}, \S\ref{sec:codes9}, \S\ref{sec:codes8},
+\S\ref{sec:codes10}) and step 3 in the oracle tables beside them; the
+\textcircled{4} SEE markers name the notebook figure.}
+\label{fig:studyloop}
+\end{figure}
+
+Tier~2 is the tier where steps 1 and 3 come closest to being the same thing. Two
+of its four nodes (\textbf{S7}, \textbf{S10}) have oracles that are
+\emph{exact} --- zero tolerance, integer arithmetic in float64 --- because the
+underlying statement is algebraic rather than physical. When a test in this tier
+says \code{== 0.0} and means it, that is the tell: you are looking at a theorem,
+and the test is checking the export, not the physics.
+
+The other tell runs the other way. \textbf{S9}'s headline measurement is a
+\emph{negative} result (the single-Si-cluster plateau is not confirmed; the
+maskable set is empty), and \textbf{S8}'s headline measurement is a \emph{vacuous
+pass} ($\kap \approx 1$ everywhere on the training grid). Both are cases where
+the instrument worked and the expected structure was absent. Learning to read
+those without either explaining them away or over-claiming them is most of what
+this tier teaches.
+
+\paragraph{A note on the maths formatting.} In the source, every \emph{equation}
+--- anything with its own line --- is \LaTeX{} in a \code{\$\$ \ldots \$\$}
+block with the delimiters on their own lines, which is the form GitHub, VS Code
+and Obsidian all render; short conditions embedded in a sentence are inline
+\code{\$\ldots\$}; symbols and quantities named in running prose stay in unicode
+(the convention table above); and maths is never set in \code{monospace}, which
+is reserved for code identifiers, filenames and literal values. The delimiter
+convention is moot in a \LaTeX{} document, but the \emph{separation} it enforces
+is preserved here: displayed equations are numbered, inline conditions stay
+inline, and \code{monospace} never carries mathematics.
+
+% ---------------------------------------------------------------------
+\section*{Index of measured results}
+\addcontentsline{toc}{section}{Index of measured results}
+\label{sec:resultsindex}
+
+Measurements in this report stay attached to the derivation that produces them
+--- that ordering \emph{is} the argument. This index exists so they can still be
+read together. \textbf{No number originates here}; every row points at the
+section that derives it, and the provenance tag on that row is the authority.
+
+\begingroup
+\small
+\begin{longtable}{@{}L{6.6cm} L{4.6cm} L{3.4cm}@{}}
+\toprule
+\textbf{measurement} & \textbf{value} & \textbf{derived in} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{measurement} & \textbf{value} & \textbf{derived in} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+$\nu$ shape, nonzeros, hub degree &
+  $80\times607$\,/\,$151\times1518$; 2012\,/\,5004 nz; \nuc{He}{4} in
+  52.6\%\,/\,45.8\% of columns & \S\ref{sec:numap} \\
+left-nullity of $\nu$, of $\nu|_{\rm strong}$, of $\nut$ &
+  \textbf{1}, \textbf{2} ($= \mathrm{span}\{A,Z\}$), \textbf{3}
+  ($= \mathrm{rowspace}(C)$) & \S\ref{sec:rank} \\
+right-nullity of $\nu$ &
+  \textbf{528}\,/\,\textbf{1368} & \S\ref{sec:rank} \\
+$\cond(\nu)$, $\cond(\nut)$, $\cond(CC\Tr)$ &
+  41.57\,/\,57.86; 40.90\,/\,54.54; $3.9\times10^{4}$\,/\,$1.0\times10^{5}$ &
+  \S\ref{sec:rank} \\
+column drift, exported matrices &
+  exactly 0.0 & \S\ref{sec:exactzero} \\
+deficiency $\delta$; weakly reversible? &
+  126\,/\,327; \textbf{no} & \S\ref{sec:deficiency} \\
+weak census (EC\,/\,$\beta^-$\,/\,$\beta^+$) &
+  $21/19/6$ of 46; $84/85/5$ of 174 & \S\ref{sec:betaplus} \\
+projector idempotence, residual over 20 decades &
+  $\le 1.0\times10^{-15}$; $6.68\times10^{-17}$\,/\,$1.04\times10^{-16}$ &
+  \S\ref{sec:projqr} \\
+weak-\dYe{} preserved by $P$ &
+  change $\le 3.4\times10^{-21}$ & \S\ref{sec:laundering} \\
+effective dimension of the visited manifold &
+  participation ratio 3.42\,/\,8.58; 7\,/\,14 PCs for 90\% $\Var(X)$ &
+  \S\ref{sec:effdim-measurement} \\
+\Ye{} variance in the PC tail &
+  $\Var(\Ye)$ stalls at 93.0\%\,/\,95.3\% by $k = 30$; budget needs
+  $1 - 6.5\times10^{-8}$ & \S\ref{sec:effdim-design} \\
+graph extents; implied $K$ &
+  isotope-projection radius 1, diameter 2; $K = 5$ & \S\ref{sec:graphK} \\
+$n\lambda^3$ for nuclei at box centre &
+  $\approx 3\times10^{-7}$ & \S\ref{sec:distribution} \\
+$(\up, \un)$ and the dominant species &
+  $-5.09$\,/\,$-12.41$\,MeV at $(4, 0.50)$, \nuc{Ni}{56} at $X = 0.94$ &
+  \S\ref{sec:binding} \\
+\uG{} on pre-stall rows &
+  median $+4.3$\,/\,$+4.1$\,MeV $\Rightarrow$ ${\sim}2\times10^{5}$ over-population
+  & \S\ref{sec:qsecluster} \\
+group membership counts &
+  29\,/\,50 (default), 40\,/\,105 (\code{a28\_up}) & \S\ref{sec:groupboundary} \\
+NSE cross-check vs pynucastro &
+  max $|\Delta\log_{10}X| = 2.7\times10^{-10}$\,/\,$1.5\times10^{-10}$ &
+  \S\ref{sec:solververify} \\
+\kap{} at NSE, v-flag vs \code{DerivedRate} &
+  $6.6\times10^{-2}$\,/\,$1.3\times10^{-1}$ vs $2.6\times10^{-12}$ &
+  \S\ref{sec:kappa-db} \\
+$\kap = |\tanh(\Delta h/2)|$ for the screening offset &
+  exact to $1.4\times10^{-11}$ & \S\ref{sec:kappa-affinity} \\
+Spearman$(\log\kap, \log\delta_r)$ &
+  $+0.491$\,/\,$+0.498$ & \S\ref{sec:kappa-affinity} \\
+$\kap = 1$ on weak columns &
+  exactly, on $8.8\times10^{6}$\,/\,$3.3\times10^{7}$ samples &
+  \S\ref{sec:weakkappa} \\
+flux-store size, stored vs reconstructed &
+  4.9\,GB vs ${\sim}10$\,GB; 12\,GB vs ${\sim}24$\,GB & \S\ref{sec:store} \\
+handshake agreement vs $\tau/\dd t$ decade &
+  $0.000 \to 0.87/0.89$ & \S\ref{sec:handshake} \\
+rate-level residual, linearizable cells &
+  median $3.6\times10^{-3}$\,/\,$2.8\times10^{-3}$; $\le 5\%$ for
+  90.3\%\,/\,94.4\% & \S\ref{sec:cancresid} \\
+the vacuous pass on the training grid &
+  median $\log_{10}\kap \approx -0.05$; active set $=$ all 327\,/\,846 net
+  columns; $\cond(\Sact) = 41.8$\,/\,57.4 & \S\ref{sec:vacuous} \\
+worst-dominant-isotope coverage, relaxed manifold &
+  0.0022--0.166\,/\,0.0084--0.070 & \S\ref{sec:vacuous} \\
+intra-group std(\rQSE); plateau rows &
+  $1.33/1.45 \to 0.87/0.80$\,dex; \textbf{0} plateau rows &
+  \S\ref{sec:negresults} \\
+maskable columns per row, $\varepsilon$ sweep &
+  \textbf{median 0 at every $\varepsilon$}, p90 $= 0$ & \S\ref{sec:negresults} \\
+stiffness ratio &
+  $\ge 10^{14}$; 99.99\%\,/\,100.00\% of cells have $\tau < \dd t_1$ &
+  \S\ref{sec:stiffness} \\
+BDF $\equiv$ Radau cross-check &
+  $5\times10^{-8}$ rel on the stiffest state & \S\ref{sec:bdf} \\
+\code{identity\_resid} &
+  $2.1\times10^{-16}$ molar & \S\ref{sec:solverconservation} \\
+energy-identity residual &
+  median $6\times10^{-6}\ldots2.5\times10^{-5}$; fraction $\le 1\%$ is 1.000 &
+  \S\ref{sec:energyidentity} \\
+Wegscheider residual, strong sector &
+  rms $5.5\times10^{-4}$\,MeV, max $3.5\times10^{-3}$\,MeV; 331/561 and 972/1345
+  columns & \S\ref{sec:wegscheider-measurement} \\
+predicted \kap{} floor vs measured stock-MESA \kap{} &
+  $6.4\times10^{-4}\ldots4.0\times10^{-3}$ vs
+  $3.6\times10^{-3}$\,/\,$3.3\times10^{-3}$ & \S\ref{sec:wegscheider-why} \\
+full-corpus \Phifl{} supervision cost &
+  $\ge$ 110,647\,/\,439,302 core-h & \S\ref{sec:costwall} \\
+in-box occupation of a 20\,\Msun{} progenitor &
+  within 0.117--0.182\,dex of a line; 0.352\,/\,0.623\,/\,0.816 box coverage &
+  \S\ref{sec:samplingmeasure-measurement} \\
+ICC, design effect, $n_{\rm eff}$ &
+  0.219--0.704; 6.5--18.6; \textbf{112--322} &
+  \S\ref{sec:clusterrobust-measurement} \\
+\end{longtable}
+\endgroup
+
+\clearpage
+\tableofcontents
+\clearpage

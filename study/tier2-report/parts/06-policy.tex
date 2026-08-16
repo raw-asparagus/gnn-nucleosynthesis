@@ -1,0 +1,434 @@
+% =====================================================================
+%  6 -- EXECUTABLE POLICY AND MEASUREMENT DISCIPLINE.
+%
+%  Source: tier2.md Part V -- header (4310), V.1 (4312-4355),
+%          the unheaded bridging paragraph (4361-4367) which in the
+%          source sits orphaned inside V.1's block between two
+%          consecutive horizontal rules -- it introduces V.2-V.4 and is
+%          given its own subsection heading here, V.2 (4369-4451),
+%          V.3 (4455-4567), V.4 (4571-4616).
+% =====================================================================
+
+\section{Executable policy, and the measurement discipline it does not encode}
+\label{part:policy}
+
+% =====================================================================
+\subsection{The invariants encoded in code that refuses}
+\label{sec:refuses}
+
+Tier~1's Part VII made the point that this repo encodes invariants as code that
+\emph{refuses} rather than as comments that ask. Tier~2's contribution to that
+pattern is different in kind from Tier~1's: where Tier~1's guards check a
+\emph{configuration} (is the pf gate satisfied? is this screening prescription
+allowed?), Tier~2's guards are mostly \textbf{structural} --- they make the
+wrong thing unrepresentable rather than detectable.
+
+\begingroup
+\small
+\begin{longtable}{@{}L{4.9cm} L{3.9cm} L{3.9cm} L{2.1cm}@{}}
+\toprule
+\textbf{mechanism} & \textbf{where} & \textbf{invariant} & \textbf{style} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{mechanism} & \textbf{where} & \textbf{invariant} & \textbf{style} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\code{build\_stoich}'s five \code{raise ValueError}s naming the offending
+  reaction & \code{graph/stoich.py} &
+  column-wise baryon\,/\,charge\,/\,ledger closure & fail-loud at build \\
+\code{C @ nu\_ext} residual \code{!= 0.0} abort & \code{graph/stoich.py} &
+  \#1 & fail-loud at build \\
+ledger from \code{weak\_type}, never from $Z\cdot\nu$ &
+  \code{graph/stoich.py} & non-tautological closure (\S\ref{sec:ledgers}) &
+  \textbf{structural} \\
+\code{if stoich.weak\_mask[j]: continue} before pair lookup &
+  \code{fluxes/compile.py::\_pair\_maps} & \#2, upstream form &
+  \textbf{structural} \\
+\code{(delta\_r < eps) \& \textasciitilde weak\_mask} &
+  \code{qse/diagnostics.py::eligible\_mask} & \#2 & \textbf{structural} \\
+\code{guidry\_masks} routes \emph{only} through \code{eligible\_mask} &
+  \code{killtest/active\_set.py} & \#2, downstream & \textbf{structural} \\
+$P$ acts on the extended vector & \code{graph/projector.py} &
+  \#3 (\S\ref{sec:laundering}) & \textbf{structural} \\
+rank check on \code{diag(R)} &
+  \code{graph/projector.py::build\_projector} & $C$ independence &
+  fail-loud \\
+\code{group\_mass} outside $(0, 1)$ $\to$ raise & \code{qse/solver.py} &
+  domain & fail-loud \\
+\code{si28} not in group $\to$ raise &
+  \code{qse/diagnostics.py::load\_group\_mask} & anchor contract &
+  fail-loud \\
+$Y$ clipped at 0 \textbf{inside rate eval only} &
+  \code{fluxes/integrate.py} &
+  conservation not perturbed (\S\ref{sec:bdf}) & \textbf{structural} \\
+returned $Y := Y_0 + \nu\Delta\Phifl$ & \code{fluxes/integrate.py} &
+  \#1 in the solver (\S\ref{sec:solverconservation}) & \textbf{structural} \\
+\code{stoich\_export} fixture regenerates a missing npz &
+  \code{tests/conftest.py} & \textbf{the gate never skips} & policy \\
+\code{caption()} raises if a figure cites no measured row &
+  \code{notebooks/phase0/nbsupport.py} & provenance (Tier~0 \S VII.1) &
+  fail-loud \\
+\kap{} helper raises unless the convention is declared
+  \code{UNSCREENED}\,/\,\code{SCREENED} &
+  \code{nbsupport.py::kappa\_hist\_by\_stratum} & the two-\kap{} rule &
+  fail-loud \\
+\code{flux\_store} raises instead of \code{mkdir}-ing a typo &
+  \code{nbsupport.py} & no silent empty runs & fail-loud \\
+PostToolUse hook runs \code{tests/test\_conservation.py} on any edit under
+  \code{graph/} & \code{.claude/hooks/conservation\_gate.sh} & \#1 &
+  policy \\
+\end{longtable}
+\endgroup
+
+\begin{invariant}
+\textbf{The three worth internalising as \emph{habits}, not facts:}
+
+\begin{enumerate}
+\item \textbf{Make it unrepresentable before you make it detectable.}
+  \code{eligible\_mask} could have been a function that checks, after the fact,
+  whether a mask contains weak columns. Instead it is the only way to build a
+  mask, and it takes \code{weak\_mask} as a required argument. There is no code
+  path that produces an invalid mask, so there is no code path that needs
+  checking.
+\item \textbf{A gate that can skip is not a gate.} \code{conftest.py}'s
+  docstring says it outright. Regenerating a 7-second artifact is cheaper than
+  the class of bug where the blocking test silently no-ops in CI for a month.
+\item \textbf{Refuse ambiguous provenance at the point of display.} The notebook
+  helper that will not plot a \kap{} histogram without a declared convention is
+  doing more work than a comment ever would --- because the failure mode it
+  prevents (comparing screened \kap{} against an unscreened threshold) produces
+  a plot that looks entirely reasonable.
+\end{enumerate}
+\end{invariant}
+
+% =====================================================================
+\subsection{\ldots and the three pieces of discipline it does not encode}
+\label{sec:discipline-intro}
+
+The rest of this section is the mirror image: \textbf{three pieces of
+measurement discipline the repo does \emph{not} encode}, and in two cases has
+never applied. They sit here rather than in the register because each is a
+substantive statement about what the tier's own numbers can support ---
+\S\ref{sec:samplingmeasure} about the \emph{measure} the error statistics are
+taken over, \S\ref{sec:clusterrobust} about the \emph{independence} the sample
+sizes assume, \S\ref{sec:vandv} about what the verification suite establishes
+and what it merely agrees with. Two of the three come with a measurement.
+
+% =====================================================================
+\subsection{The sampling measure on the regime box}
+\label{sec:samplingmeasure}
+
+Tier~0 \S III.2 derives the regime box edge by edge and every edge is
+defensible. Tier~0 \S III.4 covers Sobol sampling theory, and \S III.9 covers
+stratification. \textbf{What no node asks is whether the uniform measure on that
+box is the right measure} --- i.e. whether the density of training states
+matches the density of states a star actually occupies.
+
+\S\ref{sec:vacuous} already established a \emph{compositional} mismatch (random
+Sobol compositions are nucleon-loaded and nowhere near equilibrium; the
+cancellation structure lives only on relaxed states). This is the
+\emph{thermodynamic} analogue, on the $(T, \rho)$ axes, and it is a different
+measurement.
+
+\subsubsection{The measurement: where a 20\,\texorpdfstring{\Msun}{Msun}
+               progenitor actually sits}
+\label{sec:samplingmeasure-measurement}
+
+Using the shipped 20\,\Msun{} MESA models
+(\code{data/zenodo/.../MESA\_models/20M\_mesa\{80,151\}/}) --- the final
+profile, which gives the \emph{spatial} $(\log T, \log\rho)$ locus of the star
+at one instant, and \code{history\_to\_cc.data}, which gives the \emph{central}
+track through time. \derivedhere:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{4.6cm} L{3.4cm}@{}}
+\toprule
+ & \textbf{\code{20M\_mesa80}} & \textbf{\code{20M\_mesa151}} \\
+\midrule
+profile zones inside the full regime box & 297\,/\,1587 (18.7\%) &
+  249\,/\,1621 (15.4\%) \\
+in-box $\log T$ span & 9.495 -- 9.778 & 9.541 -- 9.750 \\
+in-box $\log\rho$ span & 7.002 -- 8.914 & 7.005 -- 8.687 \\
+best-fit locus & $\log\rho = 7.86 \log T - 67.95$ &
+  $\log\rho = 8.41 \log T - 73.47$ \\
+\textbf{residual about the locus} & \textbf{0.182\,dex} (max 0.404) &
+  \textbf{0.127\,dex} (max 0.285) \\
+central history, in-box models & 917\,/\,917 & --- \\
+central-track locus & $\log\rho = 6.41 \log T - 53.64$, resid
+  \textbf{0.117\,dex} & --- \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+And the union --- profiles plus histories, both models, 1,795 in-box points ---
+against a grid over the box:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{3.0cm} Y@{}}
+\toprule
+\textbf{tolerance} &
+\textbf{fraction of the $(\log T, \log\rho)$ box within that distance of
+  \emph{any} visited point} \\
+\midrule
+0.1\,dex & \textbf{0.352} \\
+0.2\,dex & 0.623 \\
+0.3\,dex & 0.816 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsubsection{Reading it honestly}
+\label{sec:samplingmeasure-reading}
+
+Two statements, and only the first is strong:
+
+\begin{enumerate}
+\item \textbf{The occupation is locally one-dimensional.} At any instant, and
+  along the central track through time, the star lies within
+  ${\sim}0.12$--0.18\,dex of a \emph{line} in $(\log T, \log\rho)$. It is a curve
+  with thickness, not an area. The Sobol grid samples the area uniformly.
+\item \textbf{The box is not mostly empty, but it is far from uniformly
+  occupied.} About two-thirds of the box lies more than 0.1\,dex from anything
+  this progenitor visits; at 0.3\,dex tolerance, coverage is 82\%. So ``most of
+  the box is unphysical'' would be an overstatement --- but ``the training
+  density is uniform where the physical density is concentrated on a band'' is
+  measured and true.
+\end{enumerate}
+
+\begin{warn}
+\textbf{And the correct caveat, which changes the recommendation.} This is
+\emph{one} progenitor (20\,\Msun), one final profile, one central history.
+Different progenitor masses sweep different loci, and the box is presumably
+sized as a \emph{union} over progenitors --- which is a legitimate design choice
+for a general-purpose emulator. So the finding is \textbf{not} ``the box is too
+big''. It is:
+
+\textbf{Nobody has measured the induced density.} The box's \emph{support} is
+defensible; its \emph{measure} has never been compared with the measure the
+deployment distribution actually carries, and the two are measurably different
+by at least a factor of a few in the region that matters.
+\end{warn}
+
+That matters for three concrete things, none of which is currently instrumented:
+
+\begin{itemize}
+\item \textbf{Where accuracy is bought.} Uniform sampling spends the same
+  modelling capacity on a corner of the box the star crosses briefly as on the
+  band where it spends its life. A tighter emulator on the band would be worth
+  more than a uniformly tighter one.
+\item \textbf{What the reported error statistics mean.} A p99 error over the
+  uniform box is not the p99 error a star would experience. This is the same
+  category of error as \S\ref{sec:clusterrobust} --- the \emph{reference
+  measure} of a summary statistic is unstated.
+\item \textbf{It sharpens the Sobol$\to$real-MESA gate.} \code{CLAUDE.md}
+  already has the right instrument (``retrain with trajectory-aware sampling if
+  real-track 99th-pct \Ye{} error $> 3\times$ the Sobol-measured value''). This
+  measurement says what the gate is \emph{for}, and predicts it will fire: the
+  two measures differ, so the two error statistics should too.
+\end{itemize}
+
+Open (register: \reg{R-07}) --- a density comparison on files already in
+\code{data/zenodo/}, to be run across the progenitor set rather than one model
+before any conclusion is drawn.
+
+% =====================================================================
+\subsection{Cluster-robust inference --- the effective sample size is
+            \texorpdfstring{${\sim}300$}{~300}, not 657,000}
+\label{sec:clusterrobust}
+
+\subsubsection{The problem}
+\label{sec:clusterrobust-problem}
+
+\begin{warn}
+\warnglyph{}~\code{RESULTS.md} reports statistics with impressive-looking sample
+sizes:
+
+Spearman$(\log\kap$ unscr, $\log\delta_r) = \mathbf{+0.491}$\,/\,$\mathbf{+0.498}$
+over \textbf{657k\,/\,1.59M} carrying-pair samples \ldots
+\resultsref{2026-07-12}
+
+and, in the same block, the provenance of those samples:
+
+pre-terminal rows of 20 shipped $+$ 209 rerun trajectories per net
+(\textbf{4,693 rows/net} sampled $\le 24$/trajectory)
+\end{warn}
+
+Put those together. The 657,000 ``samples'' are (row $\times$ reaction-pair)
+cells drawn from \textbf{4,693 rows}, which are themselves drawn from
+\textbf{229 trajectories}. Both multiplications are \emph{within-cluster}:
+consecutive rows of one trajectory are nearly the same physical state, and
+reaction pairs within one row share that state entirely. \textbf{Neither
+multiplication adds independent information.}
+
+This is the classic clustered-sampling error, and it is not a pedantic one ---
+it inflates apparent precision by the \emph{design effect} \citep{kish1965}
+%
+\begin{equation}
+\text{deff} \;=\; 1 + (\bar m - 1)\,\rho_{\mathrm{ICC}}, \qquad
+n_{\mathrm{eff}} \;=\; \frac{n}{\text{deff}},
+\label{eq:deff}
+\end{equation}
+%
+with $\rho_{\rm ICC}$ the intraclass correlation and $\bar m$ the cluster size
+(strictly a weighted mean when clusters are unbalanced; the shipped-trajectory
+measurement below is balanced at 26 rows each).
+
+\subsubsection{The measurement: intraclass correlation and the design effect}
+\label{sec:clusterrobust-measurement}
+
+ICC computed by one-way random effects (the ICC(1,1) estimator of
+\citealp{shrout1979}; review in \citealp{donner1986}) over 80 shipped \msn{80}
+trajectories, 26 pre-stall rows each, for four per-row scalars of the kind
+\code{RESULTS.md} aggregates. \derivedhere:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{1.3cm} L{1.1cm} L{1.7cm} L{2.0cm} L{1.5cm}@{}}
+\toprule
+\textbf{per-row quantity} & \textbf{ICC} & \textbf{$\bar m$} &
+\textbf{nominal $n$} & \textbf{design effect} & \textbf{$n_{\rm eff}$} \\
+\midrule
+\Ye{} & 0.630 & 26.0 & 2079 & 16.7 & \textbf{124} \\
+Si-group mass fraction & 0.417 & 26.0 & 2079 & 11.4 & \textbf{182} \\
+\# species above $10^{-3}$ & 0.219 & 26.0 & 2079 & 6.5 & \textbf{322} \\
+$\log_{10} X(\nuc{Si}{28})$ & 0.704 & 26.0 & 2079 & 18.6 & \textbf{112} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{srclisting}
+def icc(vals):                      # vals: one 1-D array per trajectory
+    k = len(vals); ns = np.array([len(v) for v in vals]); m = ns.mean()
+    g = np.concatenate(vals).mean()
+    msb = sum(len(v) * (v.mean() - g)**2 for v in vals) / (k - 1)
+    msw = sum(((v - v.mean())**2).sum() for v in vals) / (ns.sum() - k)
+    return (msb - msw) / (msb + (m - 1) * msw)
+\end{srclisting}
+
+\textbf{ICC of 0.22--0.70 at $\bar m = 26$ gives design effects of 6.5--18.6.}
+Applied to the kill-test manifold (4,693 rows over 229 trajectories, so
+$\bar m \approx 20.5$ and $\text{deff} = 1 + 19.5\rho$ ranges 5.3--14.7), the
+row-level effective sample size is \textbf{$\approx 320$--890, and
+$\approx 320$ for the \Ye-like quantities that matter here} --- and the reaction
+axis, which takes 4,693 rows to 657,000 cells, adds no independent physical
+systems at all.
+
+\begin{result}
+\textbf{So the honest denominator for the \kap$\leftrightarrow\delta$
+correlation is a few hundred, not 657,000 --- an overstatement of roughly
+$10^{3}$ in nominal $n$, i.e. ${\sim}30\times$ in standard error.}
+\end{result}
+
+\subsubsection{What this does and does not invalidate}
+\label{sec:clusterrobust-scope}
+
+Being precise matters here, because the temptation is to over-correct.
+
+\textbf{Unaffected:}
+\begin{itemize}
+\item \textbf{Point estimates.} Clustering biases \emph{precision}, not (much)
+  the estimate \citep{cameron2015}. Spearman $\approx +0.49$ is probably about
+  right.
+\item \textbf{Degenerate results.} ``Maskable columns: median 0 at every
+  $\varepsilon$, p90 $= 0$'' \resultsref{2026-07-12} is a statement about a
+  distribution that is identically zero. No sample size argument touches it.
+\item \textbf{Structural results.} $\kap = 1.0$ exactly on all weak columns is
+  an identity (\S\ref{sec:weakkappa}), not a statistic.
+\end{itemize}
+
+\textbf{Affected:}
+\begin{itemize}
+\item \textbf{Every p-value and confidence interval.} ``$p \approx 0$'' on 657k
+  clustered samples is not evidence of anything. The correct statement needs a
+  trajectory-level bootstrap.
+\item \textbf{Concentration statistics with no reported spread.} ``top-20 carry
+  0.88'', ``top-5 $= 0.96$\,/\,0.75'', the bridge shares (0.20, 0.13,
+  0.11\,\ldots). These are \emph{rankings and shares} whose between-trajectory
+  variability is never reported. With $n_{\rm eff} \approx 300$ the ranking of
+  \#4 vs \#7 in a 251-item list is likely not resolvable, and the current output
+  gives no way to tell.
+\item \textbf{The split verdict.} The 95\% coverage gate's most consequential
+  row --- worst-dominant-isotope coverage falling to 0.0022--0.166 across
+  $[4.0, 6.3)$ strata --- is a \emph{tail} statistic (a per-row minimum)
+  computed within strata, where the effective $n$ is smaller still. A tail
+  statistic at $n_{\rm eff} \sim$ tens is a different object from one at
+  $n \sim 10^{5}$.
+\end{itemize}
+
+\subsubsection{The fix, which is cheap}
+\label{sec:clusterrobust-fix}
+
+\textbf{Bootstrap over trajectories, not rows} (the cluster bootstrap:
+\citealp[\S3.8]{davison1997}; \citealp{field2007}). Resample the 229
+trajectories with replacement, recompute the statistic on each resample, and
+report the percentile interval. That is the correct unit of independence --- one
+trajectory is one physical system integrated from one initial condition --- and
+it automatically handles both levels of clustering without needing ICC estimates
+at all. It is perhaps thirty lines in \code{killtest/}, and it converts every
+headline number from a point estimate into a point estimate with an honest
+interval.
+
+Related and equally cheap: report \textbf{$\bar m$ and the number of clusters}
+alongside every $n$. \code{RESULTS.md} already records both, in different rows
+of the same block; joining them at the point of reporting would have made this
+visible.
+
+Open (register: \reg{R-08}). It does not overturn any verdict I can see, but it
+means several published numbers carry no uncertainty statement at all, and one
+of them (the split verdict's tail row) is the basis of a design decision.
+
+% =====================================================================
+\subsection{Verification practice --- three standard steps that are absent}
+\label{sec:vandv}
+
+The repo's testing culture is unusually good (layered oracles, external
+cross-checks, executable policy). Three standard computational-science
+verification steps are nonetheless missing, and they are missing in a way that
+is characteristic: the tests verify \emph{agreement}, rarely \emph{order}.
+
+\paragraph{(a) Convergence-order verification of the integrator.}
+\code{test\_integrate.py} checks BDF $\equiv$ Radau $\equiv$ BDF(rtol
+$10^{-10}$) to $5\times10^{-8}$ on the stiffest test state
+\resultsref{2026-07-12} --- an agreement test. It never verifies that the error
+decreases at the \emph{expected rate} as rtol tightens. Two methods agreeing is
+strong evidence neither is grossly wrong; a measured convergence order is
+evidence the error estimator is trustworthy, which is a different claim and the
+one that licenses running at rtol $= 10^{-8}$ in production (code-to-code
+agreement is explicitly \emph{not} verification in the V\&V canon:
+\citealp{roache1998}; \citealp{oberkampf2010}). Cost: one loop over rtol on one
+state.
+
+\paragraph{(b) A manufactured solution.} The method of manufactured solutions
+\citep{roache2002, salari2000} --- construct a source term making a chosen
+analytic function an exact solution, then verify the code reproduces it to the
+expected order --- is the standard way to verify a solver against \emph{itself}
+with no reference implementation. Here it would need a toy $\nu$ (one already
+exists: \code{test\_conservation.py}'s Layer-1 network, \S\ref{sec:oracles7})
+and a synthetic rate law. This is the one verification technique that does not
+require a second code, and the project's ground truth (MESA\,/\,bbq) is known to
+carry a bug, so a reference-free check has real value.
+
+\paragraph{(c) Trivial baselines.} Tier~0 \S III.2's caveat already observes
+that ``at these densities NSE is effectively established from $\approx 5$\,GK
+upward, so the top ${\sim}3$\,GK of the box is \emph{already} algebraic and the
+emulator is being trained on states it does not strictly need to learn.'' The
+obvious experiment that follows is not listed anywhere: \textbf{evaluate
+NSE-as-a-predictor as a baseline} across the box. \code{qse/solver.py} already
+computes it, and it costs milliseconds. If NSE matches the labels at
+$\Tn \ge 5$ to within the \Ye{} gate, then the honest framing of the emulator's
+job is ``$\Tn < 5$'', and the strata where it is hardest to train
+(\S\ref{sec:costwall}: $\Tn \ge 5$ is unmeasurable \emph{and}
+label-pathological) are also the strata where it is least needed. Other
+near-free baselines in the same spirit: persistence ($\Delta Y = 0$), and
+nearest-neighbour in the training set.
+
+\begin{invariant}
+A baseline you can beat trivially is not interesting; a baseline you
+\emph{cannot} beat is the most valuable measurement in the project. Neither is
+currently known.
+\end{invariant}
+
+Open (register: \reg{R-15} for (a)/(b), \reg{R-16} for (c)) --- (c) is nearly
+free and may substantially redefine the target domain.

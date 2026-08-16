@@ -1,0 +1,460 @@
+% =====================================================================
+%  7 -- THE OPEN REGISTER, AND HOW IT WAS BUILT.
+%
+%  Source: tier2.md Part VI (4620-4736) and Part VII (4738-4840), in
+%          full and in order.
+%
+%  The source's "derived in" column is a set of GitHub slug anchors
+%  (#ii4b-entropy-production-...).  Every one becomes a live \ref here;
+%  Appendix B carries the R-nn -> section map so the correspondence is
+%  checkable rather than asserted.
+%
+%  R-numbers in this register are TIER 2's.  The source also cites
+%  Tier 0 R-18 / R-21 and Tier 1 R-17 / R-23, whose numbers collide;
+%  those are rendered through \foreignreg and never linked here.
+% =====================================================================
+
+\section{The open register, and how it was built}
+\label{part:register}
+
+\textbf{This is the single register for Tier~2.} Every open item lives here as
+one row; the \emph{content} --- the derivation, the measurement, the argument
+--- lives in the section that owns it, and each row points there. Nothing in
+this section is material you have to read to understand the tier; it is the
+index you come back to when deciding what to work on.
+
+Items promoted out of the two gap-audit passes carry their derivation in the
+body (\S\ref{part:setting}--\S\ref{part:policy}). \textbf{R-24} and
+\textbf{R-25} are the two that have no natural home section and are written out
+here. \S\ref{sec:auditmethod} records how the list was built and whether it is
+finished.
+
+Cross-tier items stay in \code{tier1.md} \S VIII; where a row extends one of
+those, it says so.
+
+% =====================================================================
+\subsection{The register}
+\label{sec:register}
+
+\begingroup
+\footnotesize
+\begin{longtable}{@{}L{1.15cm} L{5.85cm} L{1.9cm} L{1.6cm} L{4.0cm}@{}}
+\toprule
+\textbf{ID} & \textbf{open item} & \textbf{derived in} & \textbf{cost} &
+\textbf{what closing it changes} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{open item} & \textbf{derived in} & \textbf{cost} &
+\textbf{what closing it changes} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{R-01} &
+$\kap > 0.1$ has no derivation. Replace the threshold with an
+\textbf{entropy-weighted} active set:
+$\sigma_j = 2\kB s_j \kap_j \artanh \kap_j$ is flux-weighted and
+parameter-free --- \textbf{on strong\,/\,EM pairs only}; $\sigma$ diverges on
+weak columns ($\kap \equiv 1$), which stay in the active set structurally &
+\S\ref{sec:entropy} & ${\sim}1$\,d &
+supplies the missing derivation for the strong-sector half of the project's
+central threshold and re-runs the split verdict on a principled basis \\
+
+\textbf{R-02} &
+Effective dimension $+$ \Ye-variance measured only on shipped (bug-displaced,
+constant-$(T,\rho)$) trajectories & \S\ref{sec:effdim} & ${\sim}2$\,h &
+constrains every Tier-4 latent and loss decision before they are made \\
+
+\textbf{R-03} &
+The flux head is unidentifiable in 528\,/\,1368 directions under a
+$\Delta Y$-only loss & \S\ref{sec:unidentifiable} & design &
+a second, independent cost of Target A; bears on the A-vs-B decision \\
+
+\textbf{R-04} &
+Positivity is enforced nowhere. Add the diagnostic; decide whether to enforce &
+\S\ref{sec:positivity} & ${\sim}1$\,h &
+converts an unenforced physical constraint from unknown to measured \\
+
+\textbf{R-05} &
+A learned $\hat\netflux$ can violate the second law and pass every gate.
+Diagnostic $\to$ one-sided penalty $\to$ sign-from-affinity &
+\S\ref{sec:secondlaw} & ${\sim}1$\,h / design &
+a free correctness check on any trained model; possibly a hard constraint \\
+
+\textbf{R-06} &
+Run the Wegscheider projection on \textbf{MESA's own} $Q$ $+$ winvn masses &
+\S\ref{sec:wegscheider} & ${\sim}1$\,h &
+tells you whether $\kap < 10^{-2}$ is measurable at all in MESA-derived
+quantities \\
+
+\textbf{R-07} &
+The induced $(T, \rho)$ density has never been compared with the training
+measure, across progenitors & \S\ref{sec:samplingmeasure} & ${\sim}3$\,h &
+tells you where accuracy is worth buying; predicts the Sobol$\to$real gate \\
+
+\textbf{R-08} &
+No kill-test statistic carries a cluster-robust interval. Bootstrap over
+\textbf{trajectories} & \S\ref{sec:clusterrobust} & ${\sim}1$\,h &
+supplies the missing uncertainty on every headline number, incl. the split
+verdict \\
+
+\textbf{R-09} &
+CRN\,/\,elementary-flux-mode literature uncited; the flux cone is the right
+admissibility object & \S\ref{sec:crn} & literature &
+closes a framing gap a systems-biology referee will find; extends
+\code{tier1.md} \S VIII.C.7 \\
+
+\textbf{R-10} &
+Time conditioning should use $\Delta t/\tau$, not $\log\Delta t$ &
+\S\ref{sec:dttau} & design &
+a Tier-4 (S19) design input, wanted before S19 is built \\
+
+\textbf{R-11} &
+The deployment coupling contract: what consumes the output; split error vs
+emulator error; imposed vs fed-back $(T, \rho)$ & \S\ref{sec:deployment} &
+experiment &
+could relax or justify the per-step gate; extends \code{tier1.md} \S VIII.E.6
+\,/\,\S VIII.C.4 \\
+
+\textbf{R-12} &
+No target fallback rate. $f_{\max} = 1/S_{\rm target}$; the OOD detector sits on
+the critical path & \S\ref{sec:costceiling} & ${\sim}1$\,h &
+turns S22's unspecified gate into a number; rules out expensive UQ \\
+
+\textbf{R-13} &
+The \textbf{Helmholtz} free energy is a Lyapunov function of the strong\,/\,EM
+sector at constant $(T, \rho)$; a second-law-consistent emulator cannot diverge.
+Bounds the fast sector, \textbf{not} \Ye{} drift --- the weak sector is open
+(neutrinos leave) & \S\ref{sec:lyapunov} & design &
+a \emph{structural} rollout-stability guarantee rather than a statistical one
+(S20) \\
+
+\textbf{R-14} &
+$\dd M(\nuc{Ni}{56})/\dd\Ye$ and $\dd(\text{explodability})/\dd\Ye$ have never
+been assembled & \S\ref{sec:outputend} & ${\sim}1$\,d &
+justifies --- or relaxes by orders --- the project's most expensive
+requirement \\
+
+\textbf{R-15} &
+No convergence-order verification, no manufactured solution & \S\ref{sec:vandv}
+& ${\sim}2$\,h &
+licenses running the integrator at rtol $= 10^{-8}$ in production \\
+
+\textbf{R-16} &
+NSE-as-a-predictor (and persistence, nearest-neighbour) never run as baselines &
+\S\ref{sec:vandv} & ${\sim}1$\,h &
+may redefine the emulator's real domain to $\Tn < 5$ \\
+
+\textbf{R-17} &
+The projector's metric is unweighted --- orthogonal $P$ is the
+\emph{minimum-Euclidean} correction, which is a choice nobody recorded &
+\S\ref{sec:projector} & ${\sim}1$\,h &
+matters only if Target B is adopted; blocking then \\
+
+\textbf{R-18} &
+The \rQSE{} plateau test may be measuring a $(Z, N)$-linear fit residual rather
+than cluster departure & \S\ref{sec:departure} & ${\sim}3$\,h &
+a published negative verdict rests on a diagnostic whose null distribution is
+unknown \\
+
+\textbf{R-19} &
+$K = \lceil\text{radius}\rceil + 2$ uses radius where node-level output makes
+eccentricity the honest base & \S\ref{sec:graphK} & ${\sim}0$ &
+the number is right for \emph{this} graph; the formula is not general \\
+
+\textbf{R-20} &
+The augmented Newton solve does not exploit block triangularity &
+\S\ref{sec:productrule} & ${\sim}1$\,d &
+a cost-wall candidate independent of the ADR-0006 Jacobian contingency \\
+
+\textbf{R-21} &
+The rollout accumulation slope is unmeasured, so the $3\times10^{-6}$ gate is
+conditional & \S\ref{sec:budget} & Tier~4 &
+the project's most load-bearing number; slope $\tfrac12$ would relax it to
+${\sim}5\times10^{-5}$ \\
+
+\textbf{R-22} &
+Check that no document frames Target A vs B as an \emph{expressivity}
+difference & \S\ref{sec:equivalence} & ${\sim}1$\,h &
+documentation consistency; a \code{referee} pass item \\
+
+\textbf{R-23} &
+The energy gate cannot detect an integration error (the two routes collapse
+algebraically) & \S\ref{sec:energyidentity} & ${\sim}0$ &
+documentation; also why the $Q(T)$ gap is currently unmeasurable \\
+
+\textbf{R-24} &
+Learning-theory prerequisites: operator learning, the \emph{measured} regime
+shift, rollout accumulation, OOD economics & \S\ref{sec:r24} & Tier~4 & --- \\
+
+\textbf{R-25} &
+Shelf life: what a rate-library or MESA version bump does to a trained
+emulator & \S\ref{sec:r25} & ADR & --- \\
+\end{longtable}
+\endgroup
+
+% =====================================================================
+\subsection{The two items with no home section}
+\label{sec:nohome}
+
+\subsubsection{R-24 --- Learning-theory prerequisites}
+\label{sec:r24}
+
+Tier-4 material; the architecture side is sketched in \code{tier1.md}
+\S VIII.E.1. What that sketch does \emph{not} cover, and what belongs in a
+Tier-4 Part 0 analogous to \S\ref{part:setting}:
+
+\begin{itemize}
+\item \textbf{What kind of object is being learned.} A one-step flow map
+  $Y \mapsto Y + \Delta Y(Y, T, \rho, \Delta t)$ is a \emph{parameterised family
+  of operators}, not a function. The neural-operator framing (discretisation
+  invariance, resolution independence) has vocabulary and results the project
+  does not use, and it is the natural setting for generalising over 8 decades of
+  $\Delta t$ (S19, and \reg{R-10}).
+\item \textbf{Distribution shift, which is already measured.}
+  \S\ref{sec:vacuous} established that training states (random Sobol
+  compositions, $\kap \approx 1$, \emph{relaxing}) and deployment states
+  (relaxed, \emph{on} the QSE manifold) are different distributions, and
+  \S\ref{sec:slowmanifold} gave the dynamical reason: they are different
+  \textbf{functions} --- relaxation onto the slow manifold versus motion along
+  it. This is a change of regime, not a covariate shift, and no architecture
+  fixes it. \code{CLAUDE.md}'s Sobol$\to$real-MESA gate is the right instrument;
+  \S\ref{sec:slowmanifold} is the theory of why it will fire. See also
+  \reg{R-07} for the thermodynamic half of the same mismatch.
+\item \textbf{Error accumulation under autoregressive rollout} --- the
+  trichotomy of Tier~0 \S IV.3, slope still unmeasured (\reg{R-21}).
+\item \textbf{Extrapolation, OOD detection, and the fallback gate} (S22) ---
+  whose \emph{cost model} is \reg{R-12} and whose stability guarantee could be
+  \reg{R-13}.
+\end{itemize}
+
+\subsubsection{R-25 --- Shelf life under library and code drift}
+\label{sec:r25}
+
+An emulator trained against a frozen snapshot of REACLIB $+$ MESA r23.05.1 is a
+function of that snapshot, and the project has already observed the snapshot
+moving:
+
+\begin{itemize}
+\item \resultsref{2026-07-10} records MESA 24.08.1 giving materially different
+  reverse rates from stock r23.05.1 for a subset of
+  $(n,\alpha)$\,/\,$(p,\alpha)$ pairs ($\kap \sim 0.75$ where stock is clean) ---
+  the observation \reg{R-06}'s test is designed to explain;
+\item Tier~3's label pathology is a MESA \emph{bug} that a later version
+  presumably fixes, so the training labels are keyed to a specific broken
+  version;
+\item weak-rate table families get superseded, and the FFN$\to$LMP shift is
+  precisely the number the whole accuracy budget is anchored to
+  (\S\ref{sec:budget}).
+\end{itemize}
+
+Three unasked questions: \textbf{(i)} does a library update invalidate a trained
+emulator, or can it be corrected? (\Phifl{} depends on rates nonlinearly through
+the trajectory, so probably not --- which makes retraining a \emph{recurring}
+cost that belongs in \S\ref{sec:deployment}'s economics.) \textbf{(ii)} What is
+versioned well enough to reproduce a training set \emph{forward}, given a future
+library? The repo is exemplary about backward provenance and silent about this.
+\textbf{(iii)} Is the sensitivity measurable in advance --- i.e.
+\code{tier1.md} \S VIII.C.1's rate-uncertainty propagation, which would tell you
+\emph{which} updates matter.
+
+Not a physics gap; a \textbf{product} gap, and the kind that surfaces after the
+science is done and is expensive then. Worth an ADR rather than a measurement.
+
+% =====================================================================
+\subsection{Ranked}
+\label{sec:ranked}
+
+If only a few of these get done, these in this order:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{0.9cm} L{1.2cm} L{5.0cm} L{1.2cm} Y@{}}
+\toprule
+\textbf{rank} & \textbf{ID} & \textbf{item} & \textbf{cost} &
+\textbf{what it changes} \\
+\midrule
+1 & \textbf{R-06} & Wegscheider projection on MESA's own $Q$ $+$ winvn masses &
+  ${\sim}1$\,h & whether $\kap < 10^{-2}$ is measurable at all in MESA-derived
+  quantities --- the kill-test depends on it \\
+2 & \textbf{R-08} & trajectory-level bootstrap on the kill-test statistics &
+  ${\sim}1$\,h & supplies the missing uncertainty on every headline number,
+  including the split verdict \\
+3 & \textbf{R-16} & NSE-as-a-predictor baseline across the box &
+  ${\sim}1$\,h & may redefine the emulator's target domain to $\Tn < 5$ \\
+4 & \textbf{R-02} & repeat PCA $+$ \Ye-variance on the clean reruns &
+  ${\sim}2$\,h & constrains every Tier-4 latent and loss decision \\
+5 & \textbf{R-04} & positivity diagnostic on any predicted update &
+  ${\sim}1$\,h & converts an unenforced constraint from unknown to measured \\
+6 & \textbf{R-07} & induced-density comparison across the progenitor set &
+  ${\sim}3$\,h & tells you where accuracy is worth buying; predicts the
+  Sobol$\to$real gate \\
+7 & \textbf{R-01} & entropy-weighted active set & ${\sim}1$\,d &
+  supplies the missing derivation for $\kap > 0.1$ and re-runs the split
+  verdict \\
+8 & \textbf{R-14} & assemble $\dd M_{\rm Ni}/\dd\Ye$ from the literature &
+  ${\sim}1$\,d & justifies (or relaxes) the project's most expensive
+  requirement \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Ranks 1--6 are hours, on data already on disk. Nothing in the top six needs a
+compute allocation, new labels, or a decision from anyone.
+
+% =====================================================================
+\subsection{How this register was built, and whether it is finished}
+\label{sec:auditmethod}
+
+\S\ref{sec:register} lists what is open. This subsection records \textbf{how the
+list was arrived at}, which matters for exactly one reason: a register is only
+as trustworthy as the search that produced it, and ``I could not think of
+anything else'' is not evidence of coverage.
+
+\subsubsection{The method --- two passes, and the axes each swept}
+\label{sec:twopasses}
+
+The register was built by asking, twice and deliberately, a question that
+studying the map does not ask:
+
+\begin{invariant}
+\textbf{What does this project need that no node in the map has a claim on?}
+\end{invariant}
+
+\textbf{Pass 1} swept --- in hindsight almost exclusively --- the
+\emph{mathematical structure of the network}: the algebra of $\nu$, the
+thermodynamics of the fluxes, the geometry of the state space. It produced
+\textbf{R-01 \ldots R-09} and \textbf{R-13}, of which three came with
+measurements runnable in an afternoon on artifacts already in \code{data/}.
+
+\textbf{Pass 2} was run \emph{after} noticing that bias, and deliberately swept
+elsewhere: \textbf{inference and statistics}, \textbf{sampling measure},
+\textbf{cost and deployment economics}, \textbf{dimensional analysis},
+\textbf{training dynamics}, \textbf{the output end of the motivation chain},
+\textbf{verification practice}, and \textbf{provenance over time}. It produced
+\textbf{R-10 \ldots R-12}, \textbf{R-14 \ldots R-16}, \textbf{R-25}, and --- the
+one that reaches furthest back into work already published --- \textbf{R-08}.
+
+Two things are worth extracting from that, because they generalise:
+
+\begin{enumerate}
+\item \textbf{A single audit sweeps one axis.} Pass 1 felt exhaustive while it
+  was happening and was not. The correction is not to think harder; it is to
+  enumerate axes \emph{first} and then sweep each, which is what pass 2 did.
+\item \textbf{The cheapest findings live in the areas nobody assigned a node
+  to.} Five of the twenty-five items came with a measurement that took under
+  three hours on data already on disk, and two of those changed how an existing
+  result should be read (\textbf{R-06} $\to$ \S\ref{sec:energyidentity} and the
+  \kap{} floor; \textbf{R-08} $\to$ every confidence interval in the kill-test
+  block). Nothing in the \emph{covered} territory was nearly that cheap, because
+  it had already been worked.
+\end{enumerate}
+
+\subsubsection{Candidate axes that came back covered}
+\label{sec:coveredaxes}
+
+The calibration data for \S\ref{sec:converging}. These are things I went looking
+for across both passes and found \textbf{already handled}, usually well and
+often with the caveat I would have raised already attached:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{5.6cm} Y@{}}
+\toprule
+\textbf{candidate} & \textbf{where it is covered} \\
+\midrule
+Operator splitting and its error &
+  Tier~0 \S IV.1 (the open half is \reg{R-11}) \\
+Catastrophic cancellation, conditioning &
+  Tier~0 \S V.1--V.2; the spine of \S\ref{sec:kappa} here \\
+Thermal neutrino losses (pair, photo, plasmon, brems.) &
+  Tier~0 \S0.4.1, incl. the composition-independence and the units trap \\
+Free-streaming and the \Ye{} ratchet &
+  Tier~0 \S0.4.2 --- with an explicit warning against the overstatement that
+  free-streaming \emph{drives} \Ye{} down \\
+The regime box's edges &
+  Tier~0 \S III.2, every edge derived, and the $T$-upper caveat already stated
+  (\S\ref{sec:samplingmeasure} is about the \emph{measure}, not the support) \\
+Semigroup\,/\,composability across the nine $\Delta t$ & Tier~0 \S IV.3 \\
+Sobol theory, stratification, leakage-safe splits, grid non-regenerability &
+  Tier~0 \S III.4--III.9 \\
+Rate-uncertainty $\to$ \Ye{} sensitivity &
+  \code{tier1.md} \S VIII.C.1 (\reg{R-14} is its output-side mirror) \\
+Solver-independent ground truth (SkyNet, WinNet) &
+  \code{tier1.md} \S VIII.E.3 \\
+Gradients through the conservation map &
+  \code{tier1.md} \S VIII.E.5 --- note \reg{R-05}'s sign-from-affinity idea
+  would add a discontinuity there; the two interact \\
+Determinism, float32/float64, BLAS reduction order &
+  \code{tier1.md} \S VIII.E.4 \\
+Network-reduction prior art &
+  \code{tier1.md} \S VIII.C.7 (\reg{R-09} names the specific literature it
+  should include) \\
+Isomers, mass provenance, $e^+e^-$ pairs, Coulomb-corrected NSE &
+  \code{tier1.md} \S VIII.C.5, .6, .8, .9 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsubsection{Is the audit converging?}
+\label{sec:converging}
+
+Worth asking explicitly, because ``are there more gaps?'' has no natural
+stopping rule and the honest answer is evidence rather than a feeling.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.2cm} Y Y@{}}
+\toprule
+ & \textbf{pass 1} & \textbf{pass 2} \\
+\midrule
+axis swept & mathematical structure of the network &
+  statistics, sampling measure, economics, dimensional analysis, training
+  dynamics, motivation output, V\&V, provenance \\
+new items & 10 & 9 ($+6$ pre-existing, folded in) \\
+with a measurement & 3 & 2 \\
+\textbf{that changed how an existing result reads} &
+  \textbf{2} (\textbf{R-06} $\to$ \S\ref{sec:energyidentity} and the \kap{}
+  floor; \textbf{R-02} $\to$ Tier-4 latents) &
+  \textbf{1} (\textbf{R-08} $\to$ every CI in \code{RESULTS.md}) \\
+that reframed a design decision &
+  2 (\textbf{R-01} active set; \textbf{R-04} positivity) &
+  2 (\textbf{R-03} Target A's second cost; \textbf{R-16} the target domain) \\
+candidate axes checked and found covered & not tracked &
+  \textbf{13 of ${\sim}22$} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{The last row is the signal.} On pass 1 nearly everything I looked at was
+a gap, because the axis had never been swept. On pass 2, most of what I looked
+at was already covered --- and covered \emph{well}. That is what approaching
+coverage looks like, and it is a far better stopping criterion than item count.
+
+Three honest qualifications on ``converging'':
+
+\begin{enumerate}
+\item \textbf{Tier~3 and Tier~4 are unwritten}, so this audit is structurally
+  blind to their own Part-0-style prerequisites. \textbf{R-10}, \textbf{R-13}
+  and \textbf{R-24} are the visible edges of that --- all Tier-4 material that
+  became visible only because Tier~2 touches it. Expect a comparable yield when
+  Tier~4 is written, on axes not visible from here.
+\item \textbf{Every audit inherits its author's blind spots}, and the correction
+  is not more passes by the same author. The axes I have not swept and cannot
+  sweep well: experimental nuclear-physics practice (what a rate evaluator would
+  find naive), stellar-evolution modelling practice (what a MESA developer
+  would), and ML-systems practice at training scale. Those need the
+  corresponding specialist, or the \code{referee} and \code{novelty-checker}
+  subagents pointed deliberately at \emph{methods} rather than at claims.
+\item \textbf{Diminishing returns is not zero returns, and items are not
+  equal-sized.} \textbf{R-08} is small in words and touches every statistic in
+  \code{RESULTS.md}; \textbf{R-25} is a whole topic and touches nothing until
+  release. Counting items is the wrong metric --- \S\ref{sec:ranked} ranks
+  instead.
+\end{enumerate}
+
+\begin{result}
+\textbf{Assessment: two further passes of this kind would find real but
+progressively less consequential items, and the better use of the next unit of
+effort is \S\ref{sec:ranked}'s top six --- all measurements on data that already
+exists, three of which change how a published number should be read.}
+\end{result}

@@ -1,0 +1,1224 @@
+% =====================================================================
+%  4 -- FLUXES, CANCELLATION, ENTROPY PRODUCTION  (source node S8).
+%
+%  Source: tier2.md Part II in full and in order -- header (2189-2194),
+%          II.1 (2198-2238), II.2 (2242-2294), II.3 (2298-2334),
+%          II.4 (2338-2469), II.4b (2473-2651), II.5 (2655-2681),
+%          II.6 (2685-2712), II.7 (2716-2788), II.7b (2792-2843),
+%          II.8 (2847-2895), II.9 (2899-2963), II.10 (2967-2997),
+%          II.11 self-check (3001-3015).
+%
+%  Plus, RE-HOMED FORWARD out of the source's Part III because both are
+%  defined against kappa and section 3 now precedes this one:
+%          III.10 the two departure diagnostics (3456-3516) ->
+%                 sec:departure, placed beside II.5 so that the two
+%                 distance-from-equilibrium measures sit together;
+%          III.12 results (2) and (3) (3565-3609) -> sec:negresults,
+%                 placed beside II.9's vacuous pass, which is the same
+%                 family of measurement;
+%          III.14 self-check items 7 and 8 -> sec:selfcheck-s8.
+%
+%  The source's stray horizontal rule at 2592 (inside II.4b, between
+%  the Lyapunov heading and its body) is dropped -- it is a formatting
+%  artefact, not a section break.
+% =====================================================================
+
+\section{Fluxes, cancellation, and entropy production}
+\label{part:fluxes}
+
+\begin{repopointer}
+\textbf{Files:} \code{fluxes/engine.py}, \code{fluxes/compile.py},
+\code{fluxes/store.py}, \code{fluxes/handshake.py},
+\code{qse/diagnostics.py}, \code{killtest/active\_set.py}. \quad
+\textbf{Oracles:} \code{tests/test\_flux\_engine.py},
+\code{tests/test\_flux\_store.py},
+\code{tests/test\_handshake\_synthetic.py} --- \S\ref{sec:codes8}. \quad
+\textbf{Notebook:} \code{05-flux-engine.ipynb}.
+\end{repopointer}
+
+\S\ref{part:conservation} gave the map $\netflux \mapsto \dd Y$.
+\S\ref{part:equilibrium} gave the reference against which ``equilibrated'' has a
+meaning. This section gives the \netflux: how a gross rate becomes a net flux,
+what the pairing structure is, and why the single scalar \kap{} shows up in
+four different roles --- detailed-balance diagnostic, condition number,
+thermodynamic affinity, and entropy production --- that turn out to be the same
+thing.
+
+% =====================================================================
+\subsection{From \texorpdfstring{$\lambda$}{lambda} to \texorpdfstring{$R$}{R}
+            to \texorpdfstring{\fp/\fm}{f+/f-}}
+\label{sec:lambdatoR}
+
+Tier~1 \S II.4 ended at the gross rate. Restated in the engine's variables
+(\code{fluxes/engine.py}):
+%
+\begin{equation}
+R_j \;=\; \underbrace{\frac{1}{\prod_s c_s!}}_{\code{prefactor}} \cdot
+\rho^{\,\code{dens\_exp}_j} \cdot
+\prod_{r \in \text{reactants}(j)} Y_r \cdot \lambda_j ,
+\label{eq:grossrate}
+\end{equation}
+%
+with \code{dens\_exp = n\_reactants - 1} (plus one more $\rho$ for REACLIB EC
+fits that carry $\rho\Ye$, flagged \code{ye\_weighted}), the prefactor removing
+double-counting of identical reactants, and $\lambda_j$ the screened,
+pf-corrected rate of Tier~1.
+
+Units: $R$ is mol\,g$^{-1}$\,s$^{-1}$, matching $\dot Y$. In code the whole
+thing is three array operations ---
+
+\begin{srclisting}
+R = lam * cn.prefactor[:, None] * rho[None, :] ** cn.dens_exp[:, None]
+Ypad = np.vstack([Y, np.ones((1, n_states))])   # sentinel row for absent slots
+for k in range(cn.reactant_idx.shape[1]):
+    R *= Ypad[cn.reactant_idx[:, k]]
+\end{srclisting}
+
+--- and the sentinel-row trick (index \code{n\_species} means ``no reactant in
+this slot'', multiply by 1) is what makes the loop uniform over chapters with
+different reactant counts. Max slots is 4 in these networks
+(\S\ref{sec:numap}(c) reported max 5 \emph{participants}, reactants $+$
+products).
+
+Then the pair semantics, which are the actual content of this node:
+%
+\begin{gather}
+\fp_j = R_j, \qquad
+\fm_j = \begin{cases}
+  R_{\text{pair}(j)} & \text{paired}\\
+  0 & \text{unpaired (always, for weak)}\end{cases},
+\notag \\[4pt]
+\netflux_j = \fp_j - \fm_j,
+\qquad \kap_j = \frac{|\netflux_j|}{\fp_j + \fm_j}.
+\label{eq:pairsemantics}
+\end{gather}
+
+\textbf{Every column has its own \fp, \fm, \netflux, \kap.} Both members of a
+forward/reverse pair are columns of $\nu$, so the pair $(j, k)$ has
+$\netflux_j = -\netflux_k$ and $\kap_j = \kap_k$. The information is duplicated;
+\S\ref{sec:netidentity} shows how to sum without double counting.
+
+% =====================================================================
+\subsection{The pair map}
+\label{sec:pairmap}
+
+\code{fluxes/compile.py::\_pair\_maps} builds two arrays:
+
+\begin{itemize}
+\item \code{pair\_col[j]} --- the column index of $j$'s reverse, or $-1$ if
+  unpaired;
+\item \code{is\_forward\_member[j]} --- whether $j$ is the designated
+  representative of its pair (or an unpaired strong column, which counts as its
+  own representative).
+\end{itemize}
+
+The matching is by \emph{canonical directed key} (\foreignreg{1}{R-17}):
+\code{directed\_key(j)} encodes the reactant and product multisets in a
+canonical order, and \code{reverse\_key} swaps them. Two columns pair iff one's
+key is the other's reversed key. This is exactly the decidability machinery
+Tier~1 built for the MESA reconciliation, reused --- which is the point of
+having built it as a general canonicaliser rather than a one-off.
+
+Two rules deserve attention.
+
+\paragraph{Weak columns are always unpaired}, by an explicit \code{continue}
+before the key lookup:
+
+\begin{srclisting}
+for j in range(r):
+    if stoich.weak_mask[j]:
+        continue                      # never enters col_by_key
+\end{srclisting}
+
+Not ``no partner was found'' --- \emph{structurally excluded from the search}.
+$\beta$-decay and electron capture are not detailed-balance partners of each
+other in this regime (Tier~1 \S V.1): the inverse of an electron capture is a
+neutrino capture, which does not occur at these densities because the neutrinos
+free-stream out (Tier~0 \S0.4.2). Pairing an EC with the corresponding
+$\beta^-$ would be physically wrong and would manufacture a spurious
+equilibrium. \code{CLAUDE.md} invariant \#2 lives here in its most upstream
+form.
+
+\paragraph{Forward-member selection is deterministic and provenance-aware.} If
+exactly one member of a pair was a REACLIB v-flag reverse, the \emph{other} one
+is the forward:
+
+\begin{srclisting}
+if dj != dk:
+    is_fwd[j] = dk                    # forward = the one that was NOT the v-flag
+else:
+    is_fwd[j] = stoich.rate_fnames[j] < stoich.rate_fnames[k]  # lexicographic
+\end{srclisting}
+
+The tiebreak matters only for reproducibility (the same pair must always elect
+the same representative across runs and across networks); the v-flag rule
+matters physically, because after the Tier-1 replacement the non-v-flag member
+carries the \emph{fitted} rate and its partner is a \code{DerivedRate} computed
+from it. Electing the derived one as ``forward'' would not be wrong, but it
+would make the provenance labelling in downstream reports incoherent.
+\code{crosscheck.kappa.strong\_pairs} uses the identical rule --- again,
+consistency by shared definition rather than by two implementations agreeing.
+
+% =====================================================================
+\subsection{The net identity, proved}
+\label{sec:netidentity}
+
+The physical right-hand side is $\dot y = \nu R$, summing over \textbf{all} $r$
+columns including both members of each pair. The kill-test and every
+concentration statistic instead want to sum over \emph{net} columns only. These
+agree:
+
+\begin{invariant}
+\textbf{Claim.} $\displaystyle \sum_{j=1}^{r}\nu_{ij}R_j \;=\;
+\sum_{j\,\in\,\mathcal{F}\cup\mathcal{U}}\nu_{ij}\netflux_j$
+where $\mathcal{F} =$ forward members, $\mathcal{U} =$ unpaired columns.
+\end{invariant}
+
+\emph{Proof.} Partition the columns into paired couples
+$\{j, k = \mathrm{pair}(j)\}$ and unpaired singletons.
+
+For a couple: the reverse reaction has exactly the reactants and products of the
+forward swapped, so its stoichiometric column is the negative,
+$\boldsymbol{\nu_{\cdot k} = -\nu_{\cdot j}}$ --- this is not an assumption, it
+is what \code{reverse\_key} matching \emph{means}, and it is asserted by
+\code{test\_pair\_map\_is\_involution\_on\_strong\_pairs}. Hence
+%
+\begin{equation}
+\nu_{ij}R_j + \nu_{ik}R_k \;=\; \nu_{ij}R_j - \nu_{ij}R_k
+\;=\; \nu_{ij}(R_j - R_k) \;=\; \nu_{ij}\netflux_j,
+\label{eq:coupleterm}
+\end{equation}
+%
+and only the forward member appears. For a singleton, $\fm = 0$ so
+$\netflux_j = R_j$ and the term is unchanged. Summing over all couples and
+singletons gives the claim. $\square$
+
+\code{test\_net\_identity} checks it numerically on physical states;
+\code{test\_pair\_antisymmetry} checks $\netflux_{\mathrm{pair}(j)} =
+-\netflux_j$, which is the couple half of the proof.
+
+\paragraph{Why this identity is load-bearing.} Every ``fraction of turnover
+carried by the active set'' statistic
+(\code{killtest.active\_set.carried\_fractions}) sums
+$|\nu_{ij}\netflux_j|$ over columns. If you summed over all $r$ columns you
+would count every equilibrated pair \emph{twice} with the same tiny \netflux,
+inflating the denominator and deflating every coverage fraction. The docstring
+says so explicitly: ``\code{phi}/\code{nu} should be restricted to net columns
+(forward|unpaired) by the caller to avoid double counting pairs.'' The identity
+is what licenses the restriction.
+
+% =====================================================================
+\subsection{\texorpdfstring{\kap}{kappa}, four ways}
+\label{sec:kappa}
+
+$\kap_j = |\netflux_j| / (\fp_j + \fm_j) \in [0, 1]$. Four readings, all exact,
+all useful.
+
+\subsubsection{(a) \texorpdfstring{\kap}{kappa} as a detailed-balance
+               diagnostic}
+\label{sec:kappa-db}
+
+At exact detailed balance $\fp = \fm \Rightarrow \kap = 0$. Tier~1 \S III.6 uses
+this as the numerical test of the reverse-rate construction, and it is how the
+pf-free v-flag pathology was found: raw v-flag reverses gave \kap{} medians of
+$6.6\times10^{-2}$\,/\,$1.3\times10^{-1}$ at NSE and p90 $\approx 0.4$--0.5,
+versus $2.6\times10^{-12}$ with \code{DerivedRate(use\_pf=True)}.
+\resultsref{2026-07-10}
+
+The sensitivity is the useful part. Suppose \fm{} carries a multiplicative error
+$(1 + \varepsilon)$ at a state where the true fluxes balance. Then
+$\netflux = \fp - (1{+}\varepsilon)\fp = -\varepsilon\fp$, denominator
+$(2{+}\varepsilon)\fp$, so
+%
+\begin{equation}
+\kap \;=\; \frac{\varepsilon}{2+\varepsilon} \;\approx\; \frac{\varepsilon}{2}.
+\label{eq:kappaeps}
+\end{equation}
+
+\textbf{\kap{} measures a relative rate error at 1:2 gearing.} A 20\% error in a
+reverse rate shows up as $\kap \approx 0.1$ --- right at the active-set
+threshold. This one line unifies the v-flag floor (Tier~1 \S III.5), the
+screening offset (Tier~1 \S IV.7 --- the source writes a bare ``\S IV.7'' here,
+which its own convention would read as \emph{this} file's; Appendix
+\ref{app:headings} records the disambiguation), and the next reading.
+
+\subsubsection{(b) \texorpdfstring{\kap}{kappa} as a condition number}
+\label{sec:kappa-cond}
+
+Suppose \fp{} and \fm{} each carry relative error $\varepsilon$ (from the rate
+library, from screening, from a neural network). Worst case the errors are
+coherent:
+%
+\begin{equation}
+|\delta\netflux| \;\le\; \varepsilon\,(\fp + \fm)
+\;=\; \frac{\varepsilon}{\kap}\,|\netflux|
+\qquad\Longrightarrow\qquad
+\boxed{\ \frac{|\delta\netflux|}{|\netflux|} \;\le\;
+\frac{\varepsilon}{\kap}\ }
+\label{eq:kappacond}
+\end{equation}
+
+\textbf{$1/\kap$ is the error amplification factor} from gross-flux accuracy to
+net-flux accuracy. This is Tier~0 \S V.1's catastrophic cancellation, in the
+variables of this tier. At $\kap = 10^{-3}$ a rate known to 1\% gives a net flux
+known to a factor of 10 --- i.e. not known at all.
+
+Two consequences that shape the whole project:
+
+\begin{enumerate}
+\item \textbf{The active-set threshold $\kap > 0.1$ is an error-budget
+  threshold, not a physics threshold.} It says: only trust columns where
+  amplification is $\le 10\times$. \code{CLAUDE.md}'s kill-test asks whether
+  such columns carry $\ge 95\%$ of the physics.
+\item \textbf{Any accuracy statement about net quantities must be normalised by
+  the gross}, or it is meaningless in the cancellation-dominated regime. This is
+  why \code{test\_flux\_engine.py}'s ydot oracle uses a \emph{gross-relative}
+  gate (``within \code{1e-12} $\times$ per-species gross flux
+  $\sum_j|\nu_{ij}|R_j$''), and why the handshake grew a \code{resid\_gross}
+  field (\S\ref{sec:cancresid}).
+\end{enumerate}
+
+\subsubsection{(c) \texorpdfstring{\kap}{kappa} as a thermodynamic affinity ---
+               the hinge of the tier}
+\label{sec:kappa-affinity}
+
+Write the log flux ratio $h = \ln(\fp/\fm)$. Then
+%
+\begin{equation}
+\kap \;=\; \left|\frac{\fp-\fm}{\fp+\fm}\right|
+\;=\; \left|\tanh\!\left(\tfrac{h}{2}\right)\right| .
+\label{eq:kappatanhh}
+\end{equation}
+%
+And $h$ is not an arbitrary quantity: for a reaction at chemical potentials
+$\mu_i$, the ratio of forward to reverse rate is set by detailed balance as
+%
+\begin{equation}
+h \;=\; \ln\frac{\fp}{\fm} \;=\; \frac{\aff}{kT},\qquad
+\aff \;=\; \sum_i (-\nu_{ij})\,\mu_i \ \ \text{(the reaction affinity)} .
+\label{eq:affinity}
+\end{equation}
+%
+The affinity is De Donder's \citep{dedonder1936}, and the exponential
+flux--force relation $\fp/\fm = e^{\aff/kT}$ is standard \citep{schnakenberg1976,
+beard2007}; the $\tanh$ packaging of it as \kap{} is this document's own.
+
+So
+%
+\begin{equation}
+\boxed{\ \kap_j \;=\; \left|\tanh\!\left(\frac{\aff_j}{2kT}\right)\right|\ }
+\label{eq:kappatanh}
+\end{equation}
+
+\begin{result}
+\textbf{\kap{} is a monotone reparameterisation of the reaction's distance from
+chemical equilibrium, measured in units of $kT$.}\derivedhere{} Near equilibrium
+($\aff \ll kT$) it reduces to $\kap \approx \aff/(2kT)$ and
+$\netflux \approx (\fp{+}\fm)\aff/(2kT)$ --- the standard near-equilibrium
+linear-response law, flux proportional to affinity \citep[for the general
+framework]{onsager1931}; \citep[ch.~16, for the chemical-reaction
+form]{kondepudi1998}. Far from equilibrium ($\aff \gg kT$) it saturates at 1.
+\end{result}
+
+This is the honest reason \kap{} and the Guidry departure $\delta$ are
+\emph{correlated but not equal}: both measure distance from equilibrium, \kap{}
+in reaction-affinity space and $\delta$ in abundance space, related by a
+nonlinear ($\tanh$) and composition-weighted map. \resultsref{2026-07-12}
+measures the correlation: Spearman$(\log\kap, \log\delta_r) =
++0.491$\,/\,$+0.498$ on the relaxed manifold. ``Agree on ordering, not on
+threshold crossings'' is exactly what a monotone-but-nonlinear relationship with
+different normalisations predicts --- and \S\ref{sec:departure} is where the two
+diagnostics are put side by side.
+
+It also explains the screened-\kap{} offset (Tier~1 \S IV.7) in one line: if
+screening multiplies \fp{} by $e^{\Delta h}$ and not \fm, it shifts the affinity
+by $\Delta h$, so $\kap = |\tanh(\Delta h/2)|$ --- the measured form, exact to
+$1.4\times10^{-11}$.
+
+\subsubsection{(d) \ldots and therefore \texorpdfstring{\kap}{kappa} as entropy
+               production}
+\label{sec:kappa-entropy}
+
+Once \kap{} is an affinity, the second law is one more line. The entropy
+production of column $j$ is $\sigma_j = \netflux_j\aff_j/T$ --- per pair,
+$\kB(\fp{-}\fm)\ln(\fp/\fm) \ge 0$, the standard network form
+\citep{schnakenberg1976, kondepudi1998} --- and substituting
+$\fp = s(1{+}\kap)/2$, $\fm = s(1{-}\kap)/2$ with $s = \fp + \fm$:
+%
+\begin{equation}
+\sigma_j \;=\; 2\kB\,s_j\,\kap_j\artanh(\kap_j)
+\;\xrightarrow[\ \kap\to0\ ]{}\; 2\kB\,s_j\,\kap_j^2 \;\ge\; 0 .
+\label{eq:entropyprod}
+\end{equation}
+\derivedhere
+
+\textbf{Entropy production is quadratic in \kap, and linear in the gross flux.}
+Two things follow that the project does not currently use, both worked in
+\S\ref{sec:entropy}:
+
+\begin{itemize}
+\item a near-balanced pair does no thermodynamic work no matter how enormous its
+  gross rate --- which is the \emph{thermodynamic} form of the cancellation
+  problem;
+\item ranking columns by $\sigma_j$ rather than thresholding on \kap{} gives a
+  \textbf{flux-weighted, dimensionally meaningful, parameter-free} active set,
+  and hence the derivation that the $\kap > 0.1$ gate currently lacks
+  (\reg{R-01}).
+\end{itemize}
+
+\begin{warn}
+\textbf{Domain of validity, stated before the identity gets used.} Everything
+above assumes the column \emph{has} a reverse --- \fm{} is a real rate and
+$h = \ln(\fp/\fm)$ is a real affinity. That is true of the strong\,/\,EM pairs
+and false of the weak sector, where $\fm \equiv 0$ by construction
+(\S\ref{sec:pairmap}, \S\ref{sec:weakkappa}), hence $\kap \equiv 1$ and
+$\artanh(\kap) = \infty$. \textbf{$\sigma_j = 2\kB s_j \kap_j \artanh\kap_j$ is
+therefore defined on strong\,/\,EM paired columns only}, and
+\S\ref{sec:entropy}'s constructions inherit that restriction. The divergence is
+a bookkeeping artefact, not physics: a real EC has finite entropy production,
+but computing it requires the neutrino's phase space and the electron chemical
+potential, none of which this identity carries.
+\end{warn}
+
+% =====================================================================
+\subsection{Entropy production --- a derived active set, a second-law
+            constraint, and a Lyapunov bound}
+\label{sec:entropy}
+
+\S\ref{sec:kappa-entropy} derived $\sigma_j = 2\kB s_j\kap_j\artanh(\kap_j)$ and
+flagged two consequences without working them. Both are worked here, because
+between them they supply the two things the project most conspicuously lacks:
+\textbf{a principled basis for the active-set threshold}, and \textbf{a hard
+physical constraint on a learned flux that costs nothing to enforce}.
+
+\subsubsection{This derives the active set}
+\label{sec:entropyactive}
+
+\reg{R-01} complained that $\kap > 0.1$ has no derivation --- it is an assumed
+threshold on a dimensionless ratio, with no floor beneath it and no retirement
+plan. The entropy identity supplies a threshold-free replacement:
+
+\begin{invariant}
+\textbf{Define the active set as the smallest set of columns carrying $\ge 95\%$
+of the total entropy production $\sum_j \sigma_j$ --- over the strong\,/\,EM
+paired columns, with the weak sector admitted unconditionally.}
+\end{invariant}
+
+\textbf{That second clause is not a detail, and getting it wrong would
+invalidate the whole proposal.} $\sigma_j$ diverges on every weak column
+($\kap \equiv 1 \Rightarrow \artanh\kap = \infty$), so a naive ``rank all
+columns by $\sigma_j$'' has no defined ordering on the 46\,/\,173 columns that
+carry \emph{all} of \dYe{} --- the quantity every gate in \code{CLAUDE.md} is
+written around. The fix is the one the rest of the repo already uses: weak
+columns are handled \textbf{structurally, not by threshold}. They are in the
+active set by construction, exactly as $\kap \equiv 1$ already puts them there
+today (\S\ref{sec:weakkappa}), and the entropy ranking replaces the
+$\kap > 0.1$ threshold only where that threshold was doing real work --- on the
+strong\,/\,EM pairs. So the honest claim is narrower than ``a parameter-free
+replacement for the active-set gate'': it is a parameter-free replacement for
+the \emph{strong-sector half} of it, which is nonetheless the half that the
+split verdict of \resultsref{2026-07-12} turns on (\S\ref{sec:vacuous}'s
+worst-dominant-isotope row is a strong-sector statement).
+
+Properties this has and $\kap > 0.1$ does not, on that domain:
+
+\begin{itemize}
+\item \textbf{It is dimensionally and physically meaningful.} $\sigma$ has
+  units; the ranking is over a conserved, additive, non-negative physical
+  quantity, not over a ratio.
+\item \textbf{It automatically weights by flux magnitude.} $\kap > 0.1$ admits a
+  column with $\kap = 0.9$ carrying $10^{-30}$ of the flow and excludes one with
+  $\kap = 0.05$ carrying half of it.
+  $\sigma_j = 2\kB s_j\kap_j\artanh\kap_j$ cannot make that mistake, because
+  $s_j$ is in the formula.
+\item \textbf{It has no free parameter beyond the 95\%}, which is already the
+  form of the kill-test's other clauses.
+\item \textbf{It is cheap}: $s_j$ and $\kap_j$ are already materialised by
+  \code{FluxStore.read\_chunk} (\S\ref{sec:store}). This is a dozen lines in
+  \code{killtest/active\_set.py}.
+\item And it is \emph{monotone in \kap{} at fixed $s$}, so it does not overturn
+  the existing picture --- it re-weights it. Given \S\ref{sec:vacuous}'s finding
+  that the low-\kap{} columns are 0.9\%--24\% of active net columns but that
+  \emph{some dominant isotopes ride on them}, the entropy ranking is exactly the
+  instrument that would separate ``near-balanced and irrelevant'' from
+  ``near-balanced and load-bearing''.
+\end{itemize}
+
+I would run this before treating the split verdict of \resultsref{2026-07-12} as
+final. Open (register: \reg{R-01}).
+
+\subsubsection{The second-law constraint on a learned flux}
+\label{sec:secondlaw}
+
+For \netflux{} computed from a rate library, $\netflux_j$ and $\aff_j$ share a
+sign automatically --- they are built from the same \fp, \fm. \textbf{For a
+learned $\hat\netflux$ there is no such guarantee.} A flux head can emit a net
+flux pointing \emph{up} the affinity gradient: thermodynamically forbidden, and
+entirely invisible to every gate in \code{CLAUDE.md}, because such a
+$\hat\netflux$ conserves baryon number, charge and lepton number perfectly
+(\S\ref{sec:targetatheorem} --- conservation holds for \emph{any} \netflux,
+including unphysical ones).
+
+\begin{warn}
+\textbf{Same domain restriction as above, and here it costs more.} $\aff_j$ is a
+detailed-balance quantity, so all three responses below apply to strong\,/\,EM
+paired columns only. For a weak column the nuclear sum
+$\sum_i(-\nu_{ij})\mu_i$ is \emph{not} the affinity --- it omits the electron
+chemical potential, and with the neutrinos free-streaming out of the zone
+(Tier~0 \S0.4.2) there is no $\mu_\nu$ and no detailed-balance relation at all,
+which is precisely why \S\ref{sec:pairmap} refuses to pair weak columns in the
+first place. So the weak sector --- 46\,/\,173 columns, all of \dYe{} --- gets
+\textbf{no} second-law guard from any of this. That is the uncomfortable part:
+the blind spot is smallest exactly where the physics is least interesting, and
+total where it matters most. Closing it would need an electron-capture affinity
+built from $\mu_e$ and the (escaping) neutrino phase space, which is a different
+and much larger piece of work; the honest position is to scope the guard to the
+strong sector and say so.
+\end{warn}
+
+With that scope, three levels of response, in increasing ambition:
+
+\begin{enumerate}
+\item \textbf{As a diagnostic (free).} Report the fraction of columns where
+  $\mathrm{sign}(\hat\netflux_j) \ne \mathrm{sign}(\aff_j)$, and the total
+  negative entropy production $\sum_j \min(0, \hat\netflux_j \aff_j)$. A trained
+  model that violates the second law on 5\% of columns is telling you something
+  no MSE curve will.
+\item \textbf{As a soft penalty.} Penalise
+  $\sum_j \max(0, -\hat\netflux_j\aff_j)$ --- one-sided, so it costs nothing
+  where the physics is respected.
+\item \textbf{As a hard constraint --- the interesting option.} Have the flux
+  head predict only the \textbf{magnitude} and take the \textbf{sign from
+  thermodynamics}:
+  %
+  \begin{equation}
+  \hat\netflux_j \;=\; \mathrm{sign}(\aff_j)\cdot \exp(\hat u_j).
+  \label{eq:signfromaffinity}
+  \end{equation}
+  %
+  The affinity $\aff_j = \sum_i(-\nu_{ij})\mu_i$ is computable from
+  $(T, \rho, Y)$ with the Saha coefficients of \S\ref{sec:saha} --- one
+  exponential per species, no rate evaluation at all. The second law then holds
+  by construction, exactly like conservation does, and the head's output space
+  collapses from ``signed quantity spanning 15 decades with a sign flip at the
+  equilibrium crossing'' to ``positive magnitude in log space'' --- which
+  removes the single nastiest feature of Target A's target
+  (\foreignreg{0}{R-18}'s dynamic-range problem \emph{is} the sign flip).
+
+  Caveats to state honestly: the sign is \emph{discontinuous} at $\aff = 0$,
+  which is precisely where the near-balanced columns live, so this trades a
+  representation problem for a classification problem at the crossing --- and
+  near-equilibrium columns are where the crossing happens. Whether that is a net
+  win is an experiment, not an argument. It also requires $\mu_i$ for the
+  \emph{actual} composition, not the equilibrium one, which is exactly what
+  \code{qse/coeffs.py} computes.
+
+  \textbf{This is a design idea, and I have not novelty-checked it.} Enforcing
+  thermodynamic sign consistency in a learned chemical-kinetics surrogate is the
+  kind of thing that plausibly exists in the combustion or atmospheric surrogate
+  literature. It should go to the \code{novelty-checker} before anyone gets
+  attached to it.
+\end{enumerate}
+
+Open (register: \reg{R-05}) --- (1) is a free diagnostic on any trained model;
+(3) is an architecture experiment for Tier~4.
+
+\subsubsection{The Lyapunov corollary --- rollout stability, structurally}
+\label{sec:lyapunov}
+
+This is why the constraint above is worth \emph{enforcing} rather than merely
+diagnosing.
+
+Constant $(T, \rho)$ is constant $T$ and \textbf{volume}, so the potential that
+decreases is the \textbf{Helmholtz} free energy $F = U - TS$, not the Gibbs free
+energy --- $G$ is the constant-$(T, P)$ potential and is the wrong object here.
+(It is an easy slip because the chemical-kinetics literature usually works at
+constant pressure. The identity below is unaffected; only the name is.) For the
+strong\,/\,EM sector,
+%
+\begin{equation}
+\frac{\dd F}{\dd t} \;=\; -T\sum_j \sigma_j
+\;=\; -\sum_j \netflux_j\aff_j \;\le\; 0,
+\label{eq:lyapunov}
+\end{equation}
+%
+with equality only at equilibrium. This is the second law, and it says the
+strong\,/\,EM dynamics at fixed \Ye{} is \textbf{contracting toward NSE in $F$}.
+Every trajectory is confined to a sublevel set of $F$ forever. Free energy as a
+Lyapunov function of detailed-balanced mass-action kinetics is a classical
+result --- \citeauthor{hornjackson1972}'s (\citeyear{hornjackson1972})
+``pseudo-Helmholtz'' function, with the H-theorem lineage of \citet{shear1967}
+and \citet{higgins1968}, and modern treatments in \citet{vanderschaft2013} and
+\citet{anderson2015}.
+
+\begin{result}
+\textbf{A learned dynamics has no such guarantee, and could be given one.} If
+the emulator's update satisfies $\sum_j \hat\Phifl_j\aff_j \ge 0$
+(\S\ref{sec:secondlaw}'s constraint, integrated over the step), then $\hat F$ is
+non-increasing and \textbf{rollout cannot diverge} --- the iterate is trapped in
+the initial sublevel set of $F$, which is compact within the composition
+polytope. That is a \emph{structural} stability guarantee, of the same character
+as conservation-by-construction, and obtained the same way: by enforcing a
+physical law in the decode step rather than hoping training delivers it.
+\end{result}
+
+This is directly the missing Tier-4 \textbf{S20} node (rollout stability:
+pushforward vs noise injection in a stiff system, and ``the governor''). The
+standard ML answers there --- noise injection, pushforward training, teacher
+forcing schedules --- are all \emph{statistical} stabilisers with no guarantee.
+A thermodynamic Lyapunov constraint is a \emph{hard} one. Whether it is
+achievable cheaply is open; that it is the right thing to want is not.
+
+Three caveats worth keeping, the third of which is the one that bites.
+
+\begin{enumerate}
+\item $F$ is a Lyapunov function at \emph{constant} $(T, \rho)$, which is the
+  regime the labels are generated in but not the regime of deployment
+  (\S\ref{sec:deployment}, point 2).
+\item The QSE manifold is not the $F$-minimum, it is a slow descent along it
+  (\S\ref{sec:slowmanifold}), so monotone $F$ decrease does not by itself pin
+  the \emph{rate} of descent --- which is exactly the quantity the emulator has
+  to get right.
+\item \textbf{The zone is not a closed system, and the weak sector is where it
+  leaks.} Neutrinos free-stream out (Tier~0 \S0.4.2), carrying energy and lepton
+  number with them, so the descent argument is a statement about the
+  strong\,/\,EM sector \emph{at fixed \Ye}, not about the full dynamics. The
+  full system has no closed-system equilibrium at these conditions --- it keeps
+  deleptonising --- and NSE is only the attractor of the strong sector on the
+  \Ye{} slice it currently occupies. Two things follow. The guarantee is still
+  real (a bound on the fast, large-amplitude sector is exactly where rollout
+  blows up), but it is \textbf{not} a bound on \Ye{} drift, which is the failure
+  mode the project actually fears; and the enforceable constraint
+  $\sum_j \hat\Phifl_j\aff_j \ge 0$ runs over strong\,/\,EM columns only, for the
+  reasons given two subsections up. R-13 should be scoped that way.
+\end{enumerate}
+
+Open (register: \reg{R-13}), logged against S20.
+
+% =====================================================================
+\subsection{Weak columns: \texorpdfstring{$\kap \equiv 1$}{kappa = 1},
+            structurally}
+\label{sec:weakkappa}
+
+Chained consequence of \S\ref{sec:pairmap}'s \code{continue}:
+
+\begin{itemize}
+\item \code{compile.py} --- weak columns never enter \code{col\_by\_key}, so
+  \code{pair\_col = -1};
+\item \code{engine.py} --- \code{f\_minus} therefore stays 0 for unpaired
+  columns, so
+\end{itemize}
+%
+\begin{equation}
+\kap_j \;=\; \frac{|\netflux_j|}{\fp_j + 0} \;=\; 1 .
+\label{eq:weakkappaone}
+\end{equation}
+
+So every weak column with flux has $\kap = 1$ exactly, and is therefore
+\emph{always} in the active set $\{\kap > 0.1\}$. Verified at scale:
+$\kap = 1.0$ exactly on all 8{,}825{,}170\,/\,33{,}189{,}419 (weak column
+$\times$ relaxed row) samples with $\fp > 0$, both networks.
+\resultsref{2026-07-12}
+
+This is why the $|\dot{\dYe}|$ coverage by the active set is \textbf{1.0000
+structurally} rather than empirically --- a fact worth appreciating, because it
+means the kill-test's \Ye{} clause cannot fail for a reason having to do with
+masking. It can only fail for reasons having to do with the \emph{strong}
+sector's coverage of the isotopes.
+
+Fluxless weak columns get $\kap = 0$ by the engine's zero-denominator convention
+(\code{np.where(denom > 0, ..., 0.0)}) and contribute nothing. Worth knowing when
+reading a \kap{} histogram: the spike at 0 is not ``equilibrated'', it is ``no
+flux''. \code{test\_kappa\_definition} and
+\code{test\_weak\_columns\_have\_zero\_reverse\_and\_kappa\_one} pin both
+branches.
+
+% =====================================================================
+\subsection{The two departure diagnostics --- and they are not the same}
+\label{sec:departure}
+
+\begin{aside}
+This subsection is the source's \S III.10, re-homed. It belongs beside \kap{}
+rather than inside the equilibrium solver: $\delta$ and \kap{} are the tier's
+two distance-from-equilibrium measures, \S\ref{sec:kappa-affinity} has just
+predicted how they must relate, and the mask this subsection defines is what
+\S\ref{sec:negresults} then measures to be empty. It uses
+\S\ref{part:equilibrium}'s NSE and QSE solutions as its two references.
+\end{aside}
+
+\code{qse/diagnostics.py} provides two, computed against \textbf{different
+references}. Conflating them is easy and wrong.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.2cm} Y Y@{}}
+\toprule
+ & \textbf{$\delta$} \citep[eq.~8b --- their $\varepsilon_i = 0.01$ is the repo
+   sweep's middle value; the symbol $\delta$ is the repo's]{guidry2013pe} &
+   \textbf{\rQSE} \\
+\midrule
+formula & $\delta_i = |Y_i - \bar Y_i|/\bar Y_i$ &
+  $r_i = \log_{10}(\bar Y_i/Y_i)$ \\
+reference $\bar Y$ & \textbf{NSE} at the row's $(T, \rho, \Ye)$ &
+  \textbf{QSE} solution fitted to the row \\
+per-reaction form & $\delta_r =$ max over participants &
+  --- (species-level) \\
+used for & the maskable set (\code{eligible\_mask}) &
+  the single-cluster plateau signature \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\paragraph{$\delta_r =$ max over participants} (\code{reaction\_delta}) is
+deliberately conservative: one badly-departed participant disqualifies the whole
+column from masking. The alternative (mean, or a flux-weighted combination)
+would mask columns with a badly-wrong minority participant, and the mask's whole
+safety argument is that a masked column's dynamics are negligible. Max is the
+right choice and the docstring does not say why, so: \emph{the failure mode of
+masking is deleting real flux, and the participant that carries the real flux is
+the departed one.}
+
+\paragraph{\code{eligible\_mask} is where invariant \#2 lives structurally:}
+
+\begin{srclisting}
+return (delta_r < epsilon) & ~np.asarray(weak_mask, dtype=bool)
+\end{srclisting}
+
+The \code{\& \textasciitilde weak\_mask} is not an optimisation. $\beta$/EC are
+not in detailed balance in this regime, so their $\delta$ against an NSE
+reference is meaningless --- an NSE reference \emph{has} a \Ye, imposed as a
+constraint, so ``the weak sector is in equilibrium'' is baked into the reference
+by construction. Masking on that basis would be circular.
+\code{killtest.active\_set.guidry\_masks} routes exclusively through this
+function, and \code{test\_weak\_never\_maskable} asserts it structurally.
+
+\paragraph{The \rQSE{} plateau, derived.} Why should $\log_{10}(\bar Y/Y)$ be
+\emph{constant across group members} if the group is internally equilibrated? If
+both the actual composition and the reference satisfy the Saha form with
+potentials $(\up, \un, \uG)$ and $(\up', \un', \uG')$ respectively, then for
+$i \in G$
+%
+\begin{equation}
+\ln\frac{\bar Y_i}{Y_i} \;=\;
+\frac{Z_i\Delta\up + N_i\Delta\un + \Delta\uG}{kT}.
+\label{eq:plateau}
+\end{equation}
+%
+If the fitted reference recovers the actual nucleon potentials
+($\Delta\up = \Delta\un = 0$) this is a constant $\Delta\uG/kT$ --- a
+\textbf{plateau}. So the plateau is the operational signature of ``the group is
+a single Saha cluster''.
+
+\begin{warn}
+\textbf{And here is the caveat that the measured negative result needs.} The QSE
+reference is fitted with three constraints --- $\sum X = 1$, \Ye, and the group
+mass --- all evaluated on the \emph{whole} composition, including the non-group
+sector. On a mid-burn trajectory the non-group sector (free nucleons, Fe group)
+is badly described by the NSE-with-nucleons ansatz, and a poor fit there
+\textbf{pulls $(\up, \un)$ away from the group's own values}, leaving a
+$(Z, N)$-\textbf{linear tilt} in \rQSE{} across group members that is \emph{not}
+a failure of cluster equilibrium. Group members span $Z \approx 12$--21 and
+$N \approx 12$--24, so a $\Delta\up$ of only ${\sim}0.1$\,MeV produces
+${\sim}1\dex$ of intra-group spread at $\Tn = 4$ --- the same order as the
+measured std.\derivedhere
+\end{warn}
+
+I cannot settle this from the reported numbers, and it should be settled: the
+sharper test is to fit $(\up, \un, \uG)$ to the \textbf{group members alone} by
+least squares and report the residual after removing the $(Z, N)$-linear trend.
+Logged as \reg{R-18}.
+
+% =====================================================================
+\subsection{The store: why \texorpdfstring{\fm}{f-}, \texorpdfstring{\netflux}{phi},
+            \texorpdfstring{\kap}{kappa} are not stored}
+\label{sec:store}
+
+\code{fluxes/store.py} persists per chunk: \code{state\_id}, \code{T},
+\code{rho}, \code{ye}, \code{f\_plus} ($n \times n_{\rm rxn}$), \code{ydot},
+\code{dye\_weak}, and the three pair-map arrays. It does \textbf{not} persist
+\fm, \netflux{} or \kap. On read:
+
+\begin{srclisting}
+f_minus = np.zeros_like(f_plus)
+f_minus[paired] = f_plus[pair_col[paired]]
+phi   = f_plus - f_minus
+kappa = np.where(denom > 0.0, np.abs(phi)/np.where(denom > 0.0, denom, 1.0), 0.0)
+\end{srclisting}
+
+\code{f\_minus = f\_plus[pair\_col]} is an \textbf{exact gather} --- a
+permutation of stored values, no arithmetic, no loss. So the reconstruction is
+bit-identical to what the engine computed, and storing four arrays instead of
+one would double the disk for zero information. At corpus scale that is the
+difference between 4.9\,GB and ${\sim}10$\,GB (\msn{80}) or 12\,GB and
+${\sim}24$\,GB (\msn{151}). \resultsref{2026-07-10}
+
+Two operational details worth copying:
+
+\begin{itemize}
+\item \textbf{\code{complete=True} is written last}, after \code{f.flush()}. A
+  crashed writer leaves the attribute absent, \code{completed\_starts()} skips
+  the file, and the run resumes. One-writer-per-file means no SWMR and no lock.
+\item \textbf{\code{state\_id} is run-defined and joined on only.} For grid runs
+  it is the training-grid row index; for trajectory runs, the row index within
+  the trajectory. Never join on (\code{logT}, \code{logRho}) --- Tier~0 \S III.5,
+  the Sobol grid's non-regenerability makes state identity the only stable key.
+\end{itemize}
+
+% =====================================================================
+\subsection{The \texorpdfstring{$\dd t = 10^{-6}$}{dt = 1e-6} label handshake}
+\label{sec:handshake}
+
+\code{fluxes/handshake.py} ties \emph{our} fluxes to \emph{their} labels with no
+model in between. It is the flux-side analogue of the Step-2 model handshake,
+and its value is that it can only be passed by getting the physics right ---
+there is nothing to tune.
+
+\paragraph{The premise.} At the shortest measured label timestep
+$\dd t_1 \approx 1.011\times10^{-6}$\,s, \emph{if} the state is not stiff on
+$\dd t_1$, then the label step is linear:
+%
+\begin{equation}
+\Delta X_i \;\approx\; A_i\,(\nu R)_i\,\dd t_1 .
+\label{eq:handshakepremise}
+\end{equation}
+
+\paragraph{The stiffness proxy.} Per (state, isotope), the destruction timescale
+%
+\begin{equation}
+\tau_i \;=\; \frac{Y_i}{|\dot Y_i|}
+\label{eq:tau}
+\end{equation}
+%
+decides whether the premise applies. The contract (from the Step-5 brief) is
+sharp and worth internalising:
+
+\begin{invariant}
+Agreement is judged on cells with $\tau > 10\cdot \dd t$, \textbf{and the
+departure must track $\tau/\dd t$} --- that tracking is itself evidence the
+fluxes are right. Cells failing \emph{without} a stiffness explanation indicate
+a configuration mismatch and are attributed to their dominant reaction channel.
+\end{invariant}
+
+That second clause is the interesting one. A test that only reports ``90\% of
+cells agree'' is weak; a test that predicts \emph{which} cells will disagree and
+by how much, and then confirms the prediction, is strong. Measured: agreement
+rises monotonically with the $\tau/\dd t$ decade ---
+$0.000 \to 0.005/0.006 \to 0.23/0.36 \to 0.63/0.71 \to 0.75/0.79 \to
+0.87/0.89$. \resultsref{2026-07-10}
+
+\paragraph{The trapezoid refinement.} With \code{ydot\_end} supplied, the
+prediction becomes $\tfrac12(\dot y_0 + \dot y_1)\cdot \dd t$ rather than
+$\dot y_0\cdot \dd t$. The Euler form has local error
+$\tfrac12\ddot y\,\dd t^2$; the trapezoid form has
+$-\tfrac{1}{12}\dddot y\,\dd t^3$. Measured effect: $10\times$ on the trajectory
+residual median. Additionally, cells whose RHS changed by more than
+\code{RHS\_STABLE\_FACTOR = 0.2} over the interval are excluded from
+\code{linearizable} --- these are the \emph{cascade-production} class, a species
+whose reactants only appear mid-interval, so $\dot y$ goes $0 \to$ nonzero and
+no two-point quadrature can be expected to work.
+
+\paragraph{The four-part tolerance.}
+%
+\begin{equation}
+|\Delta X_{\mathrm{pred}} - \Delta X_{\mathrm{lab}}| \;\le\;
+\max\Bigl(\underbrace{0.1\,|\Delta X_{\mathrm{lab}}|}_{\text{linearisation}},\;
+\underbrace{3\,\varepsilon_{\mathrm{lab}}(X_i + X_f)}_{\text{label noise}},\;
+\underbrace{2\times10^{-15}}_{\text{floor}}\Bigr)
+\label{eq:handshaketol}
+\end{equation}
+
+\begin{itemize}
+\item \textbf{\code{REL\_TOL = 0.1}} is not a fudge: it is the linearisation
+  error \emph{at the admission boundary}. If a cell is admitted at
+  $\tau = 10\cdot \dd t$, the $O(\dd t/\tau)$ error is 10\%. The tolerance is
+  derived from the admission criterion.
+\item \textbf{$\varepsilon_{\rm lab}$ is measured, not assumed.}
+  \code{calibrate\_label\_noise} takes $10 \times$ median of
+  $|\mathrm{resid}|/(X_i + X_f)$ over \emph{ultra-slow} cells
+  ($\tau > 10^{3}\cdot \dd t$, uncensored, $X > 10^{-10}$) --- cells where
+  $\Delta X_{\rm pred} \approx 0$, so the residual \emph{is} the label's own
+  noise. The labels are printed as float64 but carry the bbq solver's tolerance;
+  measuring beats assuming float32.
+\item \textbf{Median, not p99, for the calibration}, with a documented reason:
+  the calibration set must be robust to a genuinely corrupted channel. A tail
+  statistic would let bad cells inflate the noise floor and thereby \emph{mask
+  themselves}.
+  \code{test\_handshake\_synthetic.py::test\_corrupted\_channel\_surfaces} is
+  the regression. The $\times10$ covers the median$\to$tail ratio of a
+  heavy-tailed floor (Gaussian p99/median $\approx 3.8$) with margin.
+\item \textbf{Censoring.} Cells at the $10^{-15}$ label clamp on either end are
+  excluded: a clamped value carries no information, and its ``residual'' is an
+  artefact of the clamp.
+\end{itemize}
+
+That is four different failure modes each getting its own term, with each term
+traceable to a measurement or a derivation. It is the best-engineered tolerance
+in the repo and a good template.
+
+% ---------------------------------------------------------------------
+\subsubsection{The conditioning variable this suggests ---
+               \texorpdfstring{$\Delta t/\tau$}{dt/tau}, not
+               \texorpdfstring{$\log \Delta t$}{log dt}}
+\label{sec:dttau}
+
+\S\ref{sec:handshake}'s admission criterion is $\tau_i/\Delta t$, and that
+quantity is the answer to a Tier-4 question nobody has framed as a question. The
+sketch lists \textbf{S19: time conditioning (one model over 8 decades of
+$\Delta t$)}, and the natural implementation is to feed $\log\Delta t$ as a
+scalar feature. Standard dimensional analysis says that is the wrong variable.
+
+\paragraph{The argument.} The state's response over an interval depends on
+$\Delta t$ only through the \textbf{dimensionless} products $\Delta t\cdot
+\lambda_j$ --- equivalently, per species, through
+%
+\begin{equation}
+\frac{\Delta t}{\tau_i}, \qquad \tau_i = \frac{Y_i}{|\dot Y_i|},
+\label{eq:dttau}
+\end{equation}
+%
+which is exactly the quantity \code{handshake.py} already computes and uses as
+its admission criterion (\S\ref{sec:handshake}). A model conditioned on raw
+$\log\Delta t$ must \emph{learn} the map
+$(\log\Delta t, T, \rho, Y) \mapsto \Delta t/\tau$ internally --- and $\tau$
+varies over 15+ decades with $(T, \rho)$ (\S\ref{sec:stiffness}). It is being
+asked to learn a multiplication it could be handed.
+
+Feeding $\Delta t/\tau_i$ as a \textbf{node feature} instead (or alongside) has
+three properties worth having:
+
+\begin{itemize}
+\item it is already dimensionless, so the 8 decades of $\Delta t$ and the 15
+  decades of rate scale collapse onto the single axis that governs the physics;
+\item it is \emph{per species}, so it tells each node how relaxed it is over
+  this step --- which is precisely the information a GNN node needs and cannot
+  easily compute from a global scalar;
+\item it is nearly free at inference: $\tau_i$ needs $\dot Y_i$, which is one
+  evaluation of the rates the emulator is replacing --- \textbf{which is the
+  catch}.
+\end{itemize}
+
+\paragraph{The catch, stated properly.} If computing $\tau_i$ requires
+evaluating the network's rates, you have paid the cost you were trying to avoid,
+and \S\ref{sec:deployment}'s $t_{\rm det}$ argument applies with force. Three
+escapes, in increasing ambition:
+
+\begin{enumerate}
+\item Use a \textbf{cheap proxy} --- $\Delta t\cdot\lambda_{\rm ref}$ for a
+  small set of reference rates (the dominant photodisintegrations),
+  interpolated from a small table in $(T, \rho)$. This is $O(10)$ evaluations
+  rather than $O(600)$.
+\item Use the \textbf{previous step's} $\tau$, which is free in a rollout.
+\item Learn $\tau$ as an auxiliary output head with its own loss, so the model
+  builds the representation explicitly rather than implicitly.
+\end{enumerate}
+
+None is obviously right. The point is that ``condition on $\log\Delta t$'' is a
+choice that was never framed as one, and the physically correct variable is
+known, already implemented elsewhere in the repo, and measurably better-scaled.
+
+Open (register: \reg{R-10}) --- a Tier-4 design input that should be on the
+table before S19 is built, not after.
+
+% =====================================================================
+\subsection{Cancellation-aware residuals}
+\label{sec:cancresid}
+
+The handshake's original net tolerance conflates two very different failures: a
+wrong rate, and a correct rate evaluated where cancellation amplifies its error.
+\S\ref{sec:kappa-cond} says the amplification is $1/\kap$ at the column level;
+the per-\emph{isotope} analogue is
+%
+\begin{equation}
+c_i \;=\; \frac{\bigl|\sum_j \nu_{ij}\netflux_j\bigr|}
+               {\sum_j |\nu_{ij}\netflux_j|}
+\;=\; \frac{|\dot Y_i|}{\text{gross turnover}_i} \in [0,1].
+\label{eq:cancellation}
+\end{equation}
+%
+\code{build\_cells} computes both this and the \emph{rate-level} residual
+%
+\begin{equation}
+\code{resid\_gross}_i \;=\;
+\frac{|\Delta X_{\mathrm{pred}} - \Delta X_{\mathrm{lab}}|}
+     {A_i\,\text{gross}_i\,\dd t},
+\label{eq:residgross}
+\end{equation}
+%
+whose whole point is that it is \textbf{immune to cancellation amplification}:
+it asks ``is the flux right at the scale of the fluxes'', not ``is the
+difference of two large fluxes right at the scale of the difference''.
+
+Both are needed, and the measured pair is the evidence that the framework is
+correct:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.0cm} L{3.0cm} L{2.2cm}@{}}
+\toprule
+\textbf{statistic} & \textbf{\msn{80}} & \textbf{\msn{151}} &
+\textbf{\textsc{results} row} \\
+\midrule
+rate-level residual, linearizable cells: median &
+  $3.6\times10^{-3}$ & $2.8\times10^{-3}$ & 2026-07-10 \\
+\ldots p90 & $4.7\times10^{-2}$ & $2.6\times10^{-2}$ & \\
+\ldots fraction $\le 5\%$ & 90.3\% (of 292,959) & 94.4\% (of 596,607) & \\
+net-tolerance agreement at $c \ge 0.1$ & 0.894 & 0.937 & \\
+\ldots at $c \ge 0.5$ & 0.923 & 0.959 & \\
+\ldots at $c \ge 0.9$ & 0.937 & 0.970 & \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Agreement rises monotonically with $c$.} That is the $1/c$ amplification
+law showing up in a measurement --- the fluxes are equally good everywhere, and
+the \emph{net} comparison degrades exactly where cancellation says it must.
+Reading it the other way round: the residual structure of the handshake is a
+direct measurement of the QSE cancellation the kill-test targets.
+
+And the departure classification closes the loop. Of the rate-level failures
+(9.7\%\,/\,5.6\% of linearizable cells), \msn{80}: 69.4\% are the DB-reverse
+pf-provenance class (Tier~1's 0.05--0.1\,dex band), 25.1\% subfloor-controller
+(the dominant channel's reactant is below the $10^{-15}$ label floor ---
+invisible to the emulator too, so not a defect), 5.4\% weak-tabular
+interpolation, and \textbf{9 cells unexplained}. \msn{151}:
+63.6\%\,/\,12.6\%\,/\,23.8\%, \textbf{unexplained: none}.
+\resultsref{2026-07-10} Nine unexplained cells out of ${\sim}293$k, all in one
+light-sector multibody channel, is what a genuinely closed error budget looks
+like.
+
+% =====================================================================
+\subsection{The measurement that reframed the project: the vacuous pass}
+\label{sec:vacuous}
+
+Now the headline, and the thing most worth understanding correctly.
+
+\textbf{On the training grid, $\kap \approx 1$ essentially everywhere.}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.0cm} L{3.0cm} L{2.2cm}@{}}
+\toprule
+ & \textbf{\msn{80}} & \textbf{\msn{151}} & \textbf{\textsc{results} row} \\
+\midrule
+median $\log_{10}\kap$, every $\Tn$ stratum & $\approx -0.05$ &
+  $\approx -0.05$ & 2026-07-11 \\
+fraction $\kap > 0.1$ & 0.985--0.999 & 0.974--0.997 & \\
+fraction $\kap < 10^{-3}$ & 0.000 & 0.000 & \\
+per-isotope cancellation $c_i$, median & 0.87--1.0 & 0.87--1.0 &
+  2026-07-10 \\
+\kap-active union over strata & \textbf{all} 327/327 net cols &
+  \textbf{all} 846/846 & 2026-07-11 \\
+$\Rightarrow \cond(\Sact)$ & 41.8 & 57.4 & \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Confirmed at full corpus scale (1,034,704 in-strata states per network).
+
+The gate --- ``active set carries $\ge 95\%$, $\cond < 10^{6}$'' --- passes
+\emph{trivially}, and the pass is \textbf{vacuous}: the active set is
+everything, so of course it carries everything.
+
+\paragraph{Why.} The training grid is Sobol-sampled in composition space. A
+random composition is nucleon-loaded (median $X_{\rm neut} \approx
+1.7\times10^{-2}$) and nowhere near any equilibrium: affinities are enormous, so
+by \S\ref{sec:kappa-affinity} $\kap = |\tanh(\aff/2kT)| \approx 1$. The states
+are not \emph{wrong}; they are simply not the states where QSE lives.
+
+\paragraph{The consequence that reorganises everything downstream.} The
+cancellation structure --- the thing Target A is designed for and the kill-test
+is designed to measure --- \textbf{exists only on relaxed states}, i.e. on
+trajectories, not on the training distribution. Which means:
+
+\begin{enumerate}
+\item The kill-test verdict must be computed on the relaxed manifold, not the
+  grid. Hence Step 6's whole shape: pre-terminal trajectory rows, plus a bbq
+  rerun campaign to get clean ones.
+\item The $\dd t = 10^{-6}$ grid-mode handshake premise is \textbf{void} ---
+  99.99\%\,/\,100.00\% of cells have $\tau < \dd t$. The shortest label step is a
+  \emph{stiff relaxation}, not a linear step (label $|\Delta X|/X$ median
+  $\approx 1$). \resultsref{2026-07-10} Only the trajectory-mode handshake is
+  informative.
+\item And it says something uncomfortable about the training data itself: the
+  emulator is being trained on states whose dynamics are dominated by relaxing
+  an unphysical initial condition, while it will be \emph{deployed} on states
+  that have already relaxed. That is a distribution-shift problem no
+  architecture fixes --- it is the ``Sobol $\to$ real-MESA'' gate in
+  \code{CLAUDE.md}, and the reason the trajectory-aware-resampling clause exists.
+\end{enumerate}
+
+\paragraph{What the relaxed manifold looks like instead.} Not the clean bimodal
+picture QSE theory would suggest, either:
+
+\begin{itemize}
+\item strong pairs with $\kap < 10^{-3}$ (clean detailed balance):
+  \textbf{$\le 0.4\%$} of carrying pairs in every stratum\,/\,phase --- clean
+  balance essentially never occurs;
+\item instead a \textbf{continuum} of $\kap \in 10^{-3}\ldots10^{-1}$, with the
+  fraction $\kap > 0.1$ dropping to 0.70/0.64 in the
+  $\Tn \in [5.0, 6.3)$ stratum;
+\item the low-\kap{} share of active net columns is 0.9\%--24\%, \textbf{below
+  the ${\sim}30\%$ spread FAIL line everywhere};
+\item coverage of dominant-isotope $|\Delta X|$ turnover: $\ge 0.95$ in most
+  strata, but the \emph{worst} dominant isotope per row falls to 0.0022--0.166
+  (\msn{80})\,/\,0.0084--0.070 (\msn{151}) across the $[4.0, 6.3)$ strata.
+\end{itemize}
+
+\resultsref{2026-07-12} A split verdict, and Tier~3 is where it gets read.
+
+\begin{warn}
+\warnglyph{}~Note the last row carefully, because it is the most consequential
+number in the node: \textbf{some dominant species' net evolution rides on
+near-cancelled columns}, with $1/\kap$ amplification of $10$--$10^{3}$ on
+gross-scale errors. That is Target A's real exposure, and it is not visible in
+any aggregate statistic --- only in the per-row \emph{minimum} over dominant
+isotopes.
+\end{warn}
+
+% =====================================================================
+\subsection{The two remaining negative results, read carefully}
+\label{sec:negresults}
+
+\begin{aside}
+These are the source's \S III.12 results (2) and (3), re-homed. Both are
+statements about masking and near-balance, so they read as one family with
+\S\ref{sec:vacuous}'s vacuous pass and depend on \S\ref{sec:departure}'s
+$\delta$; result (1), the solver cross-check, stays with the solver at
+\S\ref{sec:solververify}. The source states all three together.
+\end{aside}
+
+\paragraph{(2) The single-Si-cluster plateau is NOT confirmed.} Twice:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}Y L{3.4cm} L{3.2cm} L{3.0cm}@{}}
+\toprule
+ & \textbf{intra-group std(\rQSE)} & \textbf{plateau rows ($< 0.1\dex$)} &
+ \textbf{non-group spread} \\
+\midrule
+Step 5, shipped trajectories & 1.33\,/\,1.45\,dex & 0/129, 0/130 &
+  3.5\,/\,2.4\,dex \\
+Step 6, clean rerun trajectories & 0.87\,/\,0.80\,dex & 0/303, 0/316 &
+  2.19\,/\,1.29\,dex \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\resultsref{2026-07-10, 2026-07-11} The verdict: \emph{group-organised but never
+single-cluster-equilibrated} --- the intra-group spread is 2.5--3$\times$
+tighter than the non-group spread, so the group \emph{is} a real structure, but
+it is not a single Saha cluster to within the plateau criterion. Degrading and
+fragmenting intra-group equilibrium is itself in the literature ---
+\citet{ht1999a} measure a 15\% silicon-group spread at $\Tn \approx 4$, 25\% by
+$\Tn = 3.25$, and fragmentation into four groups before QSE breaks down near
+$\Tn \approx 3$ --- but under idealised adiabatic conditions and at \%-level,
+not the dex-level spreads measured here; what the Hix \& Thielemann papers do
+not describe is \emph{this} label manifold, whose own equilibria are displaced
+(an earlier draft of this sentence claimed they do not describe partial
+intra-group equilibrium at all --- corrected in the 2026-08-14 audit).
+
+Two honest qualifications on that verdict. (a) \S\ref{sec:departure}'s tilt
+caveat may account for a substantial part of the residual. (b) The label
+manifold's own equilibria are displaced by the Appendix-B bug (Tier~3, S13), so
+``this manifold'' is not ``physical silicon burning'' --- the clean-rerun repeat
+\emph{narrowed} the spread ($1.33 \to 0.87$) but the reruns are stock MESA and
+carry the same bug.
+
+\paragraph{(3) The maskable set is EMPTY.} Guidry $\varepsilon$ sweep
+$\{3\times10^{-3}, 10^{-2}, 3\times10^{-2}\}$: maskable columns per row have
+\textbf{median 0 at every $\varepsilon$, both networks, p90 $= 0$}.
+\resultsref{2026-07-12} Consequently $\cond(\Sact) = \cond(\nu$ restricted to
+net columns$) = 41.8$\,/\,57.4 at every $\varepsilon$, and \textbf{the hybrid
+design's maskable set does not exist: Target A operates full-width on this
+data.}
+
+\begin{warn}
+Note precisely what is and is not concluded. It is \emph{not} ``there is no
+cancellation'' --- \S\ref{sec:vacuous} measured a continuum of
+$\kap \in 10^{-3}\ldots10^{-1}$, i.e. plenty of near-balance. It is that
+\textbf{$\delta$ measured against true NSE never crosses the mask thresholds},
+because the labels' equilibria are elsewhere. \kap{} and $\delta$ correlate
+($+0.491$/$+0.498$) on \emph{ordering} but not on threshold crossings --- exactly
+the monotone-but-differently-normalised relationship
+\S\ref{sec:kappa-affinity} predicts.
+\end{warn}
+
+And the mask-churn measurement becomes moot: flips/step median 0.00--0.03, churn
+$\le 0.002\%$/step, trivially under the 5\%/step freeze trigger --- but the mask
+is empty, so \textbf{the Component-B hybrid-vs-frozen decision is settled by
+emptiness, not by churn} \resultsref{2026-07-12}. Worth noticing as a process
+lesson: the project had a threshold and an instrument ready for a question that
+turned out not to arise.
+
+% =====================================================================
+\subsection{Code and oracles}
+\label{sec:codes8}
+
+\textbf{Read:} \code{fluxes/engine.py} (207 lines) --- \code{evaluate\_lambda}
+then \code{evaluate\_fluxes}; the pair block is 5 lines and the \kap{} block is
+3. \code{fluxes/store.py} --- the round-trip. \code{fluxes/handshake.py} ---
+read the docstring first, it is the interpretation contract.
+
+\textbf{Oracles} (\code{tests/test\_flux\_engine.py}):
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{6.8cm} Y@{}}
+\toprule
+\textbf{test} & \textbf{what it pins} \\
+\midrule
+\code{test\_matches\_pyna\_evaluate\_ydots} &
+  $\nu R$ vs pynucastro on the same states --- the external oracle \\
+\code{test\_baryon\_drift\_within\_gate} &
+  \S\ref{part:conservation}'s conservation, now on \emph{physical} fluxes \\
+\code{test\_dye\_weak\_nonzero} & invariant \#3 on physical states \\
+\code{test\_weak\_columns\_have\_zero\_reverse\_and\_kappa\_one} &
+  \S\ref{sec:weakkappa} \\
+\code{test\_pair\_antisymmetry},
+\code{test\_pair\_map\_is\_involution\_on\_strong\_pairs} &
+  the $\nu_{\cdot k} = -\nu_{\cdot j}$ half of \S\ref{sec:netidentity} \\
+\code{test\_net\_identity} & \S\ref{sec:netidentity} \\
+\code{test\_kappa\_definition} & both branches incl. zero denominator \\
+\code{test\_kappa\_vanishes\_at\_nse\_unscreened} &
+  \S\ref{sec:kappa-db} --- the DB reading \\
+\code{test\_screening\_asymmetry\_offsets\_kappa\_at\_nse} &
+  \S\ref{sec:kappa-affinity} --- the $\tanh$ reading \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\code{tests/test\_flux\_store.py} checks the round-trip is lossless and the
+\code{complete} attribute semantics. \code{tests/test\_handshake\_synthetic.py}
+builds a network with a deliberately corrupted channel and requires it to
+surface --- the regression that keeps the median-based calibration honest.
+
+\begin{repopointer}
+\textbf{\textcircled{4} SEE:} notebook \code{05-flux-engine.ipynb} --- Fig 1
+\kap{} on the training grid (unscreened), Fig 2 the vacuous pass summarised,
+Fig 3 the screened-\kap{} offset diagnostic. Note the notebook helper requires a
+\textbf{declared \kap{} convention} before it will plot: \code{nbsupport.py}
+refuses a \kap{} figure that does not say whether it is screened. That is
+\code{CLAUDE.md}'s two-\kap{} rule as executable policy.
+\end{repopointer}
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-s8}
+
+\begin{selfcheck}
+\item Write $R_j$ in full and say what \code{dens\_exp} and \code{prefactor}
+  each correct for.
+\item Prove $\nu R = \sum_{\rm net} \nu\netflux$. Which property of the pair map
+  does the proof need, and which test asserts it?
+\item Derive $\kap = |\tanh(\aff/2kT)|$. What does it predict about the
+  relationship between \kap{} and the Guidry $\delta$?
+\item A reverse rate is 20\% too large at a state in balance. What \kap{} do you
+  measure?
+\item Why is the \emph{rate-level} residual needed in addition to the
+  net-tolerance agreement? What does the monotone rise of agreement with $c$
+  demonstrate?
+\item Why is the handshake's label-noise floor calibrated with a median rather
+  than a p99, and what test would fail if it were changed?
+\item $\kap > 0.1$ covers 98.5--99.9\% of the training grid. Why is that a
+  \emph{bad} result?
+\item The store does not persist \netflux{} or \kap. Why is nothing lost?
+\item $\delta$ and \rQSE{} use different references. Which uses which, and what
+  breaks if you swap them?
+\item The maskable set is empty, but \kap{} shows a continuum of near-balance.
+  Are these consistent? Explain in one sentence.
+\end{selfcheck}
