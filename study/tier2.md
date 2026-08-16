@@ -45,11 +45,15 @@ the business code, configs, notebooks, and tests.
   commit + data provenance, tagged **[RESULTS]**. This file is **not** their
   source of truth; if a number here disagrees with `RESULTS.md`, `RESULTS.md`
   wins.
-- **Bibliographic details in Part 0 are from memory** and are tagged
-  **[sourced — verify]**. The physics content is what matters for study; the
-  volume/page numbers must be checked against the actual papers before any of
-  it is quoted in `docs/` or a paper draft. This is exactly the
-  sourced/derived/assumed discipline of Tier 0 §VII.1 applied to myself.
+- **Bibliographic details were verified in the 2026-08-14 literature audit**
+  (the former **[sourced — verify]** tags are resolved). Every
+  externally-attributable claim now carries an inline author-year citation
+  resolved in the **References** section at the end; corrections found by the
+  audit (the BCF68 single-group picture, the Bethe 1990 Yₑ/Y_L conflation, the
+  Guidry journals, the Patankar weighting, the BDF A(α) range, the extreme-
+  pathway attribution) were applied in place, with an inline note where the
+  physics content itself changed. This is the sourced/derived/assumed
+  discipline of Tier 0 §VII.1 applied to myself.
 
 **Maths formatting.** Every *equation* — anything with its own line — is LaTeX in
 a `$$ … $$` block with the delimiters on their own lines, which is the form
@@ -286,50 +290,75 @@ This is worth knowing properly, because the project's design choices are
 reactions to specific historical findings, not to a generic "networks are
 slow" complaint.
 
-- **Hoyle 1946** (MNRAS 106, 343) **[sourced — verify]** — the *e-process*.
-  The iron-peak abundance pattern is not the record of a reaction sequence; it
-  is a thermodynamic equilibrium distribution. Peak abundance at ⁵⁶Fe at
-  Yₑ ≈ 0.46–0.47. This is the origin of the idea that composition can be a
-  *state function*.
+- **Hoyle 1946** (MNRAS 106, 343, "The Synthesis of the Elements from
+  Hydrogen") — the equilibrium calculation B²FH later systematised and named
+  the *e-process*. The iron-peak abundance pattern is not the
+  record of a reaction sequence; it is a thermodynamic equilibrium
+  distribution, with ⁵⁶Fe the most abundant heavy nucleus in his freeze-out
+  table (Table XIV). This is the origin of the idea that composition can be a
+  *state function*. The quantitative placement — the ⁵⁶Fe peak at
+  Yₑ = 26/56 ≈ 0.464 — is not in Hoyle, whose neutron-richness variable is a
+  degeneracy parameter; it comes from the later NSE surveys (Hartmann,
+  Woosley & El Eid 1985, Fig. 2; the survey lineage begins with Clifford &
+  Tayler 1965).
 
   > **Say this one carefully.** The usual shorthand — "⁵⁶Fe maximises binding
-  > energy per nucleon" — is not true: ⁶²Ni does (8.7945 vs 8.7903 MeV/A). What
+  > energy per nucleon" — is not true: ⁶²Ni does (8.7946 vs 8.7904 MeV/A,
+  > AME2020). What
   > NSE actually minimises is the free energy at fixed (ΣX = 1, Yₑ), and near
   > Yₑ = 0.464 = 26/56 the winner is the nucleus whose Z/A *matches* Yₑ while
-  > having near-maximal B/A — which is ⁵⁶Fe. The Yₑ qualifier is not decoration;
+  > having near-maximal B/A — which is ⁵⁶Fe (the selection rule stated
+  > verbatim in Seitenzahl et al. 2008). The Yₑ qualifier is not decoration;
   > it is the whole selection rule, and §0.2.3 is the same statement read as a
   > function of Yₑ.
-- **Burbidge, Burbidge, Fowler & Hoyle 1957** (Rev. Mod. Phys. 29, 547)
-  **[sourced — verify]** — B²FH systematises the e-process alongside s, r, p.
-  Still equilibrium-first.
-- **Bodansky, Clayton & Fowler 1968** (ApJS 16, 299, "Nuclear
-  quasi-equilibrium during silicon burning") **[sourced — verify]** — the
+- **Burbidge, Burbidge, Fowler & Hoyle 1957** (Rev. Mod. Phys. 29, 547) —
+  B²FH systematises the e-process alongside s, r, p. Still equilibrium-first.
+- **Bodansky, Clayton & Fowler 1968** (ApJS 16, 299, "Nuclear Quasi-Equilibrium
+  during Silicon Burning"; announced in Phys. Rev. Lett. 20, 161) — the
   decisive correction, and the paper this tier is really downstream of. Full
   NSE is *not* reached in silicon burning on the available timescale. Instead
-  the network organises into **quasi-equilibrium groups** — a silicon group and
-  an iron group — each internally equilibrated, connected by a small number of
-  comparatively slow *bridge* reactions that carry the net flow. Composition is
-  neither a free ODE trajectory nor a state function; it is a state function
-  *of the group masses*, which evolve slowly.
-- **Woosley, Arnett & Clayton 1973** (ApJS 26, 231) **[sourced — verify]** —
-  large explicit silicon-burning networks; QSE confirmed as an emergent
-  property of the kinetics rather than an imposed assumption.
-- **Hix & Thielemann 1996** (ApJ 460, 869) and 1999 **[sourced — verify;
-  the 1996 reference is the one cited in `configs/qse_groups.yaml`]** — QSE
-  *reduced* networks made operational: solve for (μ_p, μ_n, u_G) plus the group
-  masses, integrate only the bridges. The 24 ≤ A < 45 single-silicon-cluster
-  span in the repo's default group config comes from this line of work.
-- **Guidry and collaborators, ~2011–2013** (J. Comp. Phys. / Comp. Phys. Comm.)
-  **[sourced — verify]** — *partial equilibrium* and *asymptotic* methods:
-  rather than imposing group membership by A-range, detect equilibrated
-  reaction pairs dynamically via a departure criterion, and stabilise explicit
-  integration by algebraically removing them. The repo's ε-sweep criterion
-  |y − ȳ|/ȳ < ε (`qse/diagnostics.delta_species`) is this lineage.
-- **Machine-learning era** — NNN (Grichener et al. 2025) and NuGNN (Kim et al.
-  2026): learn the map directly. The physics-structural question these
-  inherited but did not resolve is precisely BCF68's: *is the net flow carried
-  by a small identifiable set of bridges?* If yes, a flux-space target with an
-  equilibrium mask is the right architecture. If no, it is a liability.
+  the network organises into **quasi-equilibrium**: in BCF's own picture a
+  *single* cluster, 28 ≤ A ≤ 62, whose abundances are expressed relative to
+  the slowly-depleting base nucleus ²⁸Si and the free light particles; the
+  cluster is *not* in equilibrium with the A < 28 sector, and the burning rate
+  is carried by a few slow non-equilibrium
+  links (chiefly ²⁴Mg(γ,α)²⁰Ne). Composition is neither a free ODE trajectory
+  nor a state function; it is a state function *of the group masses*, which
+  evolve slowly.
+- **Woosley, Arnett & Clayton 1973** (ApJS 26, 231, "The Explosive Burning of
+  Oxygen and Silicon") — large explicit silicon-burning networks; QSE confirmed
+  as an emergent property of the kinetics rather than an imposed assumption
+  ("the striking tendency of elements to segregate into cluster-equilibrium
+  groups", their p. 250). This is also where the **two-group** refinement of
+  BCF's single cluster enters: a silicon group (A ≤ 45) and an iron group
+  (A ≥ 46), joined by bridge reactions dominated by ⁴⁵Sc(p,γ)⁴⁶Ti (their
+  §VIb, Fig. 17).
+- **Hix & Thielemann 1996** (ApJ 460, 869; the reference cited in
+  `configs/qse_groups.yaml`) **and 1999a** (ApJ 511, 862) — the modern
+  diagnostic study: a full 299-species network run against QSE predictions,
+  confirming the two groups split "roughly A=24 to A=45" (the boundary giving
+  way to an N = 23 rule from Ti onward) and their merger into one cluster as
+  burning proceeds. The 24 ≤ A < 45 single-silicon-cluster span in the repo's
+  default group config is a crisp paraphrase of this hedged boundary. The QSE
+  *reduced* networks themselves — solve for (μ_p, μ_n, u_G) plus the group
+  masses, integrate only the bridges — were made operational in the companion
+  line of work: Hix, Khokhlov, Wheeler & Thielemann 1998 (ApJ 503, 332) and
+  Hix, Parete-Koon, Freiburghaus & Thielemann 2007 (ApJ 667, 476).
+- **Guidry and collaborators, 2012–2013** (J. Comp. Phys. 231, 5266; Comput.
+  Sci. Disc. 6, 015001–015003) — *partial equilibrium* and *asymptotic*
+  methods: rather than imposing group membership by A-range, detect
+  equilibrated reaction pairs dynamically via a departure criterion, and
+  stabilise explicit integration by algebraically removing them. The repo's
+  ε-sweep criterion |y − ȳ|/ȳ < ε (`qse/diagnostics.delta_species`) is this
+  lineage — it is Eq. (8b) of the partial-equilibrium paper (Guidry, Billings
+  & Hix 2013), whose own operative tolerance ε = 0.01 is the middle value of
+  the repo's sweep.
+- **Machine-learning era** — NNN (Grichener et al. 2025, ApJS 279, 49) and
+  NuGNN (Kim et al. 2026, arXiv:2606.04491): learn the map directly. The
+  physics-structural question these inherited but did not resolve is precisely
+  BCF68/WAC73's: *is the net flow carried by a small identifiable set of
+  bridges?* If yes, a flux-space target with an equilibrium mask is the right
+  architecture. If no, it is a liability.
 
 **That question, restated as a measurement, is the kill-test** (§0.6). Tier 2
 builds every instrument it needs.
@@ -354,7 +383,8 @@ verdict.
 
 > **Read this before Tier 3:** the measured answer is not a clean yes or no.
 > The bridge flow *is* concentrated (top-20 columns carry 0.82–0.88 of
-> inter-group flux, **[RESULTS]** 2026-07-12) — BCF68's picture survives. But
+> inter-group flux, **[RESULTS]** 2026-07-12) — the BCF68/WAC73 picture
+> survives. But
 > the *maskable* set on the label manifold is **empty at every ε**
 > (**[RESULTS]** 2026-07-12), because the shipped labels' own equilibria are
 > displaced by a MESA bug (Tier 3, S13). Two different claims; the data
@@ -368,8 +398,10 @@ verdict.
 
 Tier 1 §1.4 derived the photodisintegration rate: a reverse (γ, α) rate carries
 the factor exp(−Q/kT) relative to its forward (α, γ) partner, times a
-phase-space ratio ∝ T^{3/2}. With Q ≈ 5–10 MeV for typical α-captures in the
-Si–Ca range and kT = 86.2 keV × T₉,
+phase-space ratio ∝ T^{3/2} (the detailed-balance reciprocity relation:
+Fowler, Caughlan & Zimmerman 1967; in modern form Rauscher & Thielemann 2000,
+eq. for λ_γ). With Q ≈ 5–8 MeV for the α-captures in the Si–Ca range (AME2020:
+6.95, 6.64, 7.04, 5.13, 7.70 MeV for ²⁸Si→⁴⁸Cr) and kT = 86.2 keV × T₉,
 
 $$
 \frac{Q}{kT} \;=\; \frac{Q\,[\mathrm{MeV}]}{0.0862\,T_9}.
@@ -392,7 +424,8 @@ $$
 \;=\; \frac{9.87\times10^{9}}{\rho}\,T_9^{3/2}\,\Theta\,e^{-Q/kT},
 $$
 
-with Θ the O(1) ratio of spin/partition-function/reduced-mass factors. At
+with the constant 9.8685×10⁹ mol cm⁻³ from Rauscher & Thielemann (2000) and
+Θ the O(1)–O(few) ratio of spin/partition-function/reduced-mass factors. At
 ρ = 10⁸ and T₉ = 4 the prefactor is ~10²–10³, so the rate ratio is ~10⁻⁶ rather
 than the 2×10⁻⁹ the exponent alone suggests — and *that* is what the light-particle
 abundance factor Y_α/Y_B ~ 10⁻⁶ meets. Two factors, both large, pulling the same
@@ -403,7 +436,10 @@ The crossover is sharp because the exponent moves by ~Q/kT per unit relative
 change in T: dropping from T₉ = 4 to 3 raises Q/kT from 20 to 27, i.e.
 suppresses the reverse by e⁻⁷ ≈ 10⁻³. **The entire regime change from "ladder"
 to "equilibrium" happens across less than a factor of two in T** — which is why
-the regime box (T₉ 1.6–7.9) spans both, why QSE onset is quoted at ~3–3.3 GK,
+the regime box (T₉ 1.6–7.9) spans both, why QSE onset is quoted at ~3–3.3 GK
+(Hix & Thielemann 1999a measure quasi-equilibrium "beginning to fail" by
+T₉ = 3.25 with photodisintegration freezeout near T₉ ≈ 3, and NSE reached for
+T₉ ≳ 5; silicon ignition itself is at 2.7–3.5 GK, Woosley & Janka 2005),
 and why the kill-test priority window is 3.3–5 GK: that is where the structure
 is neither absent (cold) nor total (NSE).
 
@@ -431,9 +467,11 @@ the **iron** side. The `a24_46` variant moves the line one nucleon up and puts
 difference between ⁴⁵Sc(p,γ)⁴⁶Ti being a bridge and being an internal reaction,
 which is the whole content of §III.11.
 
-The mechanism BCF68 identified: ²⁸Si does not fuse with ²⁸Si (the Coulomb
-barrier at Z = 14 on Z = 14 is prohibitive at these temperatures — Tier 1
-§1.2.4). Instead, *some* ²⁸Si photodisintegrates, releasing α, p, n into a
+The mechanism BCF68 identified (with the two-group structure drawn above being
+WAC73's refinement of their single cluster — §0.1.2): ²⁸Si does not fuse with
+²⁸Si (the Coulomb barrier at Z = 14 on Z = 14 is prohibitive at these
+temperatures — Tier 1 §1.2.4). Instead, *some*
+²⁸Si photodisintegrates, releasing α, p, n into a
 reservoir; those light particles are then captured by *other* silicon-group
 nuclei, walking them upward. The net effect is ²⁸Si → ⁵⁶Ni, but the mechanism
 is disassembly-and-reassembly, not direct fusion. Hence "rearrangement".
@@ -447,12 +485,15 @@ Consequences that matter for the algebra downstream:
   light particles. Message passing over this graph saturates almost
   immediately, which is both good (K = 5 suffices, §I.11) and dangerous (a
   GNN can shortcut everything through p/n/α node features).
-- **The bridge set is small and identifiable.** BCF68's structural prediction.
+- **The bridge set is small and identifiable.** BCF68's structural prediction,
+  sharpened by WAC73 into the two-group form with a named dominant bridge.
   Measured, on the relaxed manifold: mesa_80's top-5 inter-group carriers are
   Ne22(α,n)Mg25 (share 0.20), Al27(p,α)Mg24 (0.13), P31(p,α)Si28 (0.11),
   Na23(α,p)Mg26, Mg24(n,γ)Mg25; top-20 carry 0.88. mesa_151 adds the
-  literature bottleneck ⁴⁵Sc(p,γ)⁴⁶Ti at rank 2/251 under the boundary-at-46
-  group variant. **[RESULTS]** 2026-07-12.
+  literature bottleneck ⁴⁵Sc(p,γ)⁴⁶Ti (Woosley, Arnett & Clayton 1973, §VIb:
+  "always the dominant, or at least one of the dominant, flows linking the two
+  groups"; reaffirmed by Hix & Thielemann 1996) at rank 2/251 under the
+  boundary-at-46 group variant. **[RESULTS]** 2026-07-12.
 - **The group boundary is a modelling choice, not a fact.** Whether ⁴⁵Sc is
   "in" the silicon group changes which reactions count as bridges. The repo
   makes this a config variant (`configs/qse_groups.yaml`: `default`
@@ -463,15 +504,22 @@ Consequences that matter for the algebra downstream:
 At Yₑ = 0.5 (equal protons and neutrons) the most-bound nucleus available is
 ⁵⁶Ni (Z = N = 28, doubly magic — Tier 0 §0.3.2). Silicon burning at Yₑ = 0.5
 terminates on ⁵⁶Ni, which later decays down the A = 56 chain
-(⁵⁶Ni → ⁵⁶Co → ⁵⁶Fe, half-lives 6.1 d and 77 d) and powers the supernova light
+(⁵⁶Ni → ⁵⁶Co → ⁵⁶Fe, half-lives 6.075 d and 77.24 d; ENSDF) and powers the
+supernova light
 curve. Both steps are weak, but not the same weak channel: **⁵⁶Ni decays by
-electron capture, essentially 100%** — it is not a β⁺ emitter — while ⁵⁶Co is
-~81% EC and ~19% β⁺. Worth keeping straight given how carefully §I.5 separates
+electron capture, essentially 100%** — it is not a β⁺ emitter (the dominant
+branch feeds the 1720 keV level of ⁵⁶Co, leaving only ~0.4 MeV, below the
+2mₑc² positron threshold; measured β⁺ intensity ~10⁻³ %) — while ⁵⁶Co is
+~81% EC and ~19% β⁺ (ENSDF). Worth keeping straight given how
+carefully §I.5 separates
 the two ledgers.
 
 But Yₑ is not 0.5. Electron captures during silicon burning drive it down (Tier
 0 §II.5), and at Yₑ < 0.5 the equilibrium favours more neutron-rich Fe-peak
-species: ⁵⁴Fe, ⁵⁸Ni, and at lower Yₑ still, ⁵⁶Fe itself. The endpoint of
+species: ⁵⁴Fe, ⁵⁸Ni, and at lower Yₑ still, ⁵⁶Fe itself — each species peaking
+where its own Z/A matches Yₑ (Hartmann, Woosley & El Eid 1985, Fig. 2:
+⁵⁶Ni dominant for Yₑ ≳ 0.49, ⁵⁴Fe/⁵⁸Ni for ≈ 0.47–0.49, ⁵⁶Fe below
+≈ 0.47). The endpoint of
 silicon burning is therefore *a function of Yₑ*, and the ⁵⁶Ni mass that
 eventually lights the supernova is set by how much of the burnt material stayed
 near Yₑ = 0.5.
@@ -531,18 +579,34 @@ $$
 \boxed{M_{\mathrm{ch}} \;\approx\; 5.83\,Y_e^2\ M_\odot.}
 $$
 
+This is the standard Chandrasekhar result (Chandrasekhar 1931, 1939), usually
+written M_ch = 1.457 (2/μₑ)² M_⊙ (Shapiro & Teukolsky 1983, eq. 3.3.17) —
+identical with μₑ = 1/Yₑ. It is the zero-temperature ideal-degenerate value;
+Coulomb corrections lower the actual white-dwarf limit to ≈ 1.40 M_⊙ (Hamada &
+Salpeter 1961), and general relativity destabilises it slightly further
+(Shapiro & Teukolsky 1983, §6.10), but the Yₑ² scaling — all that the argument
+below uses — survives.
+
 At Yₑ = 0.5, M_ch = 1.46 M_⊙; at Yₑ = 0.45, 1.18 M_⊙. **A 10% change in Yₑ
 moves the Chandrasekhar mass by 0.28 M_⊙ — about 19%.** [derived here]
 
 ### 0.3.2 Deleptonisation and the homologous core
 
 The iron core grows by silicon shell burning until it exceeds M_ch and
-collapses. During collapse, electron capture on free protons and on Fe-peak
-nuclei continues to lower Yₑ (to ~0.35 at neutrino trapping, ~0.28 at bounce
-**[sourced — verify; Bethe 1990, Rev. Mod. Phys. 62, 801]**). The *inner*
-core — the part that collapses subsonically and homologously — has a mass set
-by the same M_ch ∝ Yₑ² relation evaluated at the trapped Yₑ, and it is the
-inner core's mass that determines where the bounce shock forms.
+collapses. During collapse, electron capture — dominantly on Fe-peak *nuclei*,
+with free protons subdominant (Langanke et al. 2003; Hix et al. 2003) —
+continues to lower Yₑ: with modern capture rates the central Yₑ falls to
+≈ 0.25–0.27 after neutrino trapping (trapped lepton fraction
+Y_L ≈ 0.285–0.30), essentially frozen through bounce (Janka 2012). The classic
+treatment (Bethe 1990) quotes the trapped *lepton* fraction, Y_L ≈ 0.36–0.39 —
+note the two eras and the Yₑ-vs-Y_L distinction; an earlier draft of this
+paragraph conflated them (corrected in the 2026-08-14 audit). The *inner*
+core — the part that collapses subsonically and homologously (Goldreich &
+Weber 1980; Yahil 1983) — has a mass that scales with the same M_ch ∝ Yₑ²
+relation evaluated at the trapped Yₑ, and it is the
+inner core's mass that determines where the bounce shock forms ("whose mass
+scales with the instantaneous Chandrasekhar mass M_Ch(t) ∝ Yₑ²(t), and whose
+edge defines the location of shock formation at bounce" — Janka 2012).
 
 Two chains, then, both keyed on Yₑ:
 
@@ -562,14 +626,19 @@ The chain terminates in things telescopes see:
 
 - **⁵⁶Ni mass** — sets the radioactive tail of the light curve, and in
   *stripped-envelope* events (Ib/c) approximately the peak too, via Arnett's
-  rule. **The Arnett-rule-at-peak statement does not transfer to the H-rich
+  rule (Arnett 1982; applied to SE-SN samples in e.g. Lyman et al. 2016).
+  **The Arnett-rule-at-peak statement does not transfer to the H-rich
   Type II events a 20 M⊙ progenitor typically produces**: there the plateau is
-  powered by hydrogen recombination, and ⁵⁶Ni sets the tail and modulates the
-  plateau *length*, not the peak luminosity. Either way, Yₑ sets how much of the
+  powered by hydrogen recombination (Popov 1993; Kasen & Woosley 2009), and
+  ⁵⁶Ni sets the tail and modulates the
+  plateau *length*, not the peak luminosity (Kasen & Woosley 2009; Nakar,
+  Poznanski & Katz 2016). Either way, Yₑ sets how much of the
   ejecta reaches ⁵⁶Ni rather than ⁵⁴Fe/⁵⁸Ni.
-- **The Fe-peak isotopic ratios** — ⁵⁷Ni/⁵⁶Ni, ⁵⁸Ni/⁵⁶Fe — measured in SN
-  remnants and in the solar abundance pattern, and directly sensitive to the
-  neutron excess η = 1 − 2Yₑ.
+- **The Fe-peak isotopic ratios** — ⁵⁷Ni/⁵⁶Ni, ⁵⁸Ni/⁵⁶Fe — measured directly
+  in SN 1987A (⁵⁷Co γ-lines: Kurfess et al. 1992; Seitenzahl, Timmes &
+  Magkotsios 2014) and in the solar abundance pattern, and directly sensitive
+  to the neutron excess η = 1 − 2Yₑ (Woosley, Arnett & Clayton 1973;
+  Thielemann, Nomoto & Hashimoto 1996).
 - **The explosion/failure branch** itself, hence the observed
   progenitor-mass–outcome mapping.
 
@@ -598,7 +667,11 @@ $$
 $$
 
 which is exactly the operative per-step gate in `CLAUDE.md`. The 5×10⁻³ floor
-itself is the FFN→LMP weak-rate-library shift — i.e. **the gate is set by the
+itself is the FFN→LMP weak-rate-library shift — Heger, Woosley,
+Martínez-Pinedo & Langanke (2001) report that replacing the FFN rates (Fuller,
+Fowler & Newman 1980, 1985) with the LMP shell-model rates (Langanke &
+Martínez-Pinedo 2000) raises the presupernova central Yₑ "by ΔYₑ = 0.005 to
+0.015" — i.e. **the gate is set by the
 size of a known systematic uncertainty in the input physics.** That is the
 right way to set it: an emulator whose error is smaller than the disagreement
 between two defensible rate libraries is not the limiting factor.
@@ -624,7 +697,8 @@ Yₑ propagation — the *input* end. This is the *output* end, and nothing flag
 it.
 
 §0.3 derives Yₑ → M_ch → collapse → ⁵⁶Ni → light curve qualitatively, and
-§0.3.4 sets the per-step gate from the FFN→LMP shift, ΔYₑ = 5×10⁻³–1.5×10⁻².
+§0.3.4 sets the per-step gate from the FFN→LMP shift, ΔYₑ = 5×10⁻³–1.5×10⁻²
+(Heger et al. 2001).
 Note what that is: **an input uncertainty used as an output tolerance**. The
 logic — "an emulator whose error is smaller than the disagreement between two
 defensible rate libraries is not the limiting factor" — is sound and is the
@@ -1168,7 +1242,8 @@ beyond 3 (±3 is triple-α and its reverse). A and Z are integers ≤ 151 and
 ≤ 28. The column sum Σᵢ Aᵢνᵢⱼ is therefore a sum of at most 5 products of
 integers bounded by ~450 in magnitude. **Every intermediate value is exactly
 representable in float64** (integers up to 2⁵³), and IEEE-754 addition of
-exactly-representable integers whose exact sum is also representable is exact.
+exactly-representable integers whose exact sum is also representable is exact
+(IEEE Std 754-2019; Goldberg 1991).
 So the computed sum is the exact mathematical sum, and the exact sum is 0 by
 construction of the reaction.
 
@@ -1207,12 +1282,15 @@ literatures that nuclear astrophysics and this repo do not appear to cite. Worth
 knowing here rather than later: the vocabulary unlocks fifty years of results,
 and one of the theorems very nearly applies.
 
-- **Chemical Reaction Network Theory** (Horn & Jackson 1972; Feinberg's
-  deficiency theory, 1972–1987, collected in *Foundations of Chemical Reaction
-  Network Theory*, Springer 2019) **[sourced — verify]**;
+- **Chemical Reaction Network Theory** (Horn & Jackson 1972, Arch. Rational
+  Mech. Anal. 47, 81; Feinberg's deficiency theory, 1972–1987 — Feinberg 1972,
+  Arch. Rational Mech. Anal. 49, 187 and 1987, Chem. Eng. Sci. 42, 2229, with
+  Horn 1972 as co-founder — collected in Feinberg 2019, *Foundations of
+  Chemical Reaction Network Theory*, Springer);
 - **Stoichiometric / metabolic network analysis** (Schuster & Hilgetag 1994 on
-  elementary flux modes; Palsson's flux balance analysis; Klamt & Stelling on
-  extreme pathways) **[sourced — verify]**.
+  elementary flux modes; flux balance analysis in the Palsson school — Varma &
+  Palsson 1994; Orth, Thiele & Palsson 2010; extreme pathways are Schilling,
+  Letscher & Palsson 2000, with Klamt & Stelling 2003 the EFM/EP comparison).
 
 ### The vocabulary map
 
@@ -1239,10 +1317,11 @@ $$
 
 with n_complexes the number of distinct reactant/product multisets and ℓ the
 number of linkage classes (connected components of the complex graph). The
-**Deficiency Zero Theorem** says: a weakly reversible network with δ = 0 has,
-for *every* choice of positive rate constants, exactly one positive equilibrium
-in each stoichiometric compatibility class, and it is locally asymptotically
-stable. That would be an extraordinarily strong statement about this system —
+**Deficiency Zero Theorem** (Feinberg 1987) says: a weakly reversible network
+with δ = 0 has, under mass-action kinetics, for *every* choice of positive rate
+constants, exactly one positive equilibrium in each positive stoichiometric
+compatibility class, and it is asymptotically stable relative to its
+compatibility class. That would be an extraordinarily strong statement about this system —
 existence and uniqueness of NSE, and stability of the QSE manifold, *for free*,
 independent of the rate library.
 
@@ -1289,16 +1368,19 @@ $$
 \mathcal{C} \;=\; \{\varphi : \nu\varphi = 0,\ \varphi_j \ge 0 \ \forall j \in \text{irrev}\},
 $$
 
-and the **elementary flux modes** are its extreme rays — the minimal sets of
-reactions that can sustain a steady flow. "Which small set of reactions carries
+and the **elementary flux modes** are its support-minimal flows — the minimal
+sets of reactions that can sustain a steady flow; they coincide with the cone's
+extreme rays once reversible reactions are split into forward/backward halves
+(Gagneur & Klamt 2004). "Which small set of reactions carries
 the net flow from the silicon group to the iron group" (§0.2.2, the whole bridge
 programme) *is* the extreme-pathway question, and it has:
 
-- an exact algorithm (the double-description method; `efmtool` and successors),
+- an exact algorithm (the double-description method, Motzkin et al. 1953;
+  Fukuda & Prodon 1996; `efmtool` — Terzer & Stelling 2008 — and successors),
 - a large literature on **network reduction** driven by the same question,
-- and known scaling limits (EFM enumeration is combinatorially explosive, which
-  is why flux-*sampling* and flux-balance optimisation are used instead at
-  scale).
+- and known scaling limits (EFM enumeration is combinatorially explosive —
+  Klamt & Stelling 2002 — which is why flux-*sampling* and flux-balance
+  optimisation are used instead at scale).
 
 The repo's bridge discovery (`scripts/step5_bridges.py`) is an empirical,
 flux-weighted, per-state version: rank columns by |ν φ| across the group
@@ -1581,17 +1663,21 @@ Two families, and the second is the one the project has not met:
 
 1. **Positivity-preserving projection** — project onto the constraint manifold,
    then backtrack along the correction until positivity holds. The
-   architecture docs cite Kircher & Votsmeier 2025 for exactly this
-   **[sourced — verify]**, so this is known to the project at the *citation*
-   level; it is absent from the study map, from the code, and from the gate
-   list.
-2. **Modified Patankar schemes** — Burchard, Deleersnijder & Meister 2003, *A
+   architecture docs cite Kircher & Votsmeier 2025 (J. Phys. Chem. Lett. 16,
+   4715) for exactly this — atom-balance projection with linear-interpolation
+   backtracking, in ML surrogates for chemical kinetics — so this is known to
+   the project at the *citation* level; it is absent from the study map, from
+   the code, and from the gate list.
+2. **Modified Patankar schemes** — Burchard, Deleersnijder & Meister 2003, "A
    high-order conservative Patankar-type discretisation for stiff systems of
-   production–destruction equations* **[sourced — verify]**. These are built for
-   exactly the system shape here, ẏ = P(y) − D(y), and are **unconditionally
+   production–destruction equations", Appl. Numer. Math. 47, 1. These are built
+   for exactly the system shape here, ẏ = P(y) − D(y), and are **unconditionally
    positive *and* exactly conservative**, simultaneously, for any step size. The
-   trick is to weight destruction terms by y_i^{n+1}/y_i^{n}, which makes the
-   scheme implicit in a way that cannot cross zero. That is a strong existence
+   trick is to weight *both* the production and the destruction terms by
+   y^{n+1}/y^{n} factors, which makes the scheme implicit in a way that cannot
+   cross zero — weighting destruction alone (the classic Patankar 1980 trick)
+   buys positivity but breaks conservation; the symmetric weighting is what
+   restores it. That is a strong existence
    result: **conservation and positivity are not in tension**, and a scheme
    achieving both already exists in the production–destruction literature.
 
@@ -1709,7 +1795,13 @@ it in exactly the dYₑ direction.
 Suppose the head emits u = asinh(dY/s) or a signed-log, and you project u. Then
 C·P(u) = 0 says a linear constraint holds *in the warped coordinates*. Mapping
 back, Σ Aᵢ · sinh(uᵢ)·s ≠ 0 in general — the constraint you imposed is not the
-constraint you wanted. This is the documented NuGNN failure mode. The rule that
+constraint you wanted. This mathematical argument is the project's own [derived
+here]; what NuGNN itself documents is the empirical half: Kim et al. (2026)
+emit sign(f)·log₁₀|f| outputs, attempted explicit conservation enforcement,
+found that back-transforming through the signed log made optimisation unstable,
+and shipped without enforcement — relying on implicitly learned conservation
+plus a rollout-time retry heuristic (a step whose predicted ΣΔX drifts far
+from zero is retried at smaller Δt). The rule that
 falls out is stated in `CLAUDE.md` invariant #4 and in `projector.py`'s
 docstring: **conservation lives in the decode step; no nonlinear transform may
 sit between the conservation map and the output.** asinh/signed-log are
@@ -2312,6 +2404,10 @@ h \;=\; \ln\frac{f^+}{f^-} \;=\; \frac{\mathcal{A}}{kT},\qquad
 \mathcal{A} \;=\; \sum_i (-\nu_{ij})\,\mu_i \ \ \text{(the reaction affinity)} .
 $$
 
+The affinity is De Donder's (De Donder & Van Rysselberghe 1936), and the
+exponential flux-force relation f⁺/f⁻ = e^{𝒜/kT} is standard (Schnakenberg
+1976; Beard & Qian 2007); the tanh packaging of it as κ is this file's own.
+
 So
 
 $$
@@ -2321,7 +2417,9 @@ $$
 **κ is a monotone reparameterisation of the reaction's distance from chemical
 equilibrium, measured in units of kT.** [derived here] Near equilibrium
 (𝒜 ≪ kT) it reduces to κ ≈ 𝒜/(2kT) and φ ≈ (f⁺+f⁻)𝒜/(2kT) — the standard
-near-equilibrium linear-response law, flux proportional to affinity. Far from
+near-equilibrium linear-response law, flux proportional to affinity (Onsager
+1931 for the general framework; Kondepudi & Prigogine 1998, ch. 16, for the
+chemical-reaction form). Far from
 equilibrium (𝒜 ≫ kT) it saturates at 1.
 
 This is the honest reason κ and the Guidry departure δ are *correlated but not
@@ -2339,7 +2437,9 @@ multiplies f⁺ by e^{Δh} and not f⁻, it shifts the affinity by Δh, so
 ### (d) …and therefore κ as entropy production
 
 Once κ is an affinity, the second law is one more line. The entropy production
-of column j is σ_j = φ_j𝒜_j/T, and substituting f⁺ = s(1+κ)/2, f⁻ = s(1−κ)/2
+of column j is σ_j = φ_j𝒜_j/T — per pair, k_B(f⁺−f⁻)ln(f⁺/f⁻) ≥ 0, the
+standard network form (Schnakenberg 1976; Kondepudi & Prigogine 1998) — and
+substituting f⁺ = s(1+κ)/2, f⁻ = s(1−κ)/2
 with s = f⁺ + f⁻:
 
 $$
@@ -2506,7 +2606,12 @@ $$
 
 with equality only at equilibrium. This is the second law, and it says the
 strong/EM dynamics at fixed Yₑ is **contracting toward NSE in F**. Every
-trajectory is confined to a sublevel set of F forever.
+trajectory is confined to a sublevel set of F forever. Free energy as a
+Lyapunov function of detailed-balanced mass-action kinetics is a classical
+result — Horn & Jackson's (1972) "pseudo-Helmholtz" function, with the
+H-theorem lineage of Shear (1967) and Higgins (1968), and modern treatments in
+van der Schaft, Rao & Jayawardhana (2013) and Anderson, Craciun, Gopalkrishnan
+& Wiuf (2015).
 
 **A learned dynamics has no such guarantee, and could be given one.** If the
 emulator's update satisfies Σ_j Φ̂_j𝒜_j ≥ 0 (§II.4b's constraint, integrated
@@ -2932,7 +3037,9 @@ masses too, agreement would prove nothing about either.
 
 For a species i treated as an ideal, non-degenerate, non-relativistic gas with
 ground-state spin degeneracy (2J_i + 1) and internal partition function G_i(T),
-the grand-canonical number density is
+the grand-canonical number density is (the standard NSE starting point:
+Clifford & Tayler 1965; Hartmann, Woosley & El Eid 1985; chemical-potential
+form as in Seitenzahl et al. 2009)
 
 $$
 n_i \;=\; (2J_i+1)\,G_i(T)\left(\frac{m_i kT}{2\pi\hbar^2}\right)^{3/2}
@@ -3311,10 +3418,14 @@ $$
 $$
 
 where f_fast collects the near-balanced strong pairs and f_slow the bridges and
-weak columns. Singular perturbation theory (Tikhonov) says: from generic
+weak columns. Singular perturbation theory (Tikhonov 1952; geometric form
+Fenichel 1979) says: provided the fast subsystem's root is asymptotically
+stable (Tikhonov's hypothesis — physically satisfied for relaxation toward
+detailed balance), from generic
 initial conditions the system relaxes on timescale ε onto the manifold
 𝓜_slow = {f_fast(Y) = 0}, and thereafter moves *within* 𝓜_slow at the rate set
-by f_slow.
+by f_slow. The same structure under the names ILDM and CSP is the workhorse of
+combustion kinetics reduction (Maas & Pope 1992; Lam & Goussis 1994).
 
 - **𝓜_slow is exactly the QSE manifold.** f_fast = 0 is "every intra-cluster
   reaction balances", which is the chemical-potential ansatz of §III.8.
@@ -3347,7 +3458,7 @@ Two consequences that carry into §IV and Tier 4:
 `qse/diagnostics.py` provides two, computed against **different references**.
 Conflating them is easy and wrong.
 
-| | δ (Guidry) | r_QSE |
+| | δ (Guidry, Billings & Hix 2013, eq. 8b — their ε_i = 0.01 is the repo sweep's middle value; the symbol δ is the repo's) | r_QSE |
 |---|---|---|
 | formula | δ_i = \|Y_i − Ȳ_i\|/Ȳ_i | r_i = log₁₀(Ȳ_i/Y_i) |
 | reference Ȳ | **NSE** at the row's (T, ρ, Yₑ) | **QSE** solution fitted to the row |
@@ -3426,7 +3537,8 @@ Membership counts: 29 / 50 (default, mesa_80/151), 40 / 105 (a28_up).
 
 **Why the boundary matters and is not resolvable by argument.** A reaction is a
 *bridge* iff it crosses the boundary. ⁴⁵Sc(p,γ)⁴⁶Ti — the literature high-Yₑ
-bottleneck — is a boundary crossing under `a24_46` and an internal reaction
+bottleneck (Woosley, Arnett & Clayton 1973, §VIb; Hix & Thielemann 1996) — is
+a boundary crossing under `a24_46` and an internal reaction
 under `default`. Under `a24_46` it ranks **2/251** inter-group carriers (share
 0.10–0.12) on relaxed high-Yₑ QSE-window rows; under `default` its *feeder*
 Ca44(p,γ)Sc45 ranks #4 instead. **[RESULTS]** 2026-07-10 / 2026-07-12.
@@ -3460,8 +3572,15 @@ data agreeing to ten digits is as strong as this kind of check gets.
 **[RESULTS]** 2026-07-10, 2026-07-11. The verdict: *group-organised but never
 single-cluster-equilibrated* — the intra-group spread is 2.5–3× tighter than the
 non-group spread, so the group *is* a real structure, but it is not a single
-Saha cluster to within the plateau criterion. The Hix & Thielemann reference
-does not describe this manifold.
+Saha cluster to within the plateau criterion. Degrading and fragmenting
+intra-group equilibrium is itself in the literature — Hix & Thielemann (1999a)
+measure a 15% silicon-group spread at T₉ ≈ 4, 25% by T₉ = 3.25, and
+fragmentation into four groups before QSE breaks down near T₉ ≈ 3 — but under
+idealised adiabatic conditions and at %-level, not the dex-level spreads
+measured here; what the Hix & Thielemann papers do not describe is *this*
+label manifold, whose own equilibria are displaced (an earlier draft of this
+sentence claimed they do not describe partial intra-group equilibrium at all —
+corrected in the 2026-08-14 audit).
 
 Two honest qualifications on that verdict. (a) §III.10's tilt caveat may account
 for a substantial part of the residual. (b) The label manifold's own equilibria
@@ -3587,13 +3706,17 @@ An implicit method evaluates f at the new point, so the linear stability
 function does not blow up for large negative hλ. The relevant hierarchy:
 
 - **A-stable**: stable for all Re(hλ) < 0. Backward Euler and the trapezoidal
-  rule are; **Dahlquist's second barrier** says no linear multistep method of
+  rule are; **Dahlquist's second barrier** (Dahlquist 1963) says no linear
+  multistep method of
   order > 2 can be. So high-order multistep methods must settle for A(α)-stability.
-- **BDF-k**: Σ_{m} α_m y_{n−m} = h β f(t_n, y_n). Zero-stable for k ≤ 6; A-stable
-  for k ≤ 2; A(α)-stable with shrinking α for k = 3…5. scipy's `BDF` is
+- **BDF-k** (Curtiss & Hirschfelder 1952; Gear 1971): Σ_{m} α_m y_{n−m} =
+  h β f(t_n, y_n). Zero-stable for k ≤ 6; A-stable
+  for k ≤ 2; A(α)-stable with shrinking α for k = 3…6 (α ≈ 86°, 73°, 52°, 18°;
+  Hairer & Wanner 1996 — the k = 6 wedge is so narrow it is rarely used).
+  scipy's `BDF` is
   variable-order 1–5 with adaptive steps, which is the right compromise: it
   drops order where the α-wedge bites.
-- **L-stable**: A-stable *and* the amplification factor → 0 as hλ → −∞.
+- **L-stable** (Ehle 1969): A-stable *and* the amplification factor → 0 as hλ → −∞.
   Backward Euler has R(z) = 1/(1−z) → 0 ✓. The trapezoidal rule has
   R(z) → −1 ✗ — it is A-stable but leaves stiff transients **ringing** with
   undamped sign-alternating error.
@@ -3948,7 +4071,9 @@ measurement has consequences well beyond the energy gate.
 
 Detailed balance constrains rate constants *globally*, not just pairwise.
 Around any cycle in the reaction graph the free-energy changes must sum to
-zero, so the equilibrium constants must multiply to one. In this project's
+zero, so the equilibrium constants must multiply to one (Wegscheider 1901;
+generalised linear-algebraic form — ln K must be orthogonal to the null space
+of the stoichiometric matrix — Schuster & Schuster 1989). In this project's
 linear algebra the statement is startlingly simple.
 
 Q-values are mass-excess differences: Q_j = −Σ_i ν_{ij}Δ_i (§IV.8). Therefore
@@ -4348,18 +4473,21 @@ nearly the same physical state, and reaction pairs within one row share that
 state entirely. **Neither multiplication adds independent information.**
 
 This is the classic clustered-sampling error, and it is not a pedantic one — it
-inflates apparent precision by the *design effect*
+inflates apparent precision by the *design effect* (Kish 1965)
 
 $$
 \text{deff} \;=\; 1 + (\bar m - 1)\,\rho_{\mathrm{ICC}}, \qquad
 n_{\mathrm{eff}} \;=\; \frac{n}{\text{deff}},
 $$
 
-with ρ_ICC the intraclass correlation and m̄ the cluster size.
+with ρ_ICC the intraclass correlation and m̄ the cluster size (strictly a
+weighted mean when clusters are unbalanced; the shipped-trajectory measurement
+below is balanced at 26 rows each).
 
 ### The measurement
 
-ICC computed by one-way random effects over 80 shipped mesa_80 trajectories,
+ICC computed by one-way random effects (the ICC(1,1) estimator of Shrout &
+Fleiss 1979; review in Donner 1986) over 80 shipped mesa_80 trajectories,
 26 pre-stall rows each, for four per-row scalars of the kind `RESULTS.md`
 aggregates. **[derived here]**:
 
@@ -4395,8 +4523,8 @@ error.**
 Being precise matters here, because the temptation is to over-correct.
 
 **Unaffected:**
-- **Point estimates.** Clustering biases *precision*, not (much) the estimate.
-  Spearman ≈ +0.49 is probably about right.
+- **Point estimates.** Clustering biases *precision*, not (much) the estimate
+  (Cameron & Miller 2015). Spearman ≈ +0.49 is probably about right.
 - **Degenerate results.** "Maskable columns: median 0 at every ε, p90 = 0"
   (**[RESULTS]** 2026-07-12) is a statement about a distribution that is
   identically zero. No sample size argument touches it.
@@ -4420,7 +4548,8 @@ Being precise matters here, because the temptation is to over-correct.
 
 ### The fix, which is cheap
 
-**Bootstrap over trajectories, not rows.** Resample the 229 trajectories with
+**Bootstrap over trajectories, not rows** (the cluster bootstrap: Davison &
+Hinkley 1997, §3.8; Field & Welsh 2007). Resample the 229 trajectories with
 replacement, recompute the statistic on each resample, and report the
 percentile interval. That is the correct unit of independence — one trajectory
 is one physical system integrated from one initial condition — and it
@@ -4452,10 +4581,13 @@ checks BDF ≡ Radau ≡ BDF(rtol 10⁻¹⁰) to 5×10⁻⁸ on the stiffest tes
 decreases at the *expected rate* as rtol tightens. Two methods agreeing is
 strong evidence neither is grossly wrong; a measured convergence order is
 evidence the error estimator is trustworthy, which is a different claim and the
-one that licenses running at rtol = 10⁻⁸ in production. Cost: one loop over rtol
+one that licenses running at rtol = 10⁻⁸ in production (code-to-code agreement
+is explicitly *not* verification in the V&V canon: Roache 1998; Oberkampf &
+Roy 2010). Cost: one loop over rtol
 on one state.
 
-**(b) A manufactured solution.** The method of manufactured solutions —
+**(b) A manufactured solution.** The method of manufactured solutions (Roache
+2002; Salari & Knupp 2000) —
 construct a source term making a chosen analytic function an exact solution,
 then verify the code reproduces it to the expected order — is the standard way
 to verify a solver against *itself* with no reference implementation. Here it
@@ -4747,7 +4879,8 @@ change how a published number should be read.**
   identity). The verdict document is a reading of Tier 2 instruments on Tier 3
   data.
 - **To S15 (the ML target):** §I.10 is the theorem that reframes the choice;
-  §I.9 is the NuGNN failure mode in its exact form; §IV.4 is the label
+  §I.9 is the warped-coordinates constraint failure in its exact form (the trap
+  Kim et al. 2026's signed-log pipeline ran into empirically); §IV.4 is the label
   requirement that makes Target A expensive.
 - **To Tier 4 (the emulator):** the flux head's output dimension is r = 607 /
   1518 (§I.1); the mask is per-column and structurally weak-excluded (§III.10);
@@ -4809,3 +4942,114 @@ one axis**, so enumerate axes first and sweep each. And the stopping rule is not
 axes come back already covered.** On the first pass almost none did; on the
 second, thirteen of twenty-two. That number, not the item count, is what says
 the audit is converging.
+
+---
+
+# References
+
+Sources verified during the 2026-08-14 literature audit (inline author-year
+citations in the text point here). Cite the papers, never any local snapshot:
+arXiv-available papers were verified against their arXiv TeX sources (fetched
+via `scripts/fetch_arxiv_source.py` into the ephemeral `data/literature/`
+cache at audit time); pre-arXiv papers were read from the ADS scanned
+originals or verified through the secondary sources named in their provenance
+notes. Nuclear data were checked against AME2020/NUBASE2020 and ENSDF via the
+IAEA Live Chart and NNDC.
+
+- Anderson, D. F., Craciun, G., Gopalkrishnan, M. & Wiuf, C. 2015, "Lyapunov Functions, Stationary Distributions, and Non-equilibrium Potential for Reaction Networks", Bull. Math. Biol. 77, 1744.
+- Arnett, W. D. 1982, "Type I Supernovae. I. Analytic Solutions for the Early Part of the Light Curve", ApJ 253, 785. (Pre-arXiv; rule and attribution verified via ADS and Lyman et al. 2016.)
+- Beard, D. A. & Qian, H. 2007, "Relationship between Thermodynamic Driving Force and One-Way Fluxes in Reversible Processes", PLoS ONE 2, e144. arXiv:q-bio/0607020. (Exponential flux-force relation and sign statement only; the tanh form of §II.4 is not in this paper.)
+- Bethe, H. A. 1990, "Supernova Mechanisms", Rev. Mod. Phys. 62, 801. (Pre-arXiv; full text read during the audit — quotes trapped *lepton* fraction Y_L ≈ 0.36–0.39, not the modern Yₑ values, see §0.3.2.)
+- Bodansky, D., Clayton, D. D. & Fowler, W. A. 1968, "Nuclear Quasi-Equilibrium during Silicon Burning", ApJS 16, 299 (BCF68). (Pre-arXiv; read from the ADS scan — describes a *single* quasi-equilibrium group, 28 ≤ A ≤ 62, see §0.1.2.)
+- Bodansky, D., Clayton, D. D. & Fowler, W. A. 1968, "Nucleosynthesis During Silicon Burning", Phys. Rev. Lett. 20, 161. (Companion announcement of the ApJS paper.)
+- Burbidge, E. M., Burbidge, G. R., Fowler, W. A. & Hoyle, F. 1957, "Synthesis of the Elements in Stars", Rev. Mod. Phys. 29, 547 (B²FH). (Pre-arXiv; e-process naming verified via BCF68's citation.)
+- Burchard, H., Deleersnijder, E. & Meister, A. 2003, "A high-order conservative Patankar-type discretisation for stiff systems of production–destruction equations", Appl. Numer. Math. 47, 1.
+- Cameron, A. C. & Miller, D. L. 2015, "A Practitioner's Guide to Cluster-Robust Inference", J. Human Resources 50, 317.
+- Chandrasekhar, S. 1931, "The Maximum Mass of Ideal White Dwarfs", ApJ 74, 81. (Pre-arXiv.)
+- Chandrasekhar, S. 1939, *An Introduction to the Study of Stellar Structure* (University of Chicago Press).
+- Clifford, F. E. & Tayler, R. J. 1965, "The Equilibrium Distribution of Nuclides in Matter at High Temperatures", Mem. RAS 69, 21. (Pre-arXiv, not opened — cited via the attributions in BCF68 and Hix & Thielemann 1999b.)
+- Curtiss, C. F. & Hirschfelder, J. O. 1952, "Integration of Stiff Equations", Proc. Natl. Acad. Sci. 38, 235. (Origin of the term "stiff" and of BDF.)
+- Dahlquist, G. 1963, "A special stability problem for linear multistep methods", BIT 3, 27.
+- Davison, A. C. & Hinkley, D. V. 1997, *Bootstrap Methods and their Application* (Cambridge University Press), §3.8.
+- De Donder, Th. & Van Rysselberghe, P. 1936, *Thermodynamic Theory of Affinity: A Book of Principles* (Stanford University Press).
+- Donner, A. 1986, "A review of inference procedures for the intraclass correlation coefficient in the one-way random effects model", Int. Stat. Rev. 54, 67.
+- Ehle, B. L. 1969, *On Padé Approximations to the Exponential Function and A-stable Methods for the Numerical Solution of Initial Value Problems*, Research Rep. CSRR 2010 (University of Waterloo). (L-stability.)
+- ENSDF — Evaluated Nuclear Structure Data File, National Nuclear Data Center, Brookhaven National Laboratory. (A = 56 chain: Huo Junde, Huo Su & Yang Dong 2011, Nucl. Data Sheets 112, 1513; accessed via the IAEA Live Chart API, 2026-08-14.)
+- Feinberg, M. 1972, "Complex balancing in general kinetic systems", Arch. Rational Mech. Anal. 49, 187.
+- Feinberg, M. 1987, "Chemical reaction network structure and the stability of complex isothermal reactors — I. The deficiency zero and deficiency one theorems", Chem. Eng. Sci. 42, 2229.
+- Feinberg, M. 2019, *Foundations of Chemical Reaction Network Theory*, Applied Mathematical Sciences 202 (Springer).
+- Fenichel, N. 1979, "Geometric singular perturbation theory for ordinary differential equations", J. Diff. Eq. 31, 53.
+- Field, C. A. & Welsh, A. H. 2007, "Bootstrapping Clustered Data", J. R. Stat. Soc. B 69, 369.
+- Fowler, W. A., Caughlan, G. R. & Zimmerman, B. A. 1967, "Thermonuclear Reaction Rates", ARA&A 5, 525. (Origin of the practical detailed-balance constant.)
+- Fukuda, K. & Prodon, A. 1996, "Double description method revisited", Lecture Notes in Computer Science 1120, 91.
+- Fuller, G. M., Fowler, W. A. & Newman, M. J. 1980, "Stellar weak-interaction rates for sd-shell nuclei", ApJS 42, 447 (FFN). (Pre-arXiv; citation set verified via Heger et al. 2001's bibliography.)
+- Fuller, G. M., Fowler, W. A. & Newman, M. J. 1985, "Stellar weak interaction rates for intermediate-mass nuclei. IV", ApJ 293, 1 (FFN). (Pre-arXiv; as above.)
+- Gagneur, J. & Klamt, S. 2004, "Computation of elementary modes: a unifying framework and the new binary approach", BMC Bioinformatics 5, 175.
+- Gear, C. W. 1971, *Numerical Initial Value Problems in Ordinary Differential Equations* (Prentice-Hall).
+- Goldberg, D. 1991, "What every computer scientist should know about floating-point arithmetic", ACM Comput. Surv. 23, 5.
+- Goldreich, P. & Weber, S. V. 1980, "Homologously Collapsing Stellar Cores", ApJ 238, 991. (Pre-arXiv.)
+- Grichener, A., Renzo, M., Kerzendorf, W. E., et al. 2025, "Nuclear Neural Networks: Emulating Late Burning Stages in Core-collapse Supernova Progenitors", ApJS 279, 49 (NNN). arXiv:2503.00115. (Volume/page confirmed via Kim et al. 2026's bibliography; the arXiv source predates final assignment.)
+- Guidry, M. W. 2012, "Algebraic Stabilization of Explicit Numerical Integration for Extremely Stiff Reaction Networks", J. Comp. Phys. 231, 5266. arXiv:1112.4778.
+- Guidry, M. W., Billings, J. J. & Hix, W. R. 2013, "Explicit Integration of Extremely-Stiff Reaction Networks: Partial Equilibrium Methods", Comput. Sci. Disc. 6, 015003. arXiv:1112.4738. (Source of the |y − ȳ|/ȳ < ε departure criterion, their eq. 8b, ε = 0.01.)
+- Guidry, M. W., Budiardja, R., Feger, E., et al. 2013, "Explicit Integration of Extremely-Stiff Reaction Networks: Asymptotic Methods", Comput. Sci. Disc. 6, 015001. arXiv:1112.4716.
+- Guidry, M. W. & Harris, J. A. 2013, "Explicit Integration of Extremely-Stiff Reaction Networks: Quasi-Steady-State Methods", Comput. Sci. Disc. 6, 015002. arXiv:1112.4750.
+- Hairer, E. & Wanner, G. 1996, *Solving Ordinary Differential Equations II: Stiff and Differential-Algebraic Problems* (2nd ed.; Springer).
+- Hamada, T. & Salpeter, E. E. 1961, "Models for Zero-Temperature Stars", ApJ 134, 683. (Pre-arXiv.)
+- Hartmann, D., Woosley, S. E. & El Eid, M. F. 1985, "Nucleosynthesis in Neutron-rich Supernova Ejecta", ApJ 297, 837 (HWE85). (Pre-arXiv; Fig. 2 read from the ADS scan.)
+- Heger, A., Woosley, S. E., Martínez-Pinedo, G. & Langanke, K. 2001, "Presupernova Evolution with Improved Rates for Weak Interactions", ApJ 560, 307. arXiv:astro-ph/0011507. (Source of the FFN→LMP shift ΔYₑ = 0.005–0.015; PRL companion: Heger et al. 2001, Phys. Rev. Lett. 86, 1678, arXiv:astro-ph/0007412.)
+- Higgins, J. 1968, "Some remarks on Shear's Liapunov function for systems of chemical reactions", J. Theor. Biol. 21, 293. (Corrects Shear 1967; cite as a pair.)
+- Hix, W. R., Khokhlov, A. M., Wheeler, J. C. & Thielemann, F.-K. 1998, "The Quasi-Equilibrium-reduced α-Network", ApJ 503, 332. (Cited via Hix & Thielemann 1999b's bibliography.)
+- Hix, W. R., Messer, O. E. B., Mezzacappa, A., et al. 2003, "Consequences of Nuclear Electron Capture in Core Collapse Supernovae", Phys. Rev. Lett. 91, 201102.
+- Hix, W. R., Parete-Koon, S. T., Freiburghaus, C. & Thielemann, F.-K. 2007, "The QSE-reduced Nuclear Reaction Network for Silicon Burning", ApJ 667, 476. (Journal-only, no arXiv posting.)
+- Hix, W. R. & Thielemann, F.-K. 1996, "Silicon Burning. I. Neutronization and the Physics of Quasi-Equilibrium", ApJ 460, 869 (HT96). arXiv:astro-ph/9511088.
+- Hix, W. R. & Thielemann, F.-K. 1999a, "Silicon Burning. II. Quasi-Equilibrium and Explosive Burning", ApJ 511, 862. arXiv:astro-ph/9808203.
+- Hix, W. R. & Thielemann, F.-K. 1999b, "Computational methods for nucleosynthesis and nuclear energy generation", J. Comput. Appl. Math. 109, 321. arXiv:astro-ph/9906478. (Review carrying the reduced-network scheme; vol/page from the published record.)
+- Horn, F. 1972, "Necessary and sufficient conditions for complex balancing in chemical kinetics", Arch. Rational Mech. Anal. 49, 172.
+- Horn, F. & Jackson, R. 1972, "General mass action kinetics", Arch. Rational Mech. Anal. 47, 81. (The pseudo-Helmholtz Lyapunov function.)
+- Hoyle, F. 1946, "The Synthesis of the Elements from Hydrogen", MNRAS 106, 343. (Pre-arXiv; read from the ADS scan — equilibrium origin of the iron peak, ⁵⁶Fe most abundant in Table XIV; no electron-fraction variable, see §0.1.2.)
+- IEEE 2019, *IEEE Standard for Floating-Point Arithmetic*, IEEE Std 754-2019 (IEEE).
+- Janka, H.-T. 2012, "Explosion Mechanisms of Core-Collapse Supernovae", Annu. Rev. Nucl. Part. Sci. 62, 407. arXiv:1206.2503.
+- Kasen, D. & Woosley, S. E. 2009, "Type II Supernovae: Model Light Curves and Standard Candle Relationships", ApJ 703, 2205. arXiv:0910.1590.
+- Kim, C. H., Chae, K. Y., Ko, S., Mumpower, M. R. & Smith, M. S. 2026, "NuGNN: a Graph Neural Network for Nuclear Reaction Network Equations", arXiv:2606.04491 (NuGNN). (arXiv preprint only as of the audit date.)
+- Kircher, T. & Votsmeier, M. 2025, "Machine Learning Surrogate Models for Mechanistic Kinetics: Embedding Atom Balance and Positivity", J. Phys. Chem. Lett. 16, 4715.
+- Kish, L. 1965, *Survey Sampling* (Wiley). (The design effect.)
+- Klamt, S. & Stelling, J. 2002, "Combinatorial complexity of pathway analysis in metabolic networks", Mol. Biol. Rep. 29, 233.
+- Klamt, S. & Stelling, J. 2003, "Two approaches for metabolic pathway analysis?", Trends Biotechnol. 21, 64.
+- Kondepudi, D. & Prigogine, I. 1998, *Modern Thermodynamics: From Heat Engines to Dissipative Structures* (Wiley).
+- Kurfess, J. D., Johnson, W. N., Kinzer, R. L., et al. 1992, "Oriented Scintillation Spectrometer Experiment Observations of ⁵⁷Co in SN 1987A", ApJ 399, L137. (Pre-arXiv.)
+- Lam, S. H. & Goussis, D. A. 1994, "The CSP method for simplifying kinetics", Int. J. Chem. Kinet. 26, 461.
+- Langanke, K. & Martínez-Pinedo, G. 2000, "Shell-model calculations of stellar weak interaction rates: II. Weak rates for nuclei in the mass range A = 45–65 in supernovae environments", Nucl. Phys. A 673, 481 (LMP). arXiv:nucl-th/0001018.
+- Langanke, K., Martínez-Pinedo, G., Sampaio, J. M., et al. 2003, "Electron Capture Rates on Nuclei and Implications for Stellar Core Collapse", Phys. Rev. Lett. 90, 241102.
+- Lyman, J. D., Bersier, D., James, P. A., et al. 2016, "Bolometric light curves and explosion parameters of 38 stripped-envelope core-collapse supernovae", MNRAS 457, 328. arXiv:1406.3667.
+- Maas, U. & Pope, S. B. 1992, "Simplifying chemical kinetics: Intrinsic low-dimensional manifolds in composition space", Combust. Flame 88, 239.
+- Motzkin, T. S., Raiffa, H., Thompson, G. L. & Thrall, R. M. 1953, "The double description method", in *Contributions to the Theory of Games II* (Princeton University Press), 51.
+- Nakar, E., Poznanski, D. & Katz, B. 2016, "The Importance of ⁵⁶Ni in Shaping the Light Curves of Type II Supernovae", ApJ 823, 127. arXiv:1506.07185.
+- Oberkampf, W. L. & Roy, C. J. 2010, *Verification and Validation in Scientific Computing* (Cambridge University Press).
+- Onsager, L. 1931, "Reciprocal Relations in Irreversible Processes. I.", Phys. Rev. 37, 405.
+- Orth, J. D., Thiele, I. & Palsson, B. O. 2010, "What is flux balance analysis?", Nat. Biotechnol. 28, 245.
+- Patankar, S. V. 1980, *Numerical Heat Transfer and Fluid Flow* (Hemisphere). (The original destruction-weighting trick.)
+- Popov, D. V. 1993, "An Analytical Model for the Plateau Stage of Type II Supernovae", ApJ 414, 712. (Pre-arXiv.)
+- Rauscher, T. & Thielemann, F.-K. 2000, "Astrophysical reaction rates from statistical model calculations", At. Data Nucl. Data Tables 75, 1. arXiv:astro-ph/0004059. (The 9.8685×10⁹ T₉^{3/2} reciprocity constant, verified verbatim against the arXiv TeX source.)
+- Roache, P. J. 1998, *Verification and Validation in Computational Science and Engineering* (Hermosa Publishers).
+- Roache, P. J. 2002, "Code Verification by the Method of Manufactured Solutions", J. Fluids Eng. 124, 4.
+- Salari, K. & Knupp, P. 2000, *Code Verification by the Method of Manufactured Solutions*, Sandia Report SAND2000-1444 (Sandia National Laboratories).
+- Schilling, C. H., Letscher, D. & Palsson, B. O. 2000, "Theory for the systemic definition of metabolic pathways and their use in interpreting metabolic function from a pathway-oriented perspective", J. Theor. Biol. 203, 229. (Extreme pathways.)
+- Schnakenberg, J. 1976, "Network theory of microscopic and macroscopic behavior of master equation systems", Rev. Mod. Phys. 48, 571.
+- Schuster, S. & Hilgetag, C. 1994, "On elementary flux modes in biochemical reaction systems at steady state", J. Biol. Syst. 2, 165.
+- Schuster, S. & Schuster, R. 1989, "A generalization of Wegscheider's condition. Implications for properties of steady states and for quasi-steady-state approximation", J. Math. Chem. 3, 25.
+- Seitenzahl, I. R., Timmes, F. X., Marin-Laflèche, A., et al. 2008, "Proton-rich Nuclear Statistical Equilibrium", ApJ 685, L129. arXiv:0808.2033.
+- Seitenzahl, I. R., Townsley, D. M., Peng, F. & Truran, J. W. 2009, "Nuclear statistical equilibrium for Type Ia supernova simulations", At. Data Nucl. Data Tables 95, 96.
+- Seitenzahl, I. R., Timmes, F. X. & Magkotsios, G. 2014, "The Light Curve of SN 1987A Revisited: Constraining Production Masses of Radioactive Nuclides", ApJ 792, 10. arXiv:1408.5986.
+- Shapiro, S. L. & Teukolsky, S. A. 1983, *Black Holes, White Dwarfs, and Neutron Stars: The Physics of Compact Objects* (Wiley-Interscience). (M_ch = 1.457 (2/μₑ)² M_⊙, eq. 3.3.17.)
+- Shear, D. 1967, "An analog of the Boltzmann H-theorem (a Liapunov function) for systems of coupled chemical reactions", J. Theor. Biol. 16, 212.
+- Shrout, P. E. & Fleiss, J. L. 1979, "Intraclass correlations: uses in assessing rater reliability", Psychol. Bull. 86, 420.
+- Terzer, M. & Stelling, J. 2008, "Large-scale computation of elementary flux modes with bit pattern trees", Bioinformatics 24, 2229. (efmtool.)
+- Thielemann, F.-K., Nomoto, K. & Hashimoto, M. 1996, "Core-Collapse Supernovae and Their Ejecta", ApJ 460, 408. (Pre-arXiv era; ADS 1996ApJ...460..408T.)
+- Tikhonov, A. N. 1952, "Systems of differential equations containing a small parameter multiplying the derivative", Mat. Sbornik 31(73), 575.
+- van der Schaft, A., Rao, S. & Jayawardhana, B. 2013, "On the Mathematical Structure of Balanced Chemical Reaction Networks Governed by Mass Action Kinetics", SIAM J. Appl. Math. 73, 953. arXiv:1110.6078.
+- Varma, A. & Palsson, B. O. 1994, "Metabolic flux balancing: basic concepts, scientific and practical use", Bio/Technology 12, 994.
+- Wang, M., Huang, W. J., Kondev, F. G., Audi, G. & Naimi, S. 2021, "The AME 2020 atomic mass evaluation (II). Tables, graphs and references", Chinese Phys. C 45, 030003 (AME2020).
+- Wegscheider, R. 1901, "Über simultane Gleichgewichte und die Beziehungen zwischen Thermodynamik und Reactionskinetik homogener Systeme", Monatsh. Chem. 22, 849.
+- Woosley, S. E., Arnett, W. D. & Clayton, D. D. 1973, "The Explosive Burning of Oxygen and Silicon", ApJS 26, 231 (WAC73). (Pre-arXiv; read from the ADS scan — the two-group structure and the ⁴⁵Sc(p,γ)⁴⁶Ti bridge, §VIb, Fig. 17.)
+- Woosley, S. & Janka, T. 2005, "The physics of core-collapse supernovae", Nat. Phys. 1, 147. arXiv:astro-ph/0601261. (Si-ignition 2.7–3.5 GK; verified at abstract/secondary level.)
+- Yahil, A. 1983, "Self-similar Stellar Collapse", ApJ 265, 1047. (Pre-arXiv.)
