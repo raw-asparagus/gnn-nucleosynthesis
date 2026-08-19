@@ -1,0 +1,326 @@
+% =====================================================================
+%  8 -- TRAJECTORIES AND THE eps_nuc PIN  (source node S12, Part II).
+%
+%  Source: tier3.md lines 3219-3455 in full and in order --
+%          Part II header (3219-3223), II.1 The file format (3225-3247),
+%          II.1b What a trajectory row is *not* (3249-3283),
+%          II.2 The composition route to energy -- derived (3285-3325),
+%          II.3 The pin, as a hypothesis test (3327-3400),
+%          II.4 The stall, and its two reinterpretations (3402-3446),
+%          II.5 Self-check for S12 (3448-3455; 6 questions).
+%
+%  Rendering notes:
+%    * the two fenced blocks (3229-3232 file format; 3371-3374 python
+%      pin) are srclisting verbatim, ASCII-ised (ellipsis -> ..., left
+%      arrow -> <--); the '#' comment line inside the python fence is
+%      kept.
+%    * the \boxed E_comp display (3300) carries \label{eq:ecomp}.
+%    * the blockquote 3320-3325 (Tier 2 IV.8 trap) -> warn.
+%  Cross-refs reworded: none (only anchor rewrites, listed at the
+%  end of the file in the final report; no direction changed).
+% =====================================================================
+
+\section{Trajectories and the \texorpdfstring{\code{eps\_nuc}}{eps\_nuc} pin}
+\label{part:trajectories}
+
+\textbf{A short node with one long lesson}: a column in a data file whose
+meaning is not documented has to be established by \emph{experiment}, and doing
+it properly looks like hypothesis testing.
+
+% =====================================================================
+\subsection{The file format}
+\label{sec:fileformat}
+
+One trajectory file, from \code{lib\_hydrostatic.f90}:
+
+\begin{srclisting}
+age  dt  eps_nuc  eps_neu  <iso_1> <iso_2> ... <iso_n>
+0.0  1e-10  ...                                      <-- row 0: initial state
+...
+\end{srclisting}
+
+\begin{itemize}
+\item one row per output interval; \textbf{row 0 is the initial state}, with
+  \code{dt} a $10^{-10}$ placeholder;
+\item \code{dt} is the \emph{per-row burn duration}, not a cumulative age;
+\item the isotope columns are mass fractions in the network's own order --- and
+  \code{load\_trajectory} \textbf{validates that order against the project's
+  isotope table} and raises if it differs. That check has no cost and closes an
+  entire class of silent-corruption bug;
+\item the shipped files encode (logT, logRho) in the filename; rerun files do
+  not, so \code{load\_trajectory} \textbf{refuses} to guess for
+  \code{source="rerun"} and requires them explicitly from the campaign manifest.
+\end{itemize}
+
+That last design choice is worth naming: the function could have parsed a rerun
+filename and been right most of the time. Refusing instead makes the manifest
+authoritative and makes a mismatch impossible rather than unlikely.
+
+% =====================================================================
+\subsection{What a trajectory row is \emph{not}}
+\label{sec:rowisnot}
+
+Four things that a row in these files looks like but is not, each of which has
+bitten someone.
+
+\paragraph{Not a solver step.} The output cadence is \code{times.txt}; the
+solver takes as many internal substeps as it needs inside each interval. So the
+composition change across a row is an \emph{integral}, and any comparison
+against an instantaneous rate is a quadrature question. This is why the
+handshake restricts to linearisable cells ($\tau > 10\Delta t$) and why the
+flux-route energy comparison uses a trapezoid and inherits its error
+(\S\ref{sec:gates378}'s 2.1\% open margin).
+
+\paragraph{Not full precision.} The shipped label CSVs are float32 upstream;
+this project parses everything as float64 but cannot recover what float32
+destroyed. For a cancelled quantity --- and \S\ref{sec:gate2} shows dominant
+species whose net evolution rides on $\kappa \sim 10^{-3}$ columns --- float32
+label noise is ${\sim}10^{-7}$ relative, which is \textbf{larger than the net
+signal divided by the gross scale} in the worst cases. \tierone{VIII.E.4} flags
+the float32/float64 boundary; the sharpest form of it is: \emph{the labels may
+not contain the cancellation the model is being asked to learn.} That is a
+genuinely alarming sentence and it has never been quantified. Registered as
+\reg{T-28}.
+
+\paragraph{Not uncensored.} \code{final\_*} is floored at exactly $10^{-15}$
+(measured attained), so trace species are clamped, not measured. A model trained
+on $\log X$ will learn the clamp as a target. The Step-5 handshake already found
+that 25.1\% / 12.6\% of its rate-level failures are the ``subfloor controller''
+class --- the dominant channel's reactant is below the label floor, so the label
+cannot express what drove the change. \resultsref{2026-07-10}
+
+\paragraph{Not a state a star was in.} Constant $(T, \rho)$, a hand-built
+initial mixture, no mixing, no expansion (\S\ref{sec:onezone},
+\S\ref{sec:convection}). It is one operator of a split, exercised alone.
+
+% =====================================================================
+\subsection{The composition route to energy --- derived}
+\label{sec:compositionroute}
+
+To pin the \code{eps\_nuc} column you need an \emph{independent} way to compute
+the energy released over an interval. The composition route is the one that
+needs no rates at all.
+
+Nuclear energy release is the decrease in total rest mass. Over an interval
+where the composition changes by $\Delta Y_i$ (molar abundances, per gram),
+%
+\begin{equation}\label{eq:ecomp-restmass}
+E_{\mathrm{comp}} \;=\; -\,N_A \sum_i m_i\,\Delta Y_i \;\times\; c^2 ,
+\end{equation}
+%
+and using mass excesses $\Delta m_i = m_i - A_i m_u$ (Tier~0 \S 0.3.1) with
+$\sum A_i \Delta Y_i = 0$ exactly by baryon conservation, the $m_u$ term drops
+and
+%
+\begin{equation}\label{eq:ecomp}
+\boxed{\;E_{\mathrm{comp}} \;=\; -\,N_A \sum_i \Delta m_i\,[\mathrm{MeV}]\;\Delta Y_i \times (1.602\times10^{-6}\ \mathrm{erg/MeV})\;}
+\end{equation}
+%
+in erg per gram (mass excesses from AME2020, \citealt{wang2021}).
+\derivedhere{} This is \textbf{exact and quadrature-free}: it uses only the
+endpoint compositions and a table of nuclear masses. It does not care about
+rates, screening, the solver, or the timestep. That independence is what makes
+it a valid oracle. ($E_{\mathrm{comp}}$ as written is the \emph{gross} release;
+the file quantity the pin compares to is $E_{\mathrm{comp}} - \int \epsnu\,\dd t$,
+\resultsref{2026-07-11}.)
+
+The flux route, for contrast, is
+%
+\begin{equation}\label{eq:eflux}
+E_{\mathrm{flux}} \;=\; \sum_j Q_j \Phi_j ,
+\end{equation}
+%
+which needs the rates, a quadrature over the interval, and the Q-values. It is
+the route the \emph{emulator} will use (invariant \#5), and it is therefore the
+one that must be checked --- not the one to check against.
+
+\begin{warn}
+\textbf{A trap Tier~2 \S IV.8 names and this node inherits.} If the Q-values
+are themselves derived from the same mass table as $E_{\mathrm{comp}}$, then
+$E_{\mathrm{flux}} \equiv E_{\mathrm{comp}}$ is an algebraic identity given
+$\Delta Y = \nu\Phi$, and comparing them checks arithmetic, not physics. The
+comparison is only informative when the two legs have independent provenance
+--- which is exactly why \S\ref{sec:pin}'s pin compares against the
+\textbf{file column} (bbq's own accounting) rather than against the project's
+flux route.
+\end{warn}
+
+% =====================================================================
+\subsection{The pin, as a hypothesis test}
+\label{sec:pin}
+
+The question: what does the trajectory file's \code{eps\_nuc} column mean? The
+candidates, from reading bbq and knowing the training CSVs' conventions:
+
+\begin{tabularx}{\textwidth}{@{}L{3.0cm} Y@{}}
+\toprule
+\textbf{axis} & \textbf{options} \\
+\midrule
+integration & \textbf{integrated} over the row's dt [erg/g] vs \textbf{rate}
+  [erg/g/s] \\
+normalisation & $\times 1$ vs $\times 10^{16}$ (the training CSVs divide by
+  $10^{16}$) \\
+neutrinos & gross vs \textbf{net of neutrino losses} \\
+\bottomrule
+\end{tabularx}
+
+Eight candidates. \code{scripts/step6\_eps\_pin.py} evaluates all of them
+against $E_{\mathrm{comp}}$ (\S\ref{sec:compositionroute}) on 15,746 / 13,506
+pre-stall intervals per network, with dt spanning $10^{-10}$ to
+$9.5 \times 10^{9}$ s --- twenty decades.
+
+The discriminating statistics, and \emph{why each one discriminates}:
+
+\begin{tabularx}{\textwidth}{@{}L{5.2cm} Y@{}}
+\toprule
+\textbf{statistic} & \textbf{what it rules out} \\
+\midrule
+median $\log_{10}$ of the ratio & the normalisation axis --- a factor
+  $10^{16}$ is a 16-dex offset \\
+\textbf{slope of median log-ratio vs dt decade} & the integration axis --- an
+  integrated quantity read as a rate has a ratio $\propto$ dt, i.e.\
+  \textbf{slope exactly $+1$} \\
+sign agreement & the neutrino axis --- gross vs net differ in sign exactly
+  where burning and neutrino losses nearly cancel \\
+\bottomrule
+\end{tabularx}
+
+The result, \resultsref{2026-07-11}:
+
+\begin{itemize}
+\item \textbf{integrated, net of neutrinos, no 1e16 normalisation.} Median
+  $\log_{10}|\text{ratio}| = -0.000$ with IQR $[-0.000, +0.000]$; sign
+  agreement 0.9933 / 0.9981; \textbf{slope vs dt decade = 0.000 across twenty
+  decades}.
+\item The rate reading shows the predicted wrong-convention slope
+  \textbf{+1.00} and a median offset of $-2.2$ / $-1.3$ dex.
+\item Net-of-$\nu$ beats gross decisively: sign agreement 0.91 / 0.81 for
+  gross.
+\item And the conclusion matches the source read: \code{bbq
+  src/lib\_bbq.f90:453}, \code{out\% eps\_nuc = avg\_eps\_nuc * in\% time}.
+\end{itemize}
+
+\textbf{Why this is a good piece of work and not just a lookup.} The source
+read alone would have given the answer in five minutes. The measurement gives
+the answer \emph{plus} a slope over twenty decades that would have caught a
+per-row dt bug, a sign-agreement statistic that independently confirms the
+neutrino handling, and a falsifiable record. Tier~1 \S VIII.D's habit ---
+\emph{ask of any green check what would still be wrong if it passed} ---
+applied here says: reading the source would not have told you whether the
+\code{dt} column you divide by is the right one.
+
+The consequence is pinned in code, and pinned defensively:
+
+\begin{srclisting}
+TRAJ_EPS_CONVENTION: str | None = "integrated"
+# the converters REFUSE to run if this is reset to None
+\end{srclisting}
+
+\code{eps\_nuc\_rate()} and \code{eps\_nuc\_integrated()} both route through
+\code{\_resolve\_convention}, which raises if the pin is unset. A module-level
+constant that a function refuses to work without is a small piece of executable
+policy --- the same pattern as Tier~1 \S VII's guards.
+
+\textbf{A cross-check that arrived free.} With the convention pinned, the
+\emph{flux} route could be compared: $\int \sum Q_j R_j\,\dd t / E_{\mathrm{comp}}$
+on rate-stable pre-stall intervals gives median \textbf{0.979 / 0.996}
+\resultsref{2026-07-11}. \msn{80} sitting at a 2.1\% median is outside a 1\%
+band, and the verdict document carries it as an \textbf{open margin item}
+rather than declaring the energy gate passed on that leg. Which is correct: the
+trapezoid quadrature error, float32 label noise, and rate-config differences
+have not been separated, and until they are, 2.1\% is a number with an unknown
+decomposition.
+
+% =====================================================================
+\subsection{The stall, and its two reinterpretations}
+\label{sec:stall}
+
+This is the tier's best example of a measurement being reinterpreted twice,
+each time getting sharper.
+
+\paragraph{Reading 1 (Step 5, 2026-07-10) --- ``the trajectories are
+broken.''} Composition freezes (max $|\Delta X|$ per interval $< 10^{-10}$)
+from median age $2.2 \times 10^{5}$ / $3.9 \times 10^{4}$ s while
+\code{eps\_nuc} keeps rising. The frozen states are \textbf{not} NSE: at
+$\Tn = 6.1$, $\rho = 1.8 \times 10^{8}$, $\Ye = 0.467$ the file says
+\nuc{Si}{30}-dominated with $X = 0.58$, while NSE says $\nuc{Fe}{56} = 0.69$.
+Hypothesis: bbq's implicit stepping stalls once the output dt grows to
+${\sim}10^{10}$ s, far beyond any physical timescale. Consequence: use
+pre-stall rows only. \resultsref{2026-07-10}
+
+\paragraph{Reading 2 (Step 6, 2026-07-11) --- ``it is an attractor arrival,
+and the tail is real.''} Two things changed the reading:
+
+\begin{enumerate}
+\item The rerun campaign, with a cadence that cannot produce the output-dt
+  blowup, \textbf{still} shows terminal freezing at high \Tn{} --- so the
+  blowup is at most secondary.
+\item A census over \emph{all} 1508 shipped files found that after the
+  first-quiet row, composition \textbf{resumes} super-tolerance changes at late
+  giant output dts, with \code{eps\_nuc} rising. The rules differ on
+  \textbf{459 / 1508} files. \resultsref{2026-07-11}
+\end{enumerate}
+
+The mechanistic picture that explains both: \textbf{the strong sector reaches
+its (displaced) equilibrium and freezes, while the weak sector keeps running.}
+Weak reactions are slow, one-directional, and not in balance
+(\S\ref{sec:yeidentity}; the quasi-equilibrium of \citealt{hix1996} is
+equilibrium with respect to the strong and electromagnetic reactions only) ---
+so once the strong pairs equilibrate, composition changes at the weak
+timescale, which is long. Those tail rows are legitimate relaxed states of the
+label dynamics (equilibrated strong pairs + active weak columns) and
+\textbf{belong in the kill-test manifold} --- indeed they are the \emph{most}
+relevant rows, since deployment happens on relaxed states.
+
+The guard was changed accordingly:
+
+\begin{tabularx}{\textwidth}{@{}L{3.2cm} L{5.4cm} Y@{}}
+\toprule
+\textbf{mode} & \textbf{rule} & \textbf{what it marks} \\
+\midrule
+\code{terminal} (\textbf{default}) & the row after the \emph{last} interval
+  reaching tolerance & excludes only a trajectory-ending quiet tail \\
+\code{first\_quiet} & the \emph{first} interval below tolerance &
+  \textbf{arrival at the attractor} --- now used as a phase marker, not a
+  cutoff \\
+\bottomrule
+\end{tabularx}
+
+And \code{first\_quiet} was retained rather than deleted, for two reasons: it
+reproduces Step-5 row selections exactly (so old numbers stay checkable), and
+it is the natural \textbf{phase split} for the kill-test ---
+\code{RelaxedRows.attractor} marks rows at or after arrival, letting
+\S\ref{part:killtest} report ``relaxing'' and ``attractor'' phases separately.
+A discarded rule that becomes a useful diagnostic is a good sign about the
+original measurement.
+
+\paragraph{The cold-start bug the change also fixed.} Canonical Si mixes at
+$\Tn = 2.5$ produce \emph{exactly zero} early-interval changes --- nothing is
+burnable in $10^{-8}$-s steps --- so a first-quiet rule truncated whole runs at
+row 0. The terminal rule keeps them, and they do evolve at the wall (eps rate
+$10^{6}$--$10^{7}$ erg/g/s). \resultsref{2026-07-11} A rule that was merely
+conservative on one dataset was catastrophic on another; only running it on
+both revealed that.
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-trajectories}
+
+\begin{selfcheck}
+% source II.5 Q1
+\item Write the composition route to energy from mass excesses and say which
+  conservation law makes the $m_u$ term drop out.
+% source II.5 Q2
+\item Why is the composition route a valid oracle for the file column but
+  \emph{not} for the project's own flux route?
+% source II.5 Q3
+\item The pin's decisive statistic is a slope, not an offset. Why?
+% source II.5 Q4
+\item What would you conclude from a slope of exactly $+1$?
+% source II.5 Q5
+\item Give the mechanism that reconciles ``composition frozen'' with
+  ``\code{eps\_nuc} rising''.
+% source II.5 Q6
+\item Why was \code{first\_quiet} kept after the default moved to
+  \code{terminal}?
+\end{selfcheck}

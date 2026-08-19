@@ -1,0 +1,752 @@
+% =====================================================================
+%  6 -- THE COMPUTATIONAL SETTING: THE HOST, THE CALL SITE, THE GATES.
+%
+%  Source: tier3.md, assembled in THIS order (physics-arc edition):
+%          0.8 intro (2353-2356);
+%          0.8.1 What MESA actually does per timestep (2357-2401)   -> sec:mesastep
+%          I.2   MESA's network solver, in enough detail to read the
+%                config (2799-2841), RE-HOMED from Part I          -> sec:netsolver
+%          0.8.2 The cost model (2403-2445)                          -> sec:costmodel
+%          0.8.3 The emulation landscape (2447-2474)                 -> sec:landscape
+%          0.8.4 What this project adds (2476-2500)                  -> sec:whatadds
+%          0.8.5 [!] The bottleneck premise (2502-2552)              -> sec:bottleneck
+%          0.8.6 [!] The call-site contract (2554-2660)              -> sec:callsite
+%          I.2b  What the network returns (2843-2905), RE-HOMED
+%                from Part I                                         -> sec:netreturns
+%          0.9   Astrophysics -> gates: the mapping table (2664-2711) -> sec:gatemap
+%          0.10  self-check Q10, Q14, Q15, Q16 (2739-2755)           -> sec:selfcheck-host
+%  Re-homings: I.2 placed directly after 0.8.1 (the per-timestep list
+%          it details); I.2b placed directly after 0.8.6 (the contract it
+%          restates from inside MESA).  Both keep every sentence.
+%  Rewordings: none of substance.  Cross-references to "SS0.8.6.n" are
+%          rendered "\S\ref{sec:callsite} item~n"; "SSI.2b" ->
+%          \S\ref{sec:netreturns}; "SS0.9" -> \S\ref{sec:gatemap};
+%          "SS0.8.5" -> \S\ref{sec:bottleneck}; "Part IX" ->
+%          \S\ref{sec:boundaryaudit}.  The two "|.|" escapes in the 0.9
+%          tables are absolute-value bars.
+%  Equations labelled: eq:hostmap (the split map), eq:enucderivs (the
+%          two partial derivatives), eq:amdahl (Amdahl composed with 1/f).
+% =====================================================================
+
+\section{The computational setting: the host, the call site, and the gates}
+\label{part:host}
+
+The last piece of motivation: why any of this needs an emulator.
+
+% =====================================================================
+\subsection{What MESA actually does per timestep}
+\label{sec:mesastep}
+
+A stellar-evolution code advances a 1D model of hundreds to thousands of zones
+\citep[\S 6.1]{paxton2011}. Per timestep, per zone, it must:
+
+\begin{enumerate}
+\item solve the structure equations (hydrostatic balance, energy transport,
+  energy conservation) implicitly and simultaneously across all zones;
+\item call an \textbf{equation of state} for $P$, internal energy, and their
+  derivatives, given ($\rho$, $T$, composition) --- needing $\bar A$ and
+  $\bar Z$, hence needing $\sum X_i = 1$ to mean something (Tier~2 \S 0.5);
+\item call \textbf{opacities};
+\item call the \textbf{nuclear network} to advance the composition over
+  $\Delta t$ and return \enuc{} and \epsnu{};
+\item handle mixing (convection, overshoot, semiconvection) as a diffusion
+  problem on the composition (\citealt[\S 6]{paxton2011}; \citealt{jermyn2023}).
+\end{enumerate}
+
+Step 4 is the one this project replaces. It \emph{can be} operator-split from
+the rest: MESA's default is a fully coupled Newton solve of structure and
+composition together (\citealt[\S 6.1]{paxton2011}: MESA ``does not require the
+structure equations to be solved separately from the composition equations
+(operator splitting)''), but its \code{op\_split\_burn} option --- off by
+default, applied to cells above \code{op\_split\_burn\_min\_T} $= 2 \times
+10^{9}$~K, and the mode \citet[\S 10.2]{jermyn2023} recommend beyond core
+C-depletion --- integrates the network at fixed ($T$, $\rho$) over the timestep
+and lets the structure solve use the result (Tier~0 \S IV.1). That is the mode
+an emulator plugs into (the NNN paper \S 4 says as much), and an earlier
+version of this paragraph presented the split as MESA's only behaviour
+(corrected in the 2026-08-18 audit). The split is what makes the network call
+a well-posed map
+%
+\begin{equation}
+\Phi_{\Delta t}:(T,\rho,\mathbf X)\;\longmapsto\;(\mathbf X', e_{\mathrm{nuc}},
+\varepsilon_\nu),
+\label{eq:hostmap}
+\end{equation}
+%
+and it is what makes an emulator possible at all. It also has an error of its
+own --- a local $O(\Delta t^2)$ (global $O(\Delta t)$) commutator term for
+first-order Lie splitting \citep{hairer1996} --- whose size relative to the
+emulator's error nobody has measured (\foreignreg{2}{R-11};
+\citealt[\S 10.2]{jermyn2023} likewise decline to say which treatment is more
+accurate). If the split error dominates, the $3 \times 10^{-6}$ gate is
+over-specified; if not, the gate binds.
+
+\textbf{And the coupling is a feedback loop, not a one-way call.} Burning heats
+the zone, which raises $T$, which accelerates burning. Every measurement in this
+project is at \emph{imposed} ($T$, $\rho$). An emulator validated at imposed
+($T$, $\rho$) has not been validated in the loop it will run in, and that loop
+has positive feedback. \tierone{VIII.C.4} / \foreignreg{2}{R-11}.
+
+% =====================================================================
+\subsection{MESA's network solver, in enough detail to read the config}
+\label{sec:netsolver}
+
+MESA r23.05.1's \code{net} module does the following per call (MESA r23.05.1
+source \citep{mesa}: \code{net/public/net\_lib.f90:557--666} \code{net\_get},
+\code{:970--1031} \code{net\_1\_zone\_burn};
+\code{rates/private/reaclib\_support.f90:178--250}; \citealt[\S 6]{paxton2011};
+\citealt[\S 10.2]{jermyn2023} --- behaviour also confirmed by the Fortran probe
+of Tier~1 \S VI.8 and by the rate cross-check):
+
+\begin{enumerate}
+\item \textbf{Assemble the reaction set.} For a \emph{softwired} net
+  (\code{mesa\_80.net}, \code{mesa\_151.net}) the species list is fixed and the
+  links are assembled at runtime from whichever rates connect those species.
+  This is why the reaction count is a \textbf{measured} quantity: 607\,/\,1518
+  canonical reactions, with MESA\_ONLY $= 0$ against the pynucastro export
+  \resultsref{2026-07-09}.
+\item \textbf{Evaluate rates} --- REACLIB fits for strong/EM channels
+  (\citealt{cyburt2010}; Tier~1 \S II), tabulated weak rates on a
+  ($T$, $\rho\Ye$) grid from the weaklib compilation (one source per rate: LMP
+  where available, else \citealt{oda1994}, else \citealt{fuller1985}, plus a
+  private-communication source for the \nuc{C}{14}$\leftrightarrow$\nuc{N}{14}
+  pair --- MESA \code{data/rates\_data/weakreactions.tables} header; Tier~1
+  \S V), and reverse rates by detailed balance with partition functions
+  (\code{reaclib\_support.f90:246--247}; Tier~1 \S III).
+\item \textbf{Apply screening} --- \code{chugunov} in this configuration
+  (\citealt{chugunov2007}; MESA \code{screen\_chugunov.f90:26}), established by
+  measurement to be \code{chugunov\_2007} in pynucastro's naming: median ratio
+  0.99999, max $|\log_{10}| = 0.0021$ over all strong pairs $\times$ the
+  cross-check grid \resultsref{2026-07-10}.
+\item \textbf{Integrate} with a semi-implicit (Bader--Deuflhard; \citealt{bader1983}) extrapolation
+  stepper (\code{net\_burn\_support.f90:209}) under tolerances \code{eps} and
+  \code{odescal}.
+\item \textbf{Return} the new composition, \enuc, and neutrino losses
+  (\code{net\_1\_zone\_burn}).
+\end{enumerate}
+
+Two configuration facts are load-bearing for everything downstream and both
+were \emph{measured} rather than read from documentation:
+
+\begin{itemize}
+\item \textbf{Screening is \code{chugunov\_2007}, and it is applied per
+  reaction from that reaction's own reactants.} So a screened capture pairs with
+  an unscreened photodisintegration, and $\kappa$ at NSE carries a real offset of
+  ${\sim}7 \times 10^{-2}$ ($\kappa \approx |\Delta \ln \mathrm{scor}|$) that is
+  a property of the rate \emph{configuration}, not an artifact
+  \resultsref{2026-07-10}. Hence \code{CLAUDE.md}'s two-$\kappa$ rule:
+  equilibrium detection on unscreened $\kappa$, always.
+\item \textbf{The weak-table family ordering is LMP $>$ Oda $>$ FFN with
+  \code{use\_suzuki} false} --- the ordering that reproduces MESA's fixed
+  one-source-per-rate compilation. Getting this wrong produced 14\,/\,23
+  mismatched weak pairs in the first reconciliation pass; matching it dropped
+  them to 0 \resultsref{2026-07-09}.
+\end{itemize}
+
+% =====================================================================
+\subsection{The cost model, and the compromise everybody makes}
+\label{sec:costmodel}
+
+Tier~0 \S I.3 quantifies the three costs; the summary and the consequence:
+
+\begin{itemize}
+\item \textbf{Stiffness forces implicit integration.} The stiffness ratio
+  reaches $10^{12}$--$10^{15}$ (Tier~0 \S V.3; sourced as a range ---
+  \citet{hix1999b} call $\mathcal{S} > 10^{15}$ ``not uncommon'',
+  \citet{guidry2012} gives 10--20 orders between the fastest and slowest
+  timescales --- and assumed for \msn{80}/151 until measured). Explicit methods
+  would need ${\sim}10^{12}$ steps per physical step \derivedhere[from the
+  stiffness ratio; \citealt{guidry2012} quotes $10^{14}$ explicit steps for CNO
+  hydrogen burning]. This is not an optimisation choice.
+\item \textbf{Each implicit step costs a Jacobian build and a dense-ish LU.}
+  $n^3/3$ multiply--adds ($\approx 2n^3/3$ flops; \citealt{golub2013}):
+  $1.7 \times 10^{5}$ for $n = 80$, $1.1 \times 10^{6}$ for $n = 151$
+  (6.7$\times$), $2.8 \times 10^{6}$ for $n = 204$ (17$\times$). For
+  $n \lesssim 100$ dense LU is what wins in practice \citep{hix1999b}; the
+  Jacobian is ``doubly bordered, band diagonal'' \citep{hix1999b} because free
+  nucleons couple to everything, so sparse solvers only pay off beyond a few
+  hundred species \citep{timmes1999, paxton2011}. At \msn{80}/151 the dense
+  $n^3$ estimate is the right one; at 204 it is an upper bound. (An earlier
+  version said ``sparsity does not rescue it'' outright and ``6.5$\times$'';
+  corrected in the 2026-08-18 audit.)
+\item \textbf{Every zone, every step}, $10^{2}$--$10^{4}$ zones (hundreds to
+  thousands, \citealt[\S 6.1]{paxton2011}) $\times$ ${\sim}10^{6}$ steps
+  \assumednote{order of magnitude}.
+\end{itemize}
+
+So the network's cost scales steeply in the number of species, and the number
+of species is exactly what controls whether the weak sector --- the \Ye{}
+physics --- is represented at all (\S\ref{sec:ecratchet}). \textbf{The
+compromise every stellar-evolution calculation makes is to run a network small
+enough to afford and accept that it gets \Ye{} wrong.} MESA's \code{approx21} is
+the canonical example: 21 species, fast, and structurally incapable of
+representing the neutron-rich $\beta$-decay chains (the NNN's baseline is the
+22-species variant \code{approx21\_cr60\_plus\_co56}, whose entire weak sector
+is one effective reaction $\nuc{Fe}{56} + 4n + 2e^- \to \nuc{Cr}{60} + 2\nu_e$;
+\citealt[\S 3]{grichener2025}).
+
+The measured size of that compromise is the baseline this project's target is
+defined against: the NNN paper reports that a large-network emulator improves
+\Ye{} accuracy over \code{approx21} by \textbf{390--660\%} on \msn{80} and
+\textbf{280--400\%} on \msn{151} \citep[\S 3]{grichener2025}; this repo
+reproduces \textbf{377--651\%} and \textbf{277--390\%} from the shipped loss
+files (\resultsref{2026-07-08} --- an earlier version attributed the reproduced
+figures to the paper). That is the error a real calculation is currently
+carrying.
+
+% =====================================================================
+\subsection{The emulation landscape}
+\label{sec:landscape}
+
+Emulating or reducing nuclear networks is not new, and the honest framing needs
+the alternatives on the table.
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.9cm} L{3.4cm} Y@{}}
+\toprule
+\textbf{approach} & \textbf{idea} & \textbf{why it is not enough} \\
+\midrule
+\textbf{small/$\alpha$ networks} (\code{approx21}) &
+  drop species, lump chains &
+  the measured \Ye{} error above; structurally cannot carry the weak sector \\
+\textbf{QSE-reduced networks} (\citealt{hix1996, hix1999b, hix2007}) &
+  solve equilibrated groups algebraically, integrate only bridges &
+  correct in principle; requires the QSE assumption to hold --- and this tier
+  measures that it does \textbf{not} hold cleanly on the label manifold
+  (\S\ref{sec:gate5}) \\
+\textbf{adaptive networks} (e.g. the KEPLER adaptive network of
+  \citealt{rauscher2002} \provtag{[assumed; not opened]}) &
+  activate species dynamically &
+  reduces cost but not the stiff solve; bookkeeping-heavy \\
+\textbf{NSE tabulation} &
+  above some $T$, replace the network with a table $X(T, \rho, \Ye)$ &
+  works only where NSE genuinely holds; the transition handling is where
+  switching codes see discontinuities and instabilities (\citealt[\S
+  5.2]{paxton2015}, on why MESA avoids the switch) and where this tier found the
+  labels pathological (\S\ref{part:pathology}) \\
+\textbf{direct ML emulation} (\citealt{fan2022} --- 3 isotopes in MAESTROeX;
+  \citealt{zhang2025} --- 3/13 isotopes; NNN --- 80/151, MLP; NuGNN,
+  \citealt{kim2026} --- 690 isotopes, GNN; this project) &
+  learn $\Phi_{\Delta t}$ &
+  needs the accuracy and the invariants; no free lunch on rollout stability \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+\textbf{What ML brings that the others do not} is the cost scaling. A GNN
+forward pass costs $O(K(n + m)d^2)$ (the standard message-passing complexity,
+\citealt{gilmer2017}; \citealt{battaglia2018}) --- linear in graph size and
+\textbf{independent of stiffness}. The classical cost \emph{grows} as the
+problem stiffens; the surrogate's does not. In the hardest states, which are
+exactly where the network dominates runtime, the ratio is most favourable. That
+is the whole prize (Tier~0 \S I.5).
+
+\textbf{What it costs.} Two things, and this tier measures both:
+
+\begin{enumerate}
+\item \textbf{The emulator inherits its training labels' physics, bugs
+  included.} \S\ref{part:pathology}.
+\item \textbf{The speedup is capped at $1/f$ by the fallback rate}, not by the
+  raw model speed (Tier~2 \S 0.5b): $S \to 1/f$ as $S_{\mathrm{raw}} \to
+  \infty$. $f = 5\%$ caps you at 20$\times$. So the OOD-detector design is an
+  economics problem before it is a statistics problem, and \foreignreg{2}{R-12}
+  is the arithmetic that turns S22's unspecified gate into a number.
+\end{enumerate}
+
+% =====================================================================
+\subsection{What this project adds, stated narrowly}
+\label{sec:whatadds}
+
+Against that landscape, the defensible novelty claims are:
+
+\begin{enumerate}
+\item \textbf{Exact conservation by construction} rather than by penalty or a
+  mass-sum activation (the NNN's softmax; \citealt{fan2022}; \citealt{zhang2025})
+  --- an architecture-level hard constraint in the sense of
+  \citet{beucler2021}, here realised through a fixed integer stoichiometric
+  matrix, $\dd Y = \nu\Phi$, so mass, charge-to-lepton closure and lepton number
+  hold to float64 at once for \emph{any} $\Phi$, including an untrained
+  network's. Measured: drift exactly 0.0 on column tests, $\le \max(10^{-12}s,
+  10^{-13}G)$ under random 12-decade fluxes \resultsref{2026-07-08}.
+\item \textbf{A flux-space target}, which makes errors attributable to named
+  reactions and makes the equilibrium structure expressible --- conditional on
+  the kill-test, which is \S\ref{part:killtest}.
+\item \textbf{A graph representation whose node features are raw ($Z$, $N$)},
+  posed explicitly as a size-transfer question rather than a retraining exercise
+  (NuGNN also uses learned $N$, $Z$ embeddings on isotope nodes, but on a fixed
+  690-isotope graph and without claiming transfer --- \citealt{kim2026}).
+\item \textbf{Phase-0 discipline}: every claim measured, every gate falsifiable,
+  every negative result recorded. This tier is what that buys --- four negative
+  results that a less careful project would have discovered during training, or
+  never.
+\end{enumerate}
+
+And the honest ledger of what it does \emph{not} add: nothing about the
+explosion mechanism, nothing about the mass cut, and no measured derivative
+connecting \Ye{} accuracy to an observable (\S\ref{sec:missingderivative}).
+
+% =====================================================================
+\subsection{\texorpdfstring{\warnglyph{}~}{}The bottleneck premise has never been measured}
+\label{sec:bottleneck}
+
+The project's founding claim is that the nuclear network dominates runtime in
+late burning. Tier~0 \S I.3 derives \emph{why} it should --- stiffness forces
+implicit integration, LU is $n^3/3$ with fill-in, every zone every step --- and
+the derivation is sound. But the derivation gives a scaling, not a fraction, and
+\textbf{no one has measured what fraction of a real MESA run is spent inside
+\code{net}} (the fraction \emph{within} a network step is known --- the matrix
+solve takes $\gtrsim 90\%$ of it, \citealt{hix1999b} --- the whole-run fraction
+is not).
+
+That is remarkable, because the measurement is cheap and the project already
+has everything it needs: MESA r23.05.1 is built and tested, the SDK is
+installed, and MESA reports per-module timing natively
+(\code{first\_model\_for\_timing}, \code{star\_job.defaults:2897}; note that in
+the fully coupled mode the network's cost is spread over
+\code{time\_nonburn\_net} and \code{time\_solver\_matrix}, the latter shared
+with the structure LU --- only \code{op\_split\_burn} isolates it in
+\code{time\_solve\_burn}). Running a 20~\Msun{} model to core collapse with
+\code{net} split out --- with \msn{80} and \msn{151} and \code{approx21} ---
+would give:
+
+\begin{itemize}
+\item the actual runtime fraction of the network, \textbf{by evolutionary
+  phase} (the claim is specifically about the last day, not the whole life);
+\item the achievable end-to-end speedup ceiling by Amdahl's law, which is the
+  number that decides whether the project is worth doing: if the network is
+  40\% of runtime, a perfect emulator gives 1.7$\times$ overall, and the $1/f$
+  fallback analysis of Tier~2 \S 0.5b is arguing about a factor that Amdahl
+  already caps;
+\item the \textbf{scaling with network size}, which is the actual quantity the
+  ``accuracy versus cost compromise'' (\S\ref{sec:costmodel}) is about --- is
+  going from 21 to 151 species a ${\sim}370\times$ network cost ($(151/21)^3$
+  if LU-dominated; $80 \to 151$ alone is 6.7$\times$ --- an earlier version
+  wrote ``6.5$\times$'' here, the $80 \to 151$ figure mislabelled), and what
+  does that do to \emph{total} runtime?
+\end{itemize}
+
+Amdahl's law deserves to be written down, because it composes with the fallback
+ceiling and nobody has multiplied them:
+%
+\begin{equation}
+S_{\mathrm{total}} \;=\; \left[(1-p) + \frac{p}{S_{\mathrm{net}}}\right]^{-1}
+\;\xrightarrow[\ S_{\mathrm{net}}\to\infty\ ]{}\; \frac{1}{1-p},
+\qquad
+S_{\mathrm{net}} \;\le\; \frac{1}{f}\ \text{(Tier~2 \S 0.5b)} .
+\label{eq:amdahl}
+\end{equation}
+
+So the achievable end-to-end speedup is bounded by
+$\min(1/(1-p),\, 1/f)$ where $p$ is the network's runtime fraction and $f$ the
+fallback rate. Both factors are currently unknown. At $p = 0.5$ the ceiling is
+2$\times$ no matter what the emulator does; at $p = 0.9$ it is 10$\times$.
+\derivedhere[from \citealt{amdahl1967}]
+
+\textbf{This is the single most consequential unmeasured number in the
+project}, it costs one afternoon of compute, and it could either strongly
+justify the work or force a rescoping toward the specific workloads where $p$ is
+high (\S\ref{sec:explodability}'s parametrised-1D grids are the candidate).
+Registered as \reg{T-24}.
+
+% =====================================================================
+\subsection{\texorpdfstring{\warnglyph{}~}{}The call-site contract --- seven requirements nobody has written down}
+\label{sec:callsite}
+
+Tier~1 \S VIII.E.6 and \foreignreg{2}{R-11} flag ``the deployment coupling
+contract'' as unspecified and discuss two aspects: the operator-split error and
+imposed-versus-fed-back ($T$, $\rho$). The contract is considerably larger than
+that, and the missing parts are not physics --- they are the interface a
+stellar-evolution code actually requires. Enumerating them changes what
+Component D and S22 have to deliver.
+
+\paragraph{1.\ $\sum X = 1$ and $X \ge 0$, hard.} The EOS computes $\bar A$ and
+$\bar Z$ from the composition and will produce nonsense from a negative or
+non-normalised one (Tier~2 \S 0.5). Target A gives $\sum X = 1$ exactly;
+\textbf{positivity is enforced nowhere} and is not even diagnosed
+(\foreignreg{2}{R-04}). A single negative mass fraction handed to \code{eos} is
+a crash or a silently wrong pressure.
+
+\paragraph{2.\ \enuc{} \emph{and its partial derivatives} --- on one of MESA's
+two routes.} This is the requirement that is completely absent from every
+document in the project. MESA solves the structure equations implicitly
+\citep[\S 6]{paxton2011}, and the energy equation contains \enuc. In the default
+fully-coupled scheme the Newton solve therefore needs
+%
+\begin{equation}
+\frac{\partial e_{\mathrm{nuc}}}{\partial \ln T},\qquad
+\frac{\partial e_{\mathrm{nuc}}}{\partial \ln \rho},
+\label{eq:enucderivs}
+\end{equation}
+%
+which MESA's own network returns alongside the energy (\code{net\_get} returns
+\code{d\_eps\_nuc\_dT}, \code{d\_eps\_nuc\_dRho}; the log-conversion is
+trivial). But MESA has a second route: in \code{op\_split\_burn} mode --- the
+mode \citet[\S 10.2]{jermyn2023} recommend beyond core C-depletion, and the mode
+that mirrors the one-zone-burn call the labels come from --- the network is
+integrated at fixed ($T$, $\rho$) by \code{net\_1\_zone\_burn}, \epsnuc{} is
+computed from the composition difference, and ``these partial derivative matrix
+terms are thus set to zero'' (\citealt[\S 10.2]{jermyn2023};
+\code{hydro\_energy.f90:233--235}). So a derivative-free emulator has a MESA
+precedent on route (b), at the documented cost that ``the physics in the
+partial derivatives'' is ignored; on route (a) it must supply the derivatives
+(and the composition Jacobian, \S\ref{sec:netreturns}). An earlier version of
+this item said the derivatives were ``not optional'' for MESA outright;
+corrected in the 2026-08-18 audit. \textbf{On the fully-coupled route a
+black-box emulator must supply them.} The good news is that this is a natural
+strength of a differentiable model --- autodiff gives them for free and they
+are \emph{smoother} than the ODE solver's finite-difference versions. The bad
+news is that nobody has specified them as outputs, so nothing in the training
+loss constrains them, and an emulator can be accurate in \enuc{} while having a
+wildly wrong derivative. A derivative that is wrong in \textbf{sign} would break
+the host's Newton convergence.
+
+This is a first-class, checkable requirement with a natural training term
+(supervise $\partial \enuc/\partial \ln T$ against finite differences of the
+reference integrator), and it has never been named. Registered as \reg{T-25}.
+
+\paragraph{3.\ The host chooses $\Delta t$ adaptively --- and it uses network
+failure as a signal.} The emulator is trained on nine fixed $\Delta t$ values;
+MESA picks $\Delta t$ per step from change limits and convergence behaviour. Two
+problems follow:
+
+\begin{itemize}
+\item the emulator will be called at $\Delta t$ values it never saw (this is
+  S19's job, and it is why \foreignreg{2}{R-10}'s $\Delta t/\tau$ conditioning
+  matters);
+\item more subtly, \textbf{an implicit solver that fails to converge is how the
+  code learns its timestep was too large.} An emulator has no failure mode. It
+  always returns something. Removing the network's convergence failure removes
+  a feedback signal the timestep controller depends on.
+\end{itemize}
+
+That reframes S22 substantially. \textbf{The OOD detector's real job may not be
+``decide when to fall back'' --- it may be ``supply the error estimate that the
+ODE solver used to provide''.} Those are different specifications: the second
+needs a \emph{calibrated, continuous} error estimate rather than a binary flag,
+and it is consumed by the timestep controller rather than by a dispatcher.
+Registered as \reg{T-26}.
+
+\paragraph{4.\ Retries must be deterministic.} Stellar codes back up and retry
+timesteps with smaller $\Delta t$, and they may redo the same call.
+Bitwise-identical output for identical input is required, which constrains
+reduction order, threading, and device (\tierone{VIII.E.4}'s determinism item,
+arriving here as a hard interface requirement rather than a nice-to-have).
+
+\paragraph{5.\ The call is per zone, per step, from Fortran.} A PyTorch model
+called from MESA's inner loop pays interpreter, marshalling and dispatch
+overhead \textbf{per call}. For a small graph at batch size 1 on CPU, that
+overhead can exceed the FLOPs by orders of magnitude --- a GNN forward pass with
+$n \approx 150$ nodes is a sequence of tiny GEMMs, which is the worst case for
+framework overhead. The realistic deployments are (a) batch all zones of a
+timestep into one call, which is natural since they share $\Delta t$, or (b)
+export to a compiled artifact (TorchScript / ONNX / a hand-written C kernel)
+with no Python in the loop.
+
+Neither has been costed, and this is a place where a ``1000$\times$ faster in
+FLOPs'' claim can arrive at the call site as a slowdown. Tier~2 \S 0.5b's
+batching analysis assumed batching works and asked about fallback; this asks
+whether the batch exists at all. Registered as \reg{T-27}.
+
+\paragraph{6.\ Memory and model size.} The NNN ships \textbf{23.8~GB of
+checkpoints} (54 files: the 18 production models are 7.3~GB, plus a 36-model
+layer scan; each checkpoint carries Adam optimizer state, ${\sim}3\times$ the
+weights). A stellar code that loads a model per network per $\Delta t$ has a
+startup and memory profile that matters on a shared cluster. One conditioned
+model (S19) is not just more elegant --- it is ${\sim}9\times$ smaller per
+network (one $\Delta t$-conditioned model replaces the nine dt-specific ones),
+which is a deployment argument the project has not made.
+
+\paragraph{7.\ Failure and provenance.} What does the host do when the emulator
+is asked for something outside its domain, and how does a finished stellar model
+record which emulator version produced its composition? The second is the
+reproducibility half of \foreignreg{2}{R-25} (shelf life) and it is an
+interface requirement: the model identity has to end up in the output.
+
+\textbf{Why this section matters more than it looks.} Six of the seven items
+are invisible from inside the physics, and every one of them can invalidate a
+project that is otherwise correct. They are also cheap to settle --- most are
+decisions and a specification document, not measurements. The pattern is the
+one Tier~1 \S VIII.D names: \emph{the questions that never get asked are the
+ones that no test could fail.}
+
+% =====================================================================
+\subsection{What the network returns --- the interface, as the host sees it}
+\label{sec:netreturns}
+
+\S\ref{sec:callsite} states the call-site contract from the deployment side.
+Here is the same thing from inside MESA, because it is the concrete
+specification the emulator has to match and reading it once removes a whole
+class of surprise.
+
+MESA has \textbf{two} entry points, and they have different contracts (MESA
+r23.05.1 \code{net/public/net\_lib.f90:557--666} \code{net\_get},
+\code{:970--1031} \code{net\_1\_zone\_burn}; op-split routing
+\code{star/private/struct\_burn\_mix.f90:1127, 1156}; energy-equation use
+\code{star/private/hydro\_energy.f90:233--240}; \citealt[\S 6]{paxton2011};
+\citealt[\S 10.2]{jermyn2023}). An earlier version of this section listed a
+single merged table and concluded that a derivative-free emulator ``cannot be
+dropped into MESA at all''; that is true of route (a) only (corrected in the
+2026-08-18 audit).
+
+\textbf{(a) \code{net\_get} --- the fully-coupled default
+(\citealt[\S 6]{paxton2011}):}
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.6cm} L{4.6cm} Y@{}}
+\toprule
+\textbf{returned} & \textbf{consumed by} & \textbf{emulator status} \\
+\midrule
+\code{dxdt(:)} --- rate of change of mass fractions &
+  the composition equations of the structure solve &
+  Target A gives $\Delta Y = \nu\Phi$ over the step, i.e. an \emph{integrated}
+  dxdt --- an interface mismatch to note ($\Phi$, not a rate) \\
+\code{eps\_nuc} (net of reaction neutrinos) &
+  the energy equation &
+  specified (invariant \#5) \\
+\code{d\_eps\_nuc\_dT}, \code{d\_eps\_nuc\_dRho} &
+  \textbf{the structure solve's Jacobian} (\code{hydro\_energy.f90:239--240}) &
+  \textbf{unspecified} (\reg{T-25}) --- needed on this route only \\
+\code{d\_eps\_nuc\_dx(:)} &
+  the same Jacobian, composition part &
+  unspecified \\
+\code{d\_dxdt\_dRho(:)}, \code{d\_dxdt\_dT(:)}, \code{d\_dxdt\_dx(:,:)} &
+  the composition-equation Jacobian &
+  \textbf{unspecified} --- the full composition Jacobian; not previously
+  listed \\
+\code{eps\_nuc\_categories(:)}, \code{eps\_neu\_total} &
+  diagnostics; neutrino losses to the energy equation &
+  specified, unsupervised (\reg{T-17}) \\
+\code{ierr} &
+  error return; retries are the host's &
+  \textbf{has no analogue} (\reg{T-26}) \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+\textbf{(b) \code{net\_1\_zone\_burn} --- what \code{op\_split\_burn} calls per
+hot cell (\citealt[\S 10.2]{jermyn2023}; \code{struct\_burn\_mix.f90:1156}, or
+the constant-density variant at \code{:1127}):}
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.6cm} L{4.6cm} Y@{}}
+\toprule
+\textbf{returned} & \textbf{consumed by} & \textbf{emulator status} \\
+\midrule
+\code{ending\_x(:)} --- the new composition &
+  the EOS, opacities, mixing, the next call &
+  \textbf{Target A's output} \\
+\code{avg\_eps\_nuc} (from the composition difference),
+  \code{eps\_nuc\_categories(:)} &
+  the energy equation, with $\boldsymbol{\partial\epsnuc/\partial\ln T =}$
+  $\boldsymbol{\partial\epsnuc/\partial\ln\rho = 0}$ in the matrix
+  (\code{hydro\_energy.f90:233--235}) &
+  specified (invariant \#5); \textbf{no derivatives required on this route} \\
+\code{eps\_neu\_total} &
+  the energy equation, separately &
+  specified, unsupervised (\reg{T-17}) \\
+\code{nfcn, njac, nstep, naccpt, nrejct} &
+  burner statistics &
+  no analogue (harmless) \\
+\code{ierr} &
+  error return; retry is the host's &
+  \textbf{has no analogue} (\reg{T-26}) \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+On route (b) --- MESA's own recommended mode beyond core C-depletion
+(\citealt[\S 10.2]{jermyn2023}: ``operator-split burning cannot calculate the
+partial derivatives of these terms with respect to T or $\rho$ for the matrix
+solver. These partial derivative matrix terms are thus set to zero'') --- the
+emulator's contract is composition $+$ \epsnuc{} $+$ \epsnu{} $+$ a failure
+signal, and T-25's derivatives are not consumed; on route (a) it must
+additionally return $\partial\epsnuc/\partial T$,
+$\partial\epsnuc/\partial\rho$, $\partial\epsnuc/\partial x$ and the
+composition Jacobian $\partial\dot x/\partial x$. The failure signal is the row
+with no counterpart on either route, and it is not exotic --- it is what lets
+the host's timestep controller work.
+
+\textbf{The reason this is worth a section rather than a footnote}: it is the
+difference between an emulator that is scientifically correct and one that can
+be installed. On route (a), a model that predicts composition to $10^{-6}$ and
+returns no $\partial\enuc/\partial\ln T$ cannot be dropped in --- the host
+would have to finite-difference it, which costs two extra forward passes per
+zone per step and gives back a noisy derivative, destroying both the speedup
+and the convergence. On route (b) MESA already lives without those derivatives,
+at the documented cost that ``the physics in the partial derivatives'' is
+ignored \citep[\S 10.2]{jermyn2023}.
+
+\textbf{And it is a design opportunity, not just a requirement.} A
+differentiable emulator can return exact derivatives by autodiff, at a small
+constant factor over the forward pass, and those derivatives are
+\emph{smoother} than what an adaptive ODE solver produces (which differences a
+discontinuous step-size controller). That is a genuine advantage over the
+incumbent, and it is currently unclaimed because nobody wrote the requirement
+down.
+
+% =====================================================================
+\subsection{Astrophysics \texorpdfstring{$\to$}{->} gates: the mapping table}
+\label{sec:gatemap}
+
+Every numeric gate in \code{CLAUDE.md} traces to a physical statement in this
+part. Assembling the map in one place is the fastest way to check whether a
+gate is defensible --- and to see which ones are not.
+
+\begingroup\footnotesize
+\begin{longtable}{@{}L{2.7cm} L{2.2cm} L{6.6cm} L{3.3cm}@{}}
+\toprule
+\textbf{gate (\code{CLAUDE.md})} & \textbf{value} & \textbf{traces to} &
+  \textbf{status of the trace} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{gate (\code{CLAUDE.md})} & \textbf{value} & \textbf{traces to} &
+  \textbf{status of the trace} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+conservation drift & $\le 10^{-12}$ per step, float64 &
+  \S\ref{sec:yeidentity}: strong sector is \Ye-neutral \textbf{exactly}, so
+  any leak is pure error in the only signal that matters; Tier~2 \S 0.4.2:
+  leaks are systematic &
+  \textbf{solid} --- algebraic \\
+per-step $|\Delta\Ye|$ & $\lesssim 3 \times 10^{-6}$ &
+  $5 \times 10^{-3}$ trajectory budget $\div$ $N \approx 1.6 \times 10^{3}$,
+  systematic accumulation &
+  \textbf{conditional} --- slope unmeasured (\foreignreg{2}{R-21}) \\
+\Ye{} physics floor & $5 \times 10^{-3}$ -- $1.5 \times 10^{-2}$ &
+  the WW95 $\to$ LMP+$\beta$-decay weak-physics shift in central \Ye{} at
+  collapse (\citealt{heger2001}: about half from adding $\beta$-decays, half
+  from smaller LMP electron-capture rates) &
+  \textbf{solid as a floor}, but it is an \emph{input} uncertainty used as an
+  \emph{output} tolerance (\S\ref{sec:missingderivative}, \reg{T-01}) \\
+regime box \Tn{} 1.6--7.9 & &
+  \S\ref{sec:tcore} virial estimate lands at $\Tn \approx 7.4$ (crude,
+  ideal-gas) for a 1.4~\Msun{} core at $10^{8}$; \S\ref{sec:ignition} puts Si
+  ignition at 3--4~GK; \S\ref{sec:runaways} puts Fe dissociation above the box &
+  \textbf{solid} for the support; the \emph{measure} on the box is not
+  (\foreignreg{2}{R-07}) \\
+regime box $\rho$ $10^{7}$--$10^{9}$ & &
+  \S\ref{sec:degeneracy}: spans the degeneracy transition ($E_F/kT$
+  $1.5 \to 10.5$) &
+  \textbf{solid} \\
+regime box $0.45 < \Ye < 0.5$ & &
+  \S\ref{sec:presnye}: $\eta = 0 \ldots 0.10$, the full physical range of
+  Si-burning/Fe-core material &
+  \textbf{solid} \\
+QSE onset ${\sim}$3--3.3~GK & &
+  \S\ref{sec:ignition}: $Q/kT$ for \nuc{Si}{28}($\gamma$,$\alpha$) moves
+  $38.6 \to 28.9$ between $\Tn = 3$ and 4 &
+  \textbf{plausible} --- that establishes a sharp transition \emph{somewhere}
+  in the interval, not the 3--3.3 boundary specifically \\
+kill-test window 3.3--5~GK & &
+  where structure is neither absent (cold ladder) nor total (NSE) &
+  \textbf{solid} \\
+$\kappa > 0.1$ active set & &
+  \emph{nothing} --- the threshold has no derivation; \foreignreg{2}{R-01}
+  proposes an entropy-weighted replacement &
+  \warnglyph{} \textbf{unsourced} \\
+$\cond(\Sact) < 10^{6}$ / $> 10^{8}$ & &
+  error amplification in solving for $\netflux$ from $\Delta Y$ &
+  \textbf{plausible}, never calibrated against an actual training run \\
+95\% coverage of $|\Delta\Ye|$ and $|\Delta X|$ & &
+  the active-set premise: net flow is carried by few columns &
+  \textbf{measured} (\S\ref{sec:gate1}) --- and it split \\
+energy residual $\le 1\%$ & &
+  \enuc{} feeds the star's energy equation, which sets the contraction rate
+  (\S\ref{sec:neutrinoclock}) &
+  \textbf{solid in motivation}; the gate as implemented is near-algebraic
+  (Tier~2 \S IV.8) \\
+size-transfer falsifier (2$\times$) & &
+  \S\ref{sec:ecratchet}: \msn{151} is not a superset --- it is reshaped toward
+  the weak sector &
+  \textbf{solid} \\
+Sobol $\to$ real-MESA (3$\times$) & &
+  \S\ref{sec:hydroexplosive} / \S\ref{sec:twodistributions}: the training
+  measure corresponds to no physical setting &
+  \textbf{solid, and predicted to fire} (\foreignreg{2}{R-07}) \\
+\end{longtable}
+\endgroup
+
+Two rows in that table are worth staring at. The \textbf{$\kappa > 0.1$
+threshold} is the single most load-bearing number in the kill-test and it is an
+unsourced choice. And the \textbf{$3 \times 10^{-6}$ per-step gate} --- the
+project's most expensive requirement --- is conditional on an unmeasured
+accumulation slope and justified by an input uncertainty. Both are known; both
+are registered; neither is closed.
+
+\textbf{And now the complementary table: the physical requirements that have no
+gate at all.} Every row above is a gate looking for a justification; every row
+below is a requirement looking for a gate. The asymmetry is informative --- the
+project gate-ified everything it could measure from the data it had, and left
+ungated everything that requires an experiment outside that data.
+
+\begingroup\footnotesize
+\begin{longtable}{@{}L{3.4cm} L{6.6cm} L{5.0cm}@{}}
+\toprule
+\textbf{requirement} & \textbf{why it is a requirement} & \textbf{gate} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{requirement} & \textbf{why it is a requirement} & \textbf{gate} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{$X \ge 0$} &
+  the EOS is called on the output (\S\ref{sec:callsite} item~1) &
+  \textbf{none} --- not enforced, not diagnosed (\foreignreg{2}{R-04}) \\
+\textbf{$\partial\enuc/\partial\ln T$, $\partial\enuc/\partial\ln\rho$} &
+  the host's fully-coupled structure solve needs them (\S\ref{sec:callsite}
+  item~2; MESA's own \code{op\_split\_burn} route zeroes them,
+  \citealt[\S 10.2]{jermyn2023}) &
+  \textbf{none} --- not even specified as outputs (\reg{T-25}) \\
+\textbf{determinism under retry} &
+  stellar codes back up and re-call (\S\ref{sec:callsite} item~4) &
+  \textbf{none} (\tierone{VIII.E.4}) \\
+\textbf{a calibrated error estimate} &
+  replaces the convergence-failure signal the timestep controller lost
+  (\S\ref{sec:callsite} item~3) &
+  \textbf{none} --- S22 is specified as a binary flag (\reg{T-26}) \\
+\textbf{per-call latency at the real batch size} &
+  a Fortran inner loop calling PyTorch (\S\ref{sec:callsite} item~5) &
+  \textbf{none} (\reg{T-27}) \\
+\textbf{network runtime fraction $p$} &
+  Amdahl caps the whole enterprise at $1/(1-p)$ (\S\ref{sec:bottleneck}) &
+  \textbf{none} --- the project's premise (\reg{T-24}) \\
+\textbf{error character (systematic vs random)} &
+  it survives both time-accumulation and spatial mixing
+  (\S\ref{sec:convection}, \S\ref{sec:hydroexplosive}) &
+  partially --- the accumulation slope is \foreignreg{2}{R-21}; the spatial
+  half is new (\reg{T-19}) \\
+\end{longtable}
+\endgroup
+
+Six of seven rows have no gate. That is the shape of the gap this deep-dive
+found, and it is why \S\ref{sec:boundaryaudit} exists.
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-host}
+
+Answer without scrolling up.
+
+\begin{selfcheck}
+% source 0.10 Q10
+\item Which two gates in \S\ref{sec:gatemap} rest on the weakest foundations,
+  and what would close each?
+% source 0.10 Q14
+\item Write Amdahl's law for the network's runtime fraction $p$, compose it with
+  the $1/f$ fallback ceiling, and say which of the two numbers the project
+  knows.
+% source 0.10 Q15
+\item Name the two outputs a host code needs that are not composition or
+  energy, and say what breaks if the emulator's version of one has the wrong
+  sign.
+% source 0.10 Q16
+\item An implicit network that fails to converge tells the timestep controller
+  something. What, and what must replace it?
+\end{selfcheck}

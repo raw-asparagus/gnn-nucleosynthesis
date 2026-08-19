@@ -1,0 +1,635 @@
+% =====================================================================
+%  10 -- THE KILL-TEST  (source node S14, Part IV).
+%
+%  Source: tier3.md lines 3841-4297, in full and in order --
+%          Part IV header (3841-3844), IV.1 (3846-3872), IV.2 (3874-3934),
+%          IV.3 (3936-3981), IV.4 (3983-4005), IV.5 (4007-4059),
+%          IV.6 (4061-4104), IV.7 (4106-4157), IV.8 (4159-4200),
+%          IV.8b (4202-4262), IV.9 (4264-4279), IV.10 self-check
+%          (4281-4297, 8 questions -> sec:selfcheck-killtest).
+%
+%  Rendering decisions:
+%   - blockquote 3848-3850 -> invariant; VERDICT paragraph 4160-4164 -> result.
+%   - the two python fences (strata edges; the manifold refusal) -> srclisting
+%     verbatim; in the refusal listing the non-ASCII "kappa/delta" glyphs and
+%     the ellipsis are written out as ASCII (kappa/delta, ...).
+%   - escaped \| in the IV.1 and IV.9 tables = absolute-value bars.
+%  Cross-references inside tier3.md rewritten to live refs (registry):
+%   SSII.4 -> sec:stall; SS0.7.3 -> sec:yecarriers; SSIII -> part:pathology;
+%   SSV.4 -> sec:phisupervision; SSIV.6 -> sec:gate2; SSII.3 ->
+%   sec:compositionroute; SSIV.8 -> sec:verdict.  No cross-reference needed
+%   rewording for a change of direction.
+% =====================================================================
+
+\section{The kill-test}
+\label{part:killtest}
+
+\textbf{The decision Phase 0 was built to make.} Tier~2 \S 0.6 states it as a
+question about a matrix; this part asks it of data and reports what came back.
+
+% =====================================================================
+\subsection{The question, restated}
+\label{sec:question}
+
+\begin{invariant}
+Let $\aff = \{j : \kap_j > 0.1\}$ be the \textbf{active set} --- the columns
+not in near-balance. Restricted to \aff, is the map $\netflux \mapsto
+\nu\netflux$ well-conditioned, and does it carry the physics?
+\end{invariant}
+
+If yes, \textbf{Target A} with an equilibrium mask is the architecture: the
+model predicts a per-reaction flux, the mask switches off the equilibrated
+columns, and $\dd Y = \nu\netflux$ conserves everything exactly. If no ---
+either because the net flow spreads over too many near-cancelled columns, or
+because the restricted $\nu$ is ill-conditioned --- the project falls back to
+\textbf{Target B}: predict $\dd Y$ directly in a linear space and project onto
+the constraint manifold.
+
+Six measurable clauses, from \code{CLAUDE.md}:
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{0.6cm} Y L{3.2cm} L{3.4cm}@{}}
+\toprule
+\textbf{\#} & \textbf{quantity} & \textbf{pass} & \textbf{fail} \\
+\midrule
+1 & fraction of $|\Delta\Ye|$ carried by \aff & $\ge 95\%$ & --- \\
+2 & fraction of dominant-isotope $|\Delta X|$ carried by \aff & $\ge 95\%$ & --- \\
+3 & share of net columns near the \kap{} floor & --- & $> {\sim}30\%$ \\
+4 & $\cond(\Sact)$ & $< 10^{6}$ & $> 10^{8}$ \\
+5 & maskable-set size under the Guidry $\eps$ sweep & non-empty & empty $\Rightarrow$ full-width \\
+6 & mask churn per step & $< 5\%$ & $> 5\%$ $\Rightarrow$ freeze \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Plus two that were carried as assumptions and became measurements: the
+\textbf{timescale separation} (``6--8 orders'', never sourced) and the
+\textbf{energy consistency} residual.
+
+% =====================================================================
+\subsection{The instruments}
+\label{sec:instruments}
+
+\code{src/gnn\_nucleo/killtest/} is four small modules, and their design is
+worth reading as an argument.
+
+\paragraph{\code{strata.py} --- one definition of the grid, imported
+everywhere.}
+
+\begin{srclisting}
+T9_EDGES = [1.6, 2.5, 3.3, 4.0, 5.0, 6.3, 7.95]
+YE_EDGES = [0.45, 0.4667, 0.4833, 0.5001]
+\end{srclisting}
+
+Six \Tn{} bins $\times$ three \Ye{} bins. The bin edges are the regime box's,
+with extra resolution across the QSE window. Lifting them into a module ``so
+scripts stop redefining them'' is a small thing that prevents a large class of
+almost-but-not-quite comparisons.
+
+\paragraph{\code{active\_set.py} --- primitives that measure and never
+conclude.} Its docstring says so explicitly: \emph{``Numbers only --- pass/fail
+thresholds live in docs/phase0-checklist.md and the verdict document, never
+here.''} Six functions:
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.6cm} Y@{}}
+\toprule
+\textbf{function} & \textbf{what it computes} \\
+\midrule
+\code{guidry\_masks} & maskable columns per $\eps$, \textbf{strictly} via
+  \code{qse.diagnostics.eligible\_mask} so weak columns are excluded
+  structurally (invariant \#2) \\
+\code{cond\_s\_active} & cond of $\nu$ restricted to active columns,
+  \textbf{rank-revealing} (ratio of extreme \emph{nonzero} singular values;
+  $A\cdot\nu = 0$ always, and $Z\cdot\nu = 0$ on the strong columns / the
+  lepton-extended $\nu$, so the naive condition number is infinite) \\
+\code{carried\_fractions} & per-species $\mathrm{cov}_i = \sum_{j\in\aff}
+  |\nu_{ij}\netflux_j| \,/\, \sum_j |\nu_{ij}\netflux_j|$ \\
+\code{topk\_concentration} & cumulative share of the top-$k$ entries \\
+\code{mask\_churn}, \code{timescale\_separation} & per-step flips;
+  fastest-balanced-gross / slowest-bottleneck-net \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Two details that are easy to get wrong and are got right here.
+\textbf{\code{cond\_s\_active} excludes the structural null vectors}:
+$A\cdot\nu = 0$ and $Z\cdot\nu = 0$ hold by construction (Tier~2 \S I.2), so a
+naive condition number would be infinite for every possible active set and the
+gate would be vacuous. And \textbf{\code{carried\_fractions} expects $\nu$ and
+$\netflux$ restricted to net columns} (forward-or-unpaired), because counting a
+forward/reverse pair twice would double the denominator and halve every coverage
+number.
+
+\paragraph{\code{manifold.py} --- row assembly, with a refusal.} It builds the
+relaxed manifold from FluxStore trajectory runs, and:
+
+\begin{srclisting}
+if scr not in ("None", "none"):
+    raise ValueError(f"{run_id}: kappa/delta analysis requires the UNSCREENED run ...")
+\end{srclisting}
+
+\code{CLAUDE.md}'s two-\kap{} rule, encoded as code that will not run. Given
+that the screened \kap{} floor at NSE is ${\sim}7\times10^{-2}$ and the
+active-set threshold is $10^{-1}$, using a screened run would put a large
+fraction of genuinely balanced pairs on the wrong side of the gate. This is the
+single highest-value guard in the node.
+
+It also computes the \textbf{phase split}: \code{attractor} marks rows at or
+after the \code{first\_quiet} arrival row (\S\ref{sec:stall}), so every
+statistic can be reported separately for the \emph{relaxing} phase (strong
+sector still equilibrating) and the \emph{attractor} phase (strong sector done,
+weak drift continuing).
+
+% =====================================================================
+\subsection{The two distributions --- and why they are different worlds}
+\label{sec:twodistributions}
+
+This is the measurement that reframed the project, and it is the one to
+understand before reading any gate.
+
+\textbf{Distribution A --- the training grid.} 1.03M in-strata states per
+network, random Sobol compositions. \resultsref{2026-07-11}:
+
+\begin{itemize}
+\item median $\log_{10}\kap \approx$ \textbf{$-0.05$ in every stratum} --- i.e.\
+  $\kap \approx 1$ everywhere;
+\item fraction $\kap > 0.1$: \textbf{0.985--0.999} (\msn{80}), 0.974--0.997
+  (\msn{151});
+\item fraction $\kap < 10^{-3}$: \textbf{0.000};
+\item per-state active fraction, median \textbf{0.987--1.000};
+\item consequently the \kap-active union is \textbf{all} net columns (327/327,
+  846/846) in every stratum, so $\Sact \approx$ full $\nu$ and
+  $\cond = 41.8$ / $57.4$.
+\end{itemize}
+
+\textbf{Every gate passes, and the pass is vacuous.} There is no cancellation
+structure on the training distribution at all. The reason is physical, not
+statistical: random compositions carry free nucleons at percent level, so every
+capture reaction runs hard in one direction and nothing is near balance.
+\textbf{The training states are \emph{relaxing}, not \emph{relaxed}.}
+
+\textbf{Distribution B --- the relaxed manifold.} Pre-terminal rows of 20
+shipped $+$ 209 rerun trajectories per network, 4,693 sampled rows each.
+\resultsref{2026-07-12}:
+
+\begin{itemize}
+\item fraction $\kap > 0.1$ falls to \textbf{0.70 / 0.64} in the \Tn{}
+  $[5.0, 6.3)$ stratum;
+\item \kap-balanced pairs ($\kap < 10^{-3}$) are \textbf{$\le 0.4\%$ of
+  carrying pairs everywhere} --- clean detailed balance essentially never
+  occurs;
+\item the cancellation structure is a \textbf{continuum} of
+  $\kap \in 10^{-3} \ldots 10^{-1}$, not a clean split into ``equilibrated''
+  and ``active''.
+\end{itemize}
+
+So the QSE cancellation structure --- the thing the whole architecture is
+designed around --- \textbf{lives on the relaxed manifold and is absent from the
+training distribution}.
+
+\textbf{Why this is a regime shift, not a covariate shift.} Tier~2 \S III.9
+gives the dynamical reason and it is worth stating here in the form that
+matters for Tier~4: relaxation \emph{onto} the slow manifold and motion
+\emph{along} it are different functions. A model trained on the first and
+deployed on the second is not extrapolating --- it is being asked a different
+question. No amount of data augmentation on the training distribution fixes
+that; the fix is training data from the right distribution, which is what
+\code{CLAUDE.md}'s Sobol $\to$ real-MESA gate (retrain if real-track
+99th-percentile \Ye{} error $> 3\times$ the Sobol-measured value) exists to
+detect. \textbf{That gate is predicted to fire}, and \foreignreg{2}{R-07}'s
+measurement --- the $20\,\Msun$ track sits within 0.12--0.18 dex of a
+\emph{line} in the box, and only 35\% / 62\% / 82\% of the box is within 0.1 /
+0.2 / 0.3 dex of a visited point --- is the thermodynamic half of the same
+mismatch.
+
+\textbf{And it is why the kill-test verdict had to be rendered on distribution
+B.} A verdict on the training grid would have been a confident, fully-passing,
+completely uninformative ``yes''.
+
+% =====================================================================
+\subsection{Gate 1 --- \texorpdfstring{\Ye}{Ye} coverage: a structural pass}
+\label{sec:gate1}
+
+\textbf{PASS at 1.0000}, and the reason is structural rather than fortunate.
+
+Weak columns are stored unpaired in the flux engine ($\fm \equiv 0$), so
+$\kap = |\netflux|/(\fp + \fm) = 1$ wherever a weak column carries any flux at
+all. Verified exactly on \textbf{8,825,170 / 33,189,419} (weak column $\times$
+relaxed row) samples with $\fp > 0$ \resultsref{2026-07-12}; fluxless weak
+columns have $\kap = 0$ by the zero-denominator convention and contribute
+nothing. Weak columns are also never maskable, by invariant \#2, enforced
+structurally in \code{eligible\_mask}.
+
+So the $|\dd\dYdt|$ coverage by any active set of the form $\{\kap > \theta\}$,
+$\theta < 1$, is exactly 1.
+
+\textbf{Read this carefully, because it is a pass that proves less than it
+looks.} The gate asks ``does the active set carry the \Ye{} physics?'' and the
+answer is ``yes, by construction of the active set''. It is not evidence that
+the flux head will \emph{predict} those columns well; it is evidence that the
+mask will not delete them. Tier~1 \S VIII.D's habit applies: what would still be
+wrong if this passed? Answer --- everything about the accuracy of the weak
+columns, which the gate does not touch.
+
+What the gate \emph{does} deliver, as a side effect, is the concentration
+measurement: top-5 weak channels carry \textbf{0.96 / 0.75} and top-20 carry
+\textbf{1.00 / 1.00} of $\sum|\dd\dYdt|$ on high-\Ye{} QSE-window rows, \#1
+being \nuc{Ni}{56} EC at 0.62 / 0.28 (\S\ref{sec:yecarriers}). That is a real,
+actionable result: it tells the loss function where to spend.
+
+% =====================================================================
+\subsection{Gate 5 --- the Guidry sweep returns EMPTY}
+\label{sec:gate5}
+
+The most consequential single number in the tier.
+
+The Guidry departure criterion (\citealt{guidry2013a} --- their
+near-equilibrium test $|y_i - \bar y_i|/\bar y_i < \eps_i$, applied with
+$\eps_i = 0.01$ in their examples; Tier~2 \S III.10) declares a species
+equilibrated when $|y - \bar y|/\bar y < \eps$ against a reference equilibrium,
+and a \emph{reaction} maskable when all its participants are. The $\eps$ sweep
+is $\{3\times10^{-3}, 10^{-2}, 3\times10^{-2}\}$.
+
+\textbf{Measured: maskable columns per row have median AND p90 $= 0$, at every
+$\eps$, both networks.} \resultsref{2026-07-12}.
+
+Not ``few''. Zero, at the 90th percentile, everywhere.
+
+\textbf{Why.} $\delta_r$ is measured against \textbf{true NSE}, and the label
+manifold's own equilibria are Appendix-B-displaced (\S\ref{part:pathology}).
+The manifold does reach \emph{an} equilibrium --- that is what the attractor
+phase is --- but not the one the criterion tests against. The two are
+6.7--13.0 dex apart at $\Tn \gtrsim 5$ (\msn{151}; 6.9--11.5 for \msn{80}) and
+displaced by an unknown amount below that.
+
+\textbf{Consequences, in order of severity:}
+
+\begin{enumerate}
+\item \textbf{$\cond(\Sact) = \cond(\nu$ restricted to all net columns$) =
+  41.8$ / $57.4$ at every $\eps$} (full $\nu$: 41.6 / 57.9) --- five orders
+  below the $10^{6}$ gate. Gate 4 passes, but for a degenerate reason: the mask
+  is empty, so there is nothing to restrict.
+\item \textbf{The hybrid design's maskable set is empty. Target A operates
+  full-width.} Component B's ``Guidry prior $+$ learned $L_0$ gate'' loses its
+  prior; the mask becomes a purely learned object with no physics
+  initialisation, or is dropped.
+\item \textbf{Gate 6 (churn) is moot.} Measured churn is 0.00--0.03 flips/step
+  ($\le 0.002\%$/step) at every $\eps$ over 35 QSE-window trajectories ---
+  trivially below the 5\%/step freeze trigger. But the mask is empty, so the
+  hybrid-versus-frozen decision is settled by \textbf{emptiness, not churn}.
+  Recording both, and saying which one decided, is the right way to report it.
+\end{enumerate}
+
+\textbf{What this result is and is not.} It is a measurement about \emph{this
+label manifold}, and the manifold is (a) constant-$(T, \rho)$, (b) started from
+unphysical compositions, (c) bug-displaced above 5 GK, and (d) evaluated
+against a criterion whose reference is true NSE rather than the manifold's own
+attractor. Every one of those is a reason the result might not transfer to a
+physical silicon-burning trajectory. It is \emph{not} a demonstration that QSE
+does not occur in stars.
+
+The correct statement, and the one the verdict document makes: \textbf{on the
+data the model will be trained and evaluated on, there is no maskable set.}
+That is a statement about an engineering decision, and it settles that
+decision.
+
+An open question the notes should carry: $\delta_r$ is measured against
+\textbf{true NSE} when the physically meaningful comparison might be against
+\textbf{the manifold's own attractor}. Testing departure from an equilibrium the
+system is not heading toward is arguably the wrong test. Redoing the sweep with
+the attractor as reference is cheap and might well produce a non-empty mask.
+Registered as \reg{T-04}.
+
+% =====================================================================
+\subsection{Gate 2 --- the split verdict, and the \texorpdfstring{$1/\kap$}{1/kappa} amplification}
+\label{sec:gate2}
+
+The gate that did not cleanly pass.
+
+Coverage is measured two ways per row: for the \textbf{median} dominant
+isotope, and for the \textbf{worst} dominant isotope (min over species with
+$X > 10^{-3}$). \resultsref{2026-07-12} (the two ``$\ge$'' entries below are
+from the verdict document, \code{docs/phase0-killtest-verdict.md}, not
+\code{RESULTS.md}):
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.6cm} L{4.2cm} Y@{}}
+\toprule
+\textbf{stratum $\times$ phase} & \textbf{median-dominant coverage} &
+  \textbf{worst-dominant coverage} \\
+\midrule
+$\Tn < 3.3$ & 1.00 typical & $\ge 0.61$ \\
+$[3.3, 4.0)$ & 1.00 & $\ge 0.36$ \\
+$[4.0, 5.0)$ relaxing & $\ge 0.95$ & \textbf{0.1658 / 0.0700} \\
+$[5.0, 6.3)$ & \textbf{0.62 -- 0.80} & \textbf{0.0022 -- 0.0290 / 0.0084 -- 0.0475} \\
+$[1.6, 2.5)$ relaxing & 1.00 & 0.90 / 0.75 \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+So: the \emph{typical} species' evolution is carried by the active set almost
+everywhere, but in the 4--6.3 GK band there exist dominant species
+($X > 10^{-3}$!) whose net evolution rides almost entirely on
+\textbf{near-cancelled columns} --- $\kap \in 10^{-3} \ldots 10^{-1}$, i.e.\
+outside the active set.
+
+\textbf{Why that is dangerous, quantitatively.} If $\netflux$ is inferred from
+features that scale with the \emph{gross} flux, then an error $\delta$ in a
+gross-scale quantity produces an error $\delta/\kap$ in the net flux, because
+$\netflux = \fp - \fm$ and the relative error of a difference is amplified by
+$(\fp + \fm)/|\netflux| = 1/\kap$. At $\kap = 10^{-3}$ that is a factor of
+1000. This is exactly the ``\kap{} as a condition number'' reading of Tier~2
+\S II.4(b), and here it is being measured on the species the composition is
+made of.
+
+\textbf{Why it is nevertheless not a Target-B switch.} Two arguments, both in
+the verdict document, and both correct:
+
+\begin{enumerate}
+\item \textbf{ADR 0001's switch conditions do not fire.} $\cond(\Sact) =
+  41.8/57.4$, not $> 10^{6}$. Low-\kap{} share is 0.9--24\%, not $> 90\%$.
+\item \textbf{Target B faces the same problem.} The cancellation is in the
+  \emph{labels}: $\Delta Y$ for those species is itself a small difference of
+  large opposing contributions. Predicting $\Delta Y$ directly does not remove
+  the cancellation, it just hides it inside the label. Target B would surrender
+  the per-reaction structure (which the concentrated bridge and EC channels
+  reward) without removing the conditioning problem.
+\end{enumerate}
+
+\textbf{What it does force} is supervision-level mitigation: \Phifl-level
+supervision where feasible, plus loss weighting on the affected columns.
+\S\ref{sec:phisupervision} is the feasibility.
+
+% =====================================================================
+\subsection{Gates 3, 7, 8 --- spread, timescales, energy}
+\label{sec:gates378}
+
+\textbf{Gate 3 (spread) --- PASS.} The low-\kap{} ($\kap \le 0.1$) column share
+of active net columns has median 0.9\%--24\% across every stratum $\times$
+phase, worst case 0.24/0.21 in the attractor phase of $[5.0, 6.3)$
+\resultsref{2026-07-12}. The ${\sim}30\%$ FAIL line is not approached. So the
+failure mode ``net flow spreads diffusely over hundreds of near-cancelled
+columns'' does \textbf{not} occur: the problematic carriers of
+\S\ref{sec:gate2} are \textbf{few and identifiable}, which is what makes
+targeted mitigation possible.
+
+\textbf{Gate 7 (timescale separation) --- an assumed number, RETIRED by
+measurement.} The design documents carried a working figure of ``6--8 orders of
+magnitude'' of separation between the fast equilibrated sector and the slow
+bottleneck flow --- unsourced (the phrase ``6--8 orders of magnitude'' does
+occur in \citet{guidry2013a}, but there it compares a realistic network's
+fastest rates to an $\alpha$-network's --- a different quantity;
+\citet{guidry2012} gives 10--20 orders between the fastest and slowest
+timescales of a thermonuclear network). Measured as
+$\log_{10}[(\text{fastest \kap-balanced gross rate})/(\text{slowest
+95\%-bottleneck net rate})]$: per-stratum medians span
+\textbf{$-12.2 \ldots +1.4$}, with p10 at $-25$ and p90 at $+3.5$
+\resultsref{2026-07-12}.
+
+The distribution is broad and \textbf{mostly negative} --- i.e.\ there is no
+cleanly separated fast sector at all, because \kap-balanced pairs are
+$\le 0.4\%$ of carrying pairs and are mostly low-flux. The assumed figure is not
+merely imprecise; it describes a structure that is absent.
+
+\textbf{This retirement has teeth.} The rollout governor specified for
+Component C (the \citealt{ono2026} timescale-rescaled update) was adopted for
+row 15 on the premise of ``a separated fast sector'' --- a project premise, not
+the paper's: Ono \& Sugimura's own stated premise is that at short $\Delta t$
+the physical change is smaller than the prediction error, and their rescaling
+$\Delta t/\tau_\eps \cdot \Delta x_{\mathrm{pred}}(\tau_\eps)$ presumes
+approximately linear evolution over $\tau_\eps$. That premise is now measured
+false. \tierone{VIII.F} ranks ``a design with a falsified premise and no study
+node'' as the highest-leverage open item in the project, and it is right to.
+
+\textbf{Gate 8 (energy) --- two readings, reported separately.} The verdict
+document does something unusual and correct here: it declines to collapse two
+different measurements into one verdict.
+
+\begin{itemize}
+\item \emph{The gate as written} ($\enuc = \sum_j Q_j \netflux_j$ from the same
+  net fluxes as composition): \textbf{PASSES} with $\ge 3$ orders of margin ---
+  residual median $6\times10^{-6} \ldots 2.5\times10^{-5}$, max
+  $8.7\times10^{-4}$, fraction $\le 1\% = 1.000$ in every stratum
+  \resultsref{2026-07-12}. With the caveat that with constant mass-derived $Q$
+  on both sides this comparison is near-algebraic (Tier~2 \S IV.8): it bounds
+  $Q$-table rounding, not route physics.
+\item \emph{The independent-leg check} (engine-rate energy vs label-$\Delta X$
+  energy, \S\ref{sec:compositionroute}): median ratio \textbf{0.979 / 0.996}
+  \resultsref{2026-07-11}. \msn{80} at a 2.1\% median is \textbf{outside} a
+  1\% band, and is carried as an \textbf{open margin item} into Phase 1.
+\end{itemize}
+
+Reporting ``passes with margin'' and ``fails by $2\times$'' side by side, with
+the explanation of why they measure different things, is what an honest gate
+looks like.
+
+% =====================================================================
+\subsection{The verdict, and the statistics it does not carry}
+\label{sec:verdict}
+
+\begin{result}
+\textbf{VERDICT: Target A, full-width, no Guidry masking, weak sector
+structural.} Unconditional for $\Tn < 4.0$; conditional for $[4.0, 5.0)$
+(worst-species coverage fails, mitigation measured-feasible); deferred for
+$[5.0, 6.3)$ (label physics bug-displaced, \Phifl{} labels blocked on
+integrator cost). No ADR-0001 switch condition fires; no PIVOT criterion is
+met.
+\end{result}
+
+\textbf{Now the part the verdict document does not have, and should.}
+
+Every headline number above is a median or a fraction over ${\sim}4{,}693$ rows
+per network, and \textbf{those rows are not independent.} They are $\le 24$
+rows sampled from each of 229 trajectories, and rows within a trajectory share
+a $(T, \rho)$, an initial composition, and a continuous dynamical history.
+Tier~2 \S V.3 measured the intraclass correlation: \textbf{ICC 0.22--0.70 across
+trajectories, design effect 6.5--18.6} (\citealt{kish1965}'s
+$\mathrm{deff} = 1 + (m - 1)\rho$; \citealt{shrout1979} for the ICC). So
+\code{RESULTS.md}'s ``657k carrying-pair samples'' carry roughly \textbf{300
+independent systems}.
+
+What that does and does not affect:
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}Y Y@{}}
+\toprule
+\textbf{affected} & \textbf{not affected} \\
+\midrule
+every p-value and confidence interval (all currently unstated) &
+  point estimates --- medians and fractions are unbiased \\
+any claim of the form ``significantly below the 30\% line'' &
+  the \textbf{empty-mask} result, which is p90 $= 0$ (a hard zero cannot be a
+  sampling artifact) \\
+the Spearman correlations' stated significance ($+0.491$/$+0.498$,
+  ``$p \approx 0$'' over 657k samples --- the p-value is meaningless at
+  $n_{\mathrm{eff}} \approx 300$) &
+  the structural results ($\kap \equiv 1$ on weak columns) \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+The fix is one afternoon's work: \textbf{bootstrap over trajectories, not
+rows.} \foreignreg{2}{R-08}, and this tier's \reg{T-05}. Until it is done, the
+verdict's point estimates stand and its inferential language should be removed.
+
+\textbf{A second missing control}, and it is the one a hostile referee reaches
+for first: \textbf{there is no null distribution for any of these statistics.}
+Is 0.87 dex of intra-group \rQSE{} spread large? Is a Spearman of $+0.49$
+between $\log\kap$ and $\log\delta$ good agreement or mediocre? Nobody knows,
+because neither statistic has been computed on a case where the answer is known
+--- e.g.\ on states drawn from exact NSE (where $\delta \equiv 0$ by
+construction), or on a synthetic manifold with an imposed known mask.
+\foreignreg{2}{R-18} raises this for \rQSE{} specifically; it generalises.
+Registered as \reg{T-06}.
+
+% =====================================================================
+\subsection{What a complete statistics package would look like}
+\label{sec:statspackage}
+
+\S\ref{sec:verdict} names two gaps. This section designs the fix, because ``add
+error bars'' is not actionable and the design is where the difficulty is.
+
+\textbf{1. Cluster bootstrap over trajectories} (\citealt[\S 3.8]{davison1997};
+\citealt{field2007}; \citealt{cameron2015}). Resample \emph{trajectories} with
+replacement (229 of them per network), recompute every headline statistic on
+each resample, report the 2.5/97.5 percentiles. Two design points that are easy
+to get wrong:
+
+\begin{itemize}
+\item \textbf{Resample whole trajectories, not rows.} The whole point is that
+  rows within a trajectory are correlated; a row bootstrap reproduces the false
+  657k.
+\item \textbf{Stratify the resample by (\Tn, phase)} if the statistic is
+  reported per stratum, otherwise a resample can empty a cell. With ${\sim}30$
+  trajectories per stratum, the intervals will be \emph{wide}, and that is the
+  honest answer rather than a problem with the method.
+\end{itemize}
+
+Expected outcome, predicted here so it can be checked: with $n \approx 300$
+nominal rows per stratum $\times$ phase cell, the 95\% interval on a fraction
+near 0.8 is roughly $\pm 0.045$ if the rows were independent and
+\textbf{$\pm 0.12$ -- $\pm 0.20$} at design effects 6.5--18.6
+\derivedhere[from $1.96\sqrt{p(1-p)\cdot\mathrm{deff}/n}$: 0.045, 0.115,
+0.195; an earlier version wrote ``$n_{\mathrm{eff}} \approx 300$'', which would
+double-count the design effect --- corrected in the 2026-08-18 audit]. So the
+\S\ref{sec:gate2} coverage numbers --- 0.62, 0.80, 0.95 --- are separated by
+less than their intervals. \textbf{The split verdict's \emph{boundaries} are
+statistically soft even though its extremes (0.002 vs 1.00) are not.}
+
+\textbf{2. Threshold sensitivity: sweep $\theta$.} The active set is
+$\{\kap > \theta\}$ with $\theta = 0.1$, unsourced. Every gate that mentions
+the active set is a function of $\theta$. Sweeping $\theta \in \{0.03, 0.1,
+0.3\}$ over the already-computed flux stores costs minutes and answers a
+question the verdict cannot currently answer: \emph{is the $[4.0, 6.3)$
+coverage failure a fact about the physics or an artifact of where the line was
+drawn?}
+
+Two possible outcomes, both useful:
+
+\begin{itemize}
+\item coverage rises steeply as $\theta$ falls $\to$ the failing species'
+  carriers sit just below 0.1, the failure is a threshold artifact, and
+  \foreignreg{2}{R-01}'s entropy-weighted active set
+  ($\sigma_j = 2\kB s_j \kap_j \artanh\kap_j$ --- the flux--force relation of
+  \citealt{beard2007} in \kap{} form; parameter-free) should replace the
+  threshold outright;
+\item coverage is flat in $\theta$ $\to$ the carriers are genuinely deep in
+  the cancelled regime, the failure is real, and \Phifl-level supervision is
+  the only fix.
+\end{itemize}
+
+Registered as \reg{T-14}, and it is two hours on data already on disk.
+
+\textbf{3. Null distributions.} Three statistics currently have no scale:
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.4cm} L{2.6cm} Y@{}}
+\toprule
+\textbf{statistic} & \textbf{measured} & \textbf{null needed} \\
+\midrule
+intra-group $\mathrm{std}(\rQSE)$ & 0.87 / 0.80 dex & its value on states
+  drawn from \textbf{exact NSE} (where the answer should be $\approx 0$) and on
+  random compositions (the upper bound) \\
+Spearman($\log\kap$, $\log\delta_r$) & $+0.491$ / $+0.498$ & its value when
+  \kap{} and $\delta$ are computed from \emph{independent} random states ---
+  the floor --- and at exact NSE --- the ceiling \\
+maskable-set size & 0 & its value on a synthetic manifold with an
+  \textbf{imposed known mask} --- does the instrument find a mask that is
+  there? \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+The third is the important one and it is the standard missing control in this
+whole class of work: \textbf{the mask-detection instrument has never been shown
+to detect a mask.} Constructing the positive control is easy --- take an NSE
+composition, perturb a handful of species, and check that \code{guidry\_masks}
+returns everything except the perturbed reactions. Without it, ``the maskable
+set is empty'' and ``the detector does not work'' are indistinguishable.
+
+Registered as \reg{T-06}, and it should block any external claim of the
+negative verdicts.
+
+% =====================================================================
+\subsection{What would have changed the answer}
+\label{sec:whatwouldflip}
+
+A useful exercise for reading any verdict: what result would have flipped it?
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{5.6cm} Y@{}}
+\toprule
+\textbf{finding} & \textbf{would have implied} \\
+\midrule
+$\cond(\Sact) > 10^{6}$ on the relaxed manifold & \textbf{Target B},
+  immediately --- ADR 0001's first switch condition \\
+low-\kap{} share $> 90\%$ of carrying columns & \textbf{Target B} --- the net
+  flow is everywhere-cancelled and per-reaction fluxes are unrecoverable \\
+low-\kap{} share $> 30\%$ (but $< 90\%$) & FAIL on gate 3: diffuse spread, no
+  identifiable carriers, no targeted mitigation possible \\
+a non-empty maskable set with churn $> 5\%$/step & freeze to the imposed
+  Guidry mask (the \code{CLAUDE.md} rule) \\
+$|\dd\dYdt|$ coverage $< 95\%$ & would have indicated a \emph{bug}, since it
+  is structurally 1 --- a useful tripwire \\
+median-dominant coverage failing below 4 GK & Target A unviable in the QSE
+  window, i.e.\ in the regime the project exists for \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+None of those fired. What did fire --- worst-species coverage in $[4.0, 6.3)$
+--- is the one outcome the threshold list did not anticipate, because
+\code{CLAUDE.md}'s gate says ``dominant isotopes'' without specifying median or
+worst-case. Measuring both and reporting the split, rather than picking the
+flattering one, is the single best decision in the verdict document.
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-killtest}
+
+\begin{selfcheck}
+% source IV.10 Q1
+\item State the kill-test as a question about a matrix, and name which module
+  supplies each measured quantity.
+% source IV.10 Q2
+\item Why does \code{cond\_s\_active} use only the nonzero singular values?
+  What would the gate report otherwise?
+% source IV.10 Q3
+\item The training grid passes every gate. Explain in one sentence why that is
+  uninformative, and give the physical reason $\kap \approx 1$ there.
+% source IV.10 Q4
+\item Gate 1 passes at exactly 1.0000. Is that evidence about the emulator's
+  future accuracy? Justify.
+% source IV.10 Q5
+\item The Guidry sweep returns zero maskable columns at p90. Give the mechanism,
+  and then give the reason this might be an artifact of the reference choice.
+% source IV.10 Q6
+\item Derive the $1/\kap$ amplification factor and apply it to a species with
+  worst-case coverage 0.002.
+% source IV.10 Q7
+\item ``657k samples'' --- what is the effective sample size, why, and which of
+  the tier's results survive the correction?
+% source IV.10 Q8
+\item Name three findings that would have flipped the verdict to Target B.
+\end{selfcheck}

@@ -1,0 +1,442 @@
+% =====================================================================
+%  12 -- THE BASELINE YOU ARE TRYING TO BEAT  (source node S16, Part VI).
+%
+%  Source: tier3.md lines 4612-4909, in full and in order --
+%          Part VI header (4612-4615), VI.1 (4617-4673), VI.2 (4674-4728),
+%          VI.3 (4729-4757), VI.4 (4758-4790), VI.5 (4791-4837),
+%          VI.5b (4838-4894), VI.6 self-check (4895-4909, six questions ->
+%          sec:selfcheck-baseline).
+%
+%  Rendering notes:
+%    - the MLP arrow diagram (source 4627-4630) is the assigned TikZ
+%      figure \label{fig:nnnarch}; the two python fences (log-softmax,
+%      loss) are srclisting verbatim;
+%    - the novelty table (4779-4786) is set as tabularx
+%      {L{2.1cm} L{2.6cm} L{4.6cm} Y} \small.
+%  Re-homings: none.  No cross-reference sentence had to be reworded
+%  (Parts III, IV, V and sections 0.3.6, 0.6.5, I.5, I.6 all precede
+%  this part in the report, as they do in the source).
+%  Tier 2 / Tier 0 pointers stay as plain text per the brief.
+% =====================================================================
+
+\section{The baseline you are trying to beat}
+\label{part:baseline}
+
+\textbf{Know your competitor better than they do.} This node is the NNN as an
+object, what it achieves, where it does not, and what ``beating it'' has to
+mean.
+
+% =====================================================================
+\subsection{What the NNN actually is}
+\label{sec:nnnis}
+
+Grichener, Renzo, Kerzendorf et al. 2025, \emph{Nuclear Neural Networks:
+Emulating Late Burning Stages in Core-collapse Supernova Progenitors} (ApJS
+279, 49; \arxiv{2503.00115}; data and models at Zenodo 10.5281/zenodo.14873443)
+\citep{grichener2025}. Read from the shipped code
+(\code{repro/nnn/patched/NNNfunctionsCompPlusEps.py}) and checked against the
+paper (\S 2.3):
+
+\textbf{Architecture.} A plain feed-forward MLP:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  node distance=5mm and 9mm,
+  box/.style={draw, rounded corners=1.5pt, thick, font=\small\ttfamily,
+              minimum height=7mm, inner xsep=5pt, align=center},
+  act/.style={font=\footnotesize\ttfamily},
+  arr/.style={-{Latex[length=2.2mm]}, thick}]
+  \node[box] (in)  {input\\(n\_iso + 2)};
+  \node[box, right=of in]  (l1) {Linear\\1024};
+  \node[box, right=of l1]  (l2) {Linear\\2048};
+  \node[box, right=of l2, draw=none, font=\large] (dots) {$\cdots$};
+  \node[box, right=of dots] (l3) {Linear\\2048};
+  \node[box, right=of l3]  (out) {Linear\\(n\_iso + 2)};
+  \draw[arr] (in) -- (l1);
+  \draw[arr] (l1) -- node[act, above] {ReLU} (l2);
+  \draw[arr] (l2) -- node[act, above] {ReLU} (dots);
+  \draw[arr] (dots) -- (l3);
+  \draw[arr] (l3) -- node[act, above] {ReLU} (out);
+\end{tikzpicture}
+\caption{The NNN architecture as shipped: a plain feed-forward MLP,
+  input ($n_{\mathrm{iso}} + 2$) $\to$ Linear 1024 $\to$ ReLU $\to$ Linear
+  2048 $\to$ ReLU $\to$ \ldots\ $\to$ Linear 2048 $\to$ ReLU $\to$ Linear
+  ($n_{\mathrm{iso}} + 2$).}
+\label{fig:nnnarch}
+\end{figure}
+
+Twelve (\msn{80}) or nine (\msn{151}) Linear layers: input $\to$ 1024 $\to$
+2048 ($\times 10$ or $\times 7$) $\to$ out (\citealt[\S 2.3, Fig.~2]{grichener2025};
+\code{docs/zenodo-inventory.md}). The class constructor's defaults --- four
+layers of 128/256/256 with \code{neuronsNumFactor = 1, layersNum = 4} --- are
+\emph{not} the shipped configuration, which is loaded with factor 8 and 12/9
+layers (\code{runNNNsOnTestMesa80.py:491}); an earlier version of this section
+quoted the defaults (corrected in the 2026-08-18 audit). Input = the initial
+mass fractions plus $\log T$ and $\log\rho$ (dims 82 / 153, confirmed against
+the checkpoints \resultsref{2026-07-08}). Output = the final mass fractions
+plus \enuc{} and \epsnu{} (the energies normalised by $10^{16}$).
+
+\textbf{The output transform is the interesting part.} The isotope block
+passes through a \textbf{log-softmax}:
+
+\begin{srclisting}
+first_80_log_softmax = torch.log_softmax(x[:, :isotopesNum], dim=1)
+x = torch.cat([first_80_log_softmax, x[:, isotopesNum:]], dim=1)
+\end{srclisting}
+
+So the predicted mass fractions satisfy $\sum\exp(\mathrm{out}_i) = 1$
+\textbf{exactly, by construction} (in float32; \citealt[\S 2.3]{grichener2025}:
+``to ensure the abundances sum to one''). The NNN \emph{does} conserve mass ---
+through a normalisation, not through stoichiometry.
+
+\textbf{The loss} is L1 in log space on the isotopes plus L1 in linear space on
+the two energy outputs \citep[\S 2.4]{grichener2025}:
+
+\begin{srclisting}
+isotopes_loss = F.l1_loss(nnComp_isotopes, torch.log(bbqComp_isotopes))
+eps_loss      = F.l1_loss(nn_eps, bbq_eps)
+total_loss    = isotopes_loss + eps_loss
+\end{srclisting}
+
+\textbf{Nine models per network.} One MLP per timestep --- the dt grid is not a
+model input, it is a model \emph{index} (\citealt[\S 2.2]{grichener2025}: ``a
+separate neural network for every timestep''; the paper's burner interpolates
+between the two nearest trained dt, \S 4). Eighteen production models ship
+(7.3~GB; the 23.8~GB \code{trained\_NNN\_models/} tree also holds a 36-model
+layer scan, each checkpoint carrying Adam optimizer state).
+
+\textbf{Training data.} The $2^{20}$ Sobol grid, 1,041,400 usable states per
+network per dt (\S\ref{sec:shippedpipeline}), cast to float32 by the loader.
+
+% =====================================================================
+\subsection{Reading that design critically}
+\label{sec:nnncritical}
+
+Four observations, each of which is a design axis this project takes
+differently.
+
+\textbf{(i) Mass is conserved; charge is not.} The softmax fixes
+$\sum X_i = 1$ exactly and says nothing about $\sum Z_i Y_i$. \textbf{\Ye{} is
+entirely unconstrained}, which is why the paper reports a \Ye{} \emph{loss} as
+a separate metric rather than an invariant (\citealt[\S 3]{grichener2025},
+their $\delta\Ye = \sum_i (Z_i/A_i)|\Delta X_i|$ --- an upper bound on the
+signed error), and why the reproduced relative \Ye{} error is 0.33--0.54\%
+(\msn{80}) / 0.55--0.73\% (\msn{151}) \resultsref{2026-07-08} (the paper
+quotes 0.4--0.75\%).
+
+Put that number in the project's own units. $\Ye \approx 0.47$, so 0.5\%
+relative is \textbf{$|\dYe| \approx 2.4 \times 10^{-3}$ per step} (the measured
+band gives 1.6--3.4 $\times 10^{-3}$). The project's per-step gate is
+$3 \times 10^{-6}$. \textbf{The baseline is ${\sim}800\times$
+(520--1140$\times$) outside the gate this project sets itself.} That is a
+startling gap, and it is the single most important number for calibrating
+ambition. Two honest readings coexist:
+
+\begin{itemize}
+\item the gate may be over-specified (\S\ref{sec:missingderivative} /
+  \reg{T-01} --- the derivative that would tell you is missing);
+\item or the NNN's \Ye{} accuracy is genuinely inadequate for the science,
+  which is exactly the claim this project is built on.
+\end{itemize}
+
+Either way, \textbf{this comparison should be in the project's own documents
+and is not.} Registered as \reg{T-07}.
+
+\textbf{(ii) Normalisation is not conservation.} Softmax rescales; it does not
+respect stoichiometry. Tier~2 \S 0.5 makes the general argument: a leak is
+species-specific, a renormalisation is uniform, so renormalising after a leak
+silently redistributes abundance between species. The NNN never ``leaks'' mass
+because it never computes a change --- it predicts the final state directly ---
+but the same criticism applies in the form: \emph{there is no mechanism forcing
+the predicted state to be reachable from the initial one.} Charge, lepton
+number, and the reachable-manifold structure (Tier~2 \S 0.4.3) are all
+unconstrained.
+
+\textbf{(iii) The loss is in log space, which is the right choice for dynamic
+range and the wrong space for constraints.} Mass fractions span 1e-15 to 1; an
+L1 loss in linear space would be dominated entirely by the top few species. Log
+space fixes that and is a genuinely good decision. But it means the loss
+weights a relative error on a $10^{-14}$ species the same as on a 0.5
+species --- consistent with the paper's per-isotope error band of $10^{-4}$
+\ldots\ $10^{-1}$ with light isotopes \emph{best} (\citealt[\S 3]{grichener2025}
+attribute the ordering to abundance: absolute errors grow with $X$) --- and it
+means no linear constraint can be imposed in the space where the loss lives.
+This is the same structural point as invariant \#4, arriving from the loss
+side.
+
+\textbf{(iv) Nine models is a strong statement about the hard part.} Training
+one model per dt admits that the $\Delta t$ dependence is the difficult axis.
+Tier~4's S19 takes the opposite bet --- one model over eight decades, with
+$\Delta t$ as conditioning --- and \foreignreg{2}{R-10} argues the conditioning
+variable should be $\Delta t/\tau$ rather than $\log\Delta t$ precisely because
+\S\ref{sec:realtrajectory} measured that \emph{every} label is a full
+relaxation. Nine models is the safe design; one conditioned model is the better
+one if it works, and it is $9\times$ cheaper to store and deploy.
+
+% =====================================================================
+\subsection{What the NNN achieves}
+\label{sec:nnnachieves}
+
+Reproduced exactly by this project (\code{repro/nnn/}), which is worth its own
+paragraph. \resultsref{2026-07-08}:
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{5.0cm} Y L{3.6cm}@{}}
+\toprule
+\textbf{claim} & \textbf{reproduced} & \textbf{published} \\
+\midrule
+all 18 (net, dt) $\times$ 6 metrics vs shipped result CSVs & \textbf{ratio
+  1.000 in all 108 comparisons} & --- \\
+independent state\_dict-walk loader vs upstream class, 128 samples &
+  \textbf{max deviation 0.0} (gate $\le 10^{-6}$) & --- \\
+\Ye{} improvement over approx21, \msn{80} & 377--651\% & 390--660\% \\
+\Ye{} improvement, \msn{151} & 277--390\% & 280--400\% \\
+$\bar A$ improvement & 149--291\% / 256--357\% & 150--290\% / 260--360\% \\
+\enuc{} improvement & 249--419\% / 284--772\% & 250--450\% / 280--750\% \\
+$\nu$-loss crossover & better than approx21 for dt $\le 0.1$~s;
+  \textbf{worse} for dt $\in \{1, 10, 100\}$~s & comparable at 0.1~s, worse
+  after \\
+per-isotope mean $\Delta X$ band (\msn{80}, dt $= 10^{-3}$~s) & 90\% of
+  isotopes in $[10^{-4}, 10^{-1}]$, median $3.2 \times 10^{-3}$ & most in that
+  band (their Fig.~3) \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Two things stand out.
+
+\textbf{The reproduction is exact, not approximate.} The Step-2 pass criterion
+was ``within ${\sim}2\times$''; the result was 1.000 in all 108 comparisons and
+a bit-identical model handshake. That establishes the baseline as a
+\emph{fixed, checkable reference} rather than a quoted number --- this project
+can rerun it against any future change.
+
+\textbf{The $\nu$-loss crossover is the baseline's honest weakness}, reported
+by the authors and reproduced here: at long timesteps the NNN is \emph{worse}
+than approx21 on neutrino losses. Any claim of improvement must be made per-dt,
+because the sign of the comparison changes across the grid.
+
+% =====================================================================
+\subsection{NuGNN, the closer competitor}
+\label{sec:nugnn}
+
+Kim, Chae, Ko, Mumpower \& Smith 2026, \emph{NuGNN: a Graph Neural Network for
+Nuclear Reaction Network Equations} (\arxiv{2606.04491}, preprint)
+\citep{kim2026} is the nearer prior art: a graph neural network surrogate for
+a 690-isotope X-ray-burst network, hence the same architectural family as this
+project.
+
+Its documented difficulty is the one that shaped this project's invariant \#4:
+attempted enforcement of $\sum\Delta X = 0$ (as a loss term or an output
+activation), which requires inverting the signed-log label transform,
+\textbf{made training unstable and was dropped}; $\sum\Delta X \approx 0$ is
+learned from data (the paper: ``sufficiently well''), backed by a rollout retry
+with smaller $\Delta t$ when the predicted sum deviates significantly
+(\citealt{kim2026}, \S Training Method and \S Conclusions;
+\S\ref{sec:decodestep}). That is a useful competitor to have --- it establishes
+that the GNN framing is live and publishable, and it leaves the
+\emph{exact-conservation} claim open.
+
+The novelty position this leaves, stated narrowly (and re-checkable at every
+phase boundary by the \code{novelty-checker} sweep, which \code{CLAUDE.md}
+makes mandatory):
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{2.1cm} L{2.6cm} L{4.6cm} Y@{}}
+\toprule
+\textbf{axis} & \textbf{NNN} & \textbf{NuGNN} & \textbf{this project} \\
+\midrule
+architecture & MLP & GNN, heterogeneous isotope/reaction bipartite, learned
+  $(N,Z)$ embeddings & GNN, heterogeneous, raw $(Z,N)$ node features ---
+  \emph{not} a differentiator by itself \\
+conservation & $\sum X = 1$ by softmax & enforcement through the inverse
+  signed-log made training unstable; shipped unenforced (learned + retry) &
+  \textbf{exact by construction, all three laws} \\
+target & final $X$ & $\Delta X$ (as signed offset-log of $\Delta X/X$) &
+  \textbf{per-reaction flux $\Phi$} \\
+$\Delta t$ handling & 9 models & one model, $\Delta t$ as input
+  ($10^{-15}$--$10^{-4}$~s) & one model, conditioned --- \emph{not} a
+  differentiator vs NuGNN \\
+reported error & \Ye{} 0.4--0.75\% & MAE 0.037 (offset-log metric); XRB
+  rollout deviations mostly $< 15\%$ & --- \\
+size transfer & retrain & not addressed & $(Z,N)$ embedding --- a stated
+  falsifier \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+(The NuGNN column was corrected in the 2026-08-18 audit: the earlier table left
+its $\Delta t$ handling and node features blank, which overstated this
+project's differentiators --- the surviving ones are exact three-law
+conservation, the flux-space target, and the size-transfer question.)
+
+% =====================================================================
+\subsection{What ``beating it'' has to mean}
+\label{sec:beating}
+
+This is the part that needs deciding before Phase 1 rather than after, and it
+is not decided anywhere in the repo. The trap: an emulator can be better on the
+metric the baseline optimises and worse on the thing that matters, or vice
+versa.
+
+A defensible comparison protocol needs at least these five components, and none
+of them is currently specified.
+
+\textbf{1. The same test set, and the pathology declared.} The shipped test
+sets are labelled by the same bbq that produced the training labels, so they
+carry the same pathology above 5~GK (\S\ref{part:pathology}). A comparison in
+that band measures agreement with a bug. Either restrict to $\Tn < 5$ or report
+the band separately with the caveat attached.
+
+\textbf{2. Per-dt reporting.} The $\nu$-loss crossover
+(\S\ref{sec:nnnachieves}) proves that an aggregate over the dt grid can hide a
+sign change. Every metric, every dt.
+
+\textbf{3. \Ye{} in absolute units, not relative improvement.} ``377--651\%
+improvement over approx21'' is a ratio of losses whose definition is
+upstream's. The project's own quantity is $|\dYe|$ per step, absolute, against
+the $3 \times 10^{-6}$ gate and the $2.4 \times 10^{-3}$ baseline
+(\S\ref{sec:nnncritical}). Both should be reported; only the second is
+comparable across papers.
+
+\textbf{4. Rollout, not just one-step.} The NNN's quantitative results are
+one-step; the paper reports a 1000-step constant-$(T, \rho)$ rollout only
+qualitatively (\Ye{} error stays below approx21's, the other metrics become
+comparable or worse) and argues that recursion is not the intended use
+\citep[\S 4]{grichener2025}. The scientific use is a \emph{sequence} of steps
+($N \approx 1.6 \times 10^3$), where the accumulation character --- systematic
+vs random-walk vs contractive --- dominates the outcome (Tier~0 \S IV.3). A
+one-step comparison cannot distinguish a model that drifts from one that does
+not. \textbf{This is where exact conservation should show its value}, and it
+is measurable only in rollout. That the accumulation slope is still unmeasured
+(\foreignreg{2}{R-21}) makes this the highest-leverage missing experiment in
+the project.
+
+\textbf{5. Trivial baselines, which nobody has run.} \foreignreg{2}{R-16}:
+\emph{persistence} ($X' = X$), \emph{nearest neighbour} in the training set,
+and above all \textbf{NSE as a predictor}. If NSE predicts the labels well at
+$\Tn > 5$ (it does not on this data, because the labels are displaced --- but
+it might on physically-correct labels), then the emulator's real domain is
+$\Tn < 5$ and its competitor there is a Saha solve, not a neural network.
+Running three cheap baselines could redefine the problem. Registered as
+\reg{T-08}.
+
+Add one more that follows from \S\ref{sec:verdict}: \textbf{6. Cluster-robust
+error bars over trajectories}, so that ``better'' is a claim with an interval
+rather than a comparison of two medians.
+
+% =====================================================================
+\subsection{The protocol, written out}
+\label{sec:protocol}
+
+\S\ref{sec:beating} names six components. Since the point of naming them is to
+fix them before Phase 1, here is the concrete version --- a specification that
+could be adopted as an ADR today, with the open decisions marked.
+
+\textbf{Test sets.}
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.2cm} L{5.0cm} Y@{}}
+\toprule
+\textbf{set} & \textbf{source} & \textbf{purpose} \\
+\midrule
+\textbf{held-out Sobol states} & \code{state\_id} split from the training
+  corpus & in-distribution, matches the NNN's own protocol exactly \\
+\textbf{relaxed manifold} & the \S\ref{sec:campaign} campaign, trajectories
+  held out from any training use & the deployment distribution
+  (\S\ref{sec:twodistributions}) --- the NNN was never evaluated here, and this
+  is where a conservation-exact model should win \\
+\textbf{a real MESA track} & a 20~\Msun{} (and ideally $\ge 3$ progenitors,
+  \reg{T-22}) evolution's actual zone states & the \code{CLAUDE.md} Sobol
+  $\to$ real gate \\
+\textbf{NSE-reachable hot states} & $\Tn \ge 5$ & reported \textbf{separately
+  and with the pathology caveat} (\S\ref{part:pathology}), or excluded per
+  \reg{T-03} \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+\textbf{Metrics, all reported per (network, $\Delta t$, \Tn{} stratum):}
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{4.6cm} Y@{}}
+\toprule
+\textbf{metric} & \textbf{why} \\
+\midrule
+$|\dYe|$ \textbf{absolute}, median and p99 & the project's quantity;
+  comparable across papers unlike a loss ratio \\
+per-isotope $\Delta X$ distribution & comparable to the paper's Fig.~3 band \\
+\enuc{} relative error & feeds the energy equation \\
+\epsnu{} relative error & \textbf{the NNN's known weak spot} (the crossover,
+  \S\ref{sec:nnnachieves}) \\
+$\sum X - 1$ and $\min X$ & conservation and positivity; the NNN's softmax
+  gives it the first for free, so this is a \emph{tie} not a win --- the win is
+  charge \\
+$\sum Z\,\dd Y + \dd N_{\mathrm{lep}}$ & \textbf{the charge-to-lepton ledger
+  the baseline has no analogue for} \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+\textbf{Rollout, which is the discriminating experiment.} $N \approx 10^3$
+autoregressive steps on the relaxed manifold, reporting the \emph{accumulation
+slope} of $|\dYe|$ vs $N$ on a log-log plot. Three outcomes, and the project's
+whole conservation argument predicts the first:
+
+\begin{itemize}
+\item slope $\approx \tfrac12$ $\to$ random-walk accumulation; the operative
+  gate can relax toward $5 \times 10^{-5}$ (\foreignreg{2}{R-21});
+\item slope $\approx 1$ $\to$ systematic; the $3 \times 10^{-6}$ gate stands;
+\item slope $\approx 0$ $\to$ contractive; the attractor is doing the work, and
+  the model's per-step accuracy matters less than anyone thought.
+\end{itemize}
+
+\textbf{Baselines}, all of them (\reg{T-08}): the NNN, \code{approx21}
+(strictly the 22-isotope \code{approx21\_cr60\_plus\_co56} the NNN paper
+compares against, \S 2.3), persistence, nearest-neighbour, and \textbf{NSE} ---
+the last on the hot strata, where \S\ref{sec:nsetransition} says it is the real
+incumbent for NSE-switching hosts.
+
+\textbf{Uncertainty.} Cluster bootstrap over trajectories
+(\S\ref{sec:statspackage}), reported as intervals, on every number.
+
+\textbf{Open decisions this specification does not make}, and which a person
+should:
+
+\begin{enumerate}
+\item whether $\Tn \ge 5$ is in scope at all (\reg{T-03});
+\item whether the headline comparison is against the NNN's \emph{published}
+  numbers or a \emph{retrained} NNN on identical splits --- the second is
+  fairer and costs a training run;
+\item what counts as ``beating'': strictly better on every metric, or better on
+  \Ye{} and conservation with parity elsewhere. The second is the honest target
+  and should be declared \textbf{before} the numbers exist.
+\end{enumerate}
+
+Registered as \reg{T-18}.
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-baseline}
+
+\begin{selfcheck}
+\item % source VI.6 Q1
+  Describe the NNN's architecture and identify the single line that makes it
+  conserve mass.
+\item % source VI.6 Q2
+  Which conservation law does the NNN \emph{not} have, and what is the measured
+  consequence in absolute units?
+\item % source VI.6 Q3
+  The NNN's loss is L1 in log space. Give one strong reason for that choice and
+  one structural cost.
+\item % source VI.6 Q4
+  Why is the $\nu$-loss crossover the most important row in the reproduction
+  table for anyone claiming an improvement?
+\item % source VI.6 Q5
+  Name the five components a defensible ``we beat the baseline'' claim
+  requires, and say which one exact conservation is expected to win on.
+\item % source VI.6 Q6
+  What would running NSE-as-a-predictor as a baseline potentially do to the
+  project's scope?
+\end{selfcheck}

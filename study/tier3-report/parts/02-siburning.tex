@@ -1,0 +1,515 @@
+% =====================================================================
+%  2 -- SILICON BURNING.
+%
+%  Source: tier3.md 0.3 intro (871-876), 0.3.1 (878-943),
+%          0.3.2 (945-1024), 0.3.3 (1026-1064), 0.3.4 (1066-1121),
+%          0.3.5 (1123-1170), 0.3.6 (1172-1259);
+%          plus self-check Q13 from 0.10 (2746-2749) -> sec:selfcheck-siburn.
+%  Headings covered: "0.3 Silicon burning proper" (-> \section),
+%          "0.3.1 The mechanism, mechanically",
+%          "0.3.2 The two clusters, and what the group boundary means
+%                 physically",
+%          "0.3.3 The endpoint, and why Ye chooses it",
+%          "0.3.4 Hydrostatic versus explosive silicon burning",
+%          "0.3.5 alpha-rich freeze-out -- the third regime",
+%          "0.3.6 The NSE transition -- where a network is replaced by a
+%                 table".
+%  Re-homings / rewordings: none of substance.  Internal cross-refs
+%          (0.3.3, 0.2.2, IV.3, 0.6, 0.6.4, 0.7.3, 0.2.3, 0.3.5, III,
+%          0.8) are live \ref's per the registry; 0.7.3 and III/IV.3 are
+%          forward references in this edition, which the source's own
+%          wording already tolerates ("SSIV.3 is about that gap").
+%          The 0.3.4 [assumed band -- ...] tag is rendered as a one-off
+%          \provtag (the \assumednote macro would print an extra dash).
+% =====================================================================
+
+\section{Silicon burning}
+\label{part:siburn}
+
+Tier~2 \S 0.2 gives the mechanism in outline. This section is the fuller
+physical picture, including the part Tier~2 explicitly deferred: silicon
+burning happens in \textbf{two different astrophysical settings}, with different
+consequences, and the project's data is a model of only one of them.
+
+% =====================================================================
+\subsection{The mechanism, mechanically}
+\label{sec:mechanism}
+
+Start from a zone of \nuc{Si}{28} and \nuc{S}{32} (the ash of oxygen burning;
+\citealt[\S 1]{hix1996}: ``silicon isotopes and their $\alpha$-nuclei
+neighbors, S, Ar, and Ca'') at $\Tn \approx 3.5$, $\rho \approx 10^{8}$.
+
+\textbf{Step 1 --- the photon bath finds the weakest link.} The Planck
+distribution at $kT = 0.30$~MeV has an exponentially small but nonzero
+population above 10~MeV (\citealt{hix1996}: a photodisintegration channel
+becomes important once its Q-value falls below $\approx 30\,\kB T$). Nuclei
+with the \emph{lowest} particle-separation energies are attacked first: the
+($\gamma$,$\alpha$), ($\gamma$,p) and ($\gamma$,n) channels on whichever
+species in the mixture happens to be least bound against that channel. For a
+silicon-group mixture, that is not \nuc{Si}{28} --- \nuc{Si}{28} is
+comparatively tightly bound ($S_\alpha = 9.98$~MeV, $S_p = 11.6$~MeV, the
+highest along the $\alpha$-chain; AME2020, \citealt{wang2021}) --- but the
+odd-$A$ and less-bound neighbours.
+
+\textbf{Step 2 --- a reservoir of light particles appears.} Every
+photodisintegration deposits a free $\alpha$, p or n into the plasma. These
+particles have no Coulomb barrier problem worth speaking of (n) or a small one
+(p, $\alpha$ on light targets), so their capture rates are enormous. A free
+neutron at these conditions is captured in a time of order $10^{-10}$~s ---
+and that figure is deliberately conservative:
+$n_{\mathrm{target}}\langle\sigma v\rangle$ with
+$n_{\mathrm{target}} \sim 10^{30}$~cm$^{-3}$ and
+$\langle\sigma v\rangle \sim 10^{-17}$~cm$^{3}$\,s$^{-1}$ gives closer to
+$10^{-13}$~s, so the true separation from the bridge timescales of step 4 is
+wider than the number quoted here. \derivedhere[order of magnitude]
+
+\textbf{Step 3 --- the reservoir is spent on whatever is most bound.} The
+captured light particles are distributed over the whole silicon group by the
+fast capture/photodisintegration pairs, and net flow proceeds toward higher
+binding energy. The material walks up in $A$, one light particle at a time.
+
+\textbf{Step 4 --- the flow encounters bottlenecks.} Not every step is fast. A
+few reactions have small rates relative to the rest --- because of an
+unfavourable Q-value, a Coulomb barrier on a heavier target, or a structural
+feature of the nucleus. Those are the \textbf{bridges}: the reactions the net
+flow has to pass through, connecting the silicon group to the iron group.
+Everything else is running back and forth in near-balance.
+
+\textbf{Step 5 --- the endpoint is set by \Ye.} Material accumulates in the
+iron peak, and \emph{which} iron-peak nuclei depends on the neutron-to-proton
+ratio available, i.e. on \Ye. \S\ref{sec:endpoint}.
+
+The end-to-end result: $2\,\nuc{Si}{28} \to \nuc{Ni}{56}$, releasing
+0.195~MeV/nucleon (\S\ref{sec:energypergram}; $Q = 10.922$~MeV from the AME2020
+mass excesses), achieved by disassembling some fraction of the silicon
+completely and reassembling it (\citealt{hix1996}: ``a complex series of
+photodissociation and capture reactions''). No \nuc{Si}{28} nucleus ever
+touches another \nuc{Si}{28} nucleus.
+
+\textbf{The signature of this mechanism in the equations} --- the reason it
+dominates everything in Tiers~1--2 --- is that steps 1--3 are \emph{fast and
+nearly balanced}, while step 4 is \emph{slow and one-directional}. Fast
+near-balanced pairs are exactly:
+
+\begin{itemize}
+\item \textbf{near-zero \kap} (Tier~2 \S II.4): $|\netflux| \ll \fp + \fm$;
+\item \textbf{large Jacobian eigenvalues with tiny net effect}: stiffness
+  (Tier~2 \S IV.1);
+\item \textbf{quasi-statistical equilibrium}: the balanced subnetwork's
+  composition is a function of a few parameters (Tier~2 \S 0.1);
+\item \textbf{catastrophic cancellation in floating point} (Tier~0 \S V.1).
+\end{itemize}
+
+Those are four names for step 1--3. And the \emph{interesting} physics --- the
+net flow, the energy release, the \Ye{} evolution --- lives entirely in step 4
+and in the weak sector, which is a small fraction of the columns
+(\citealt[\S 6]{hix1996}: one can ``ignore the reactions within the
+quasi-equilibrium groups \ldots\ [and] concentrate on those reactions which
+enter or leave the QSE groups''). That asymmetry is the project's central bet.
+
+% =====================================================================
+\subsection{The two clusters, and what the group boundary means physically}
+\label{sec:twoclusters}
+
+The balanced subnetwork does not connect everything to everything. It splits:
+a \textbf{silicon group} (roughly $24 \le A \lesssim 45$) and an \textbf{iron
+group} ($A \gtrsim 45$), each internally equilibrated on a timescale short
+compared with the burning, but connected to each other only through the slow
+bridges (\citealt[\S\S 4, 6.1]{hix1996}: ``two groups, roughly divided by
+$A \simeq 45$'', the bottom edge of the silicon group being Mg).
+Quasi-equilibrium itself is \citeauthor{bodansky1968}'s
+(\citeyear{bodansky1968}) result --- a \emph{single} group from \nuc{Si}{28} to
+the iron peak; the split into two groups joined by bridges is
+\citeauthor{woosley1973}'s (\citeyear{woosley1973}), confirmed and made
+\Ye-dependent by \citet{hix1996} (an earlier version of this sentence credited
+the two-group split to BCF68; corrected in the 2026-08-18 audit). It is the
+reason the composition during silicon burning is neither a free ODE trajectory
+(too many degrees of freedom) nor a state function (NSE --- too few).
+
+\textbf{Why the split exists at all} is worth understanding physically rather
+than taking as an empirical fact. The equilibration of a group requires that
+every member be connected to every other by reactions fast compared with the
+burning timescale. In the $A \approx 45$ region there is a gap in the reaction
+network's effective conductivity, and it has two causes pulling the same way.
+
+\textbf{(a) The boundary nuclei are \emph{loosely} bound against $\alpha$
+emission, not tightly.} This is the one that is easy to get backwards. The
+$\alpha$-separation energies say:
+%
+\begin{equation}
+S_\alpha(\nuc{Ca}{40}) = 7.04\ \mathrm{MeV},
+\qquad
+S_\alpha(\nuc{Ti}{44}) = 5.13\ \mathrm{MeV},
+\label{eq:salpha}
+\end{equation}
+%
+\sourcednote{AME2020 via the IAEA Live Chart --- $Q_\alpha(\nuc{Ca}{40}) =
+-7039.78$~keV, $Q_\alpha(\nuc{Ti}{44}) = -5127.10$~keV} --- so \nuc{Ti}{44}
+photodisintegrates \emph{more} readily than the \nuc{Ca}{40} below it, and the
+($\gamma$,$\alpha$) reverse on the \nuc{Ca}{40}($\alpha$,$\gamma$)\nuc{Ti}{44}
+step runs hard. The bridge is slow in \textbf{net} terms precisely because its
+reverse is fast: material pushed across is pushed straight back. A local dip in
+the binding-energy-per-nucleon curve (\nuc{Ti}{44} at 8.534~MeV/nucleon,
+\emph{below} \nuc{Ca}{40}'s 8.551) is what a bottleneck looks like from the
+thermodynamic side. (This is the $\alpha$-chain step
+\nuc{Ca}{40}($\alpha$,$\gamma$)\nuc{Ti}{44}; the (p,$\gamma$) bridges into
+\nuc{Ti}{46} feed a tightly bound product, $S_p(\nuc{Ti}{46}) = 10.3$~MeV, and
+are limited instead by the small feeder abundances ---
+\citealt[\S 6.2]{hix1996}.)
+
+\textbf{(b) The capture reactions that would carry flow across face Coulomb
+barriers on targets with $Z \approx 20$--21}, which suppresses the forward
+direction independently of (a) (\citealt[\S 1]{hix1996}, after
+\citealt{thielemann1985}: the bottleneck ``coinciding roughly with $Z = 21$'' is
+bridged on the proton-rich side).
+
+Together these make the crossing slow relative to the silicon-group internal
+reactions but not slow enough to stop the flow entirely --- which is exactly the
+condition for two separately-equilibrated groups joined by identifiable bridges.
+
+\textbf{And therefore the boundary is not sharp} (\citealt[\S 4]{hix1996}:
+``some ambiguity in defining the boundary between the QSE groups''). Whether
+\nuc{Sc}{45} counts as silicon-group or iron-group is a \emph{modelling choice
+about a continuum}. The repo handles this correctly by making it a config
+variant (\code{configs/qse\_groups.yaml}: \code{default} $24 \le A < 45$ vs
+\code{a24\_46} with the boundary at $A = 46$, putting \nuc{Sc}{45} inside the
+group) and requiring every group/bridge analysis to report both
+(\code{CLAUDE.md}). The measured consequence --- the verdict is insensitive to
+the variant at the $\le 0.02$ level in top-$k$ shares,
+\resultsref{2026-07-12} --- is exactly the kind of result the discipline exists
+to produce: the choice was declared a choice \emph{before} it turned out not to
+matter.
+
+\textbf{The bridge sets, measured.} For \msn{80} on the relaxed manifold:
+Ne22($\alpha$,n)Mg25 (share 0.20), Al27(p,$\alpha$)Mg24 (0.13),
+P31(p,$\alpha$)Si28 (0.11), Na23($\alpha$,p)Mg26, Mg24(n,$\gamma$)Mg25; top-20
+columns carry 0.88 of the inter-group flux. For \msn{151}: Mg24(p,$\alpha$)Na21
+(0.14), Mg24(p,$\gamma$)Al25, Cl35(p,$\alpha$)S32, P31(p,$\alpha$)Si28,
+Ca44(p,$\gamma$)Sc45 --- and the literature bottleneck
+\textbf{\nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46} at rank 2 of 251} under the
+\code{a24\_46} boundary. \resultsref{2026-07-12}
+
+That last one deserves a moment. The reaction was named in the literature as
+the high-\Ye{} bottleneck of silicon burning (\citealt[\S VIb]{woosley1973};
+\citealt[\S 6.2]{hix1996}: \nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46} ``accounts for
+approximately 70\% of the entire flux into the iron peak group'' at
+$\Ye = 0.498$ --- and \emph{not} the link at $\Ye = 0.46$; an earlier version of
+this sentence cited \citet{grichener2025} for the claim, whose paper does not
+mention the reaction; corrected in the 2026-08-18 audit), and this project
+found it independently at rank 2 of 251 inter-group carriers on relaxed
+high-\Ye{} trajectory rows in the 3.3--5~GK window. That is a genuine external
+validation of the whole flux machinery: a published physical claim, reproduced
+by an independent pipeline (one that shares the REACLIB/pynucastro rate-library
+family with the literature, so ``independent'' is about the code, not the
+inputs). It is also a warning about distribution --- on the \emph{training}
+distribution (random Sobol compositions) the same reaction ranks only 31/251
+\resultsref{2026-07-10}. The bottleneck is a property of relaxed flow, and it
+is invisible where the model will be trained. \S\ref{sec:twodistributions} is
+about that gap.
+
+% =====================================================================
+\subsection{The endpoint, and why \texorpdfstring{\Ye}{Ye} chooses it}
+\label{sec:endpoint}
+
+Silicon burning ends when the material reaches the iron peak and there is
+nothing more exothermic to do. \emph{Which} iron-peak nucleus is the endpoint
+is a selection problem, and the selection rule is \Ye.
+
+Consider NSE at fixed $(T, \rho, \Ye)$. The composition minimises free energy
+subject to $\sum X_i = 1$ and $\sum (Z_i/A_i)X_i = \Ye$ (the chemical-potential
+formulation of NSE, \citealt[\S 5]{hix1999b}, after \citealt{clifford1965}). At
+low enough temperature that the binding-energy term dominates the entropy term,
+the winner is the nucleus that maximises binding energy per nucleon
+\textbf{subject to having the right $Z/A$} (\citealt{hix1999b}: ``the most
+abundant nuclei at low temperatures are the most bound nuclei for which
+$Z/A \sim \Ye$''; \citealt[Fig.~2]{hartmann1985}). Since $\Ye = \langle Z/A
+\rangle$ for the mixture, and a single dominant species must therefore have
+$Z/A \approx \Ye$:
+
+\begin{center}
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{1.4cm} L{3.4cm} Y@{}}
+\toprule
+\textbf{\Ye} & \textbf{$Z/A$ match} & \textbf{dominant NSE species} \\
+\midrule
+0.500 & $28/56 = 0.500$ & \textbf{\nuc{Ni}{56}} (doubly magic, $B/A = 8.643$) \\
+0.482 & $26/54 = 0.4815$ & \textbf{\nuc{Fe}{54}} (and \nuc{Ni}{58},
+  $28/58 = 0.483$, $B/A$ 8.732 vs 8.736) \\
+0.464 & $26/56 = 0.4643$ & \textbf{\nuc{Fe}{56}} ($B/A = 8.790$) \\
+0.452 & $28/62 = 0.4516$ & \nuc{Ni}{62} region (\nuc{Fe}{58}, at
+  $26/58 = 0.448$, sits just below) \provtag{[dominance assumed here; no
+  source opened]} \\
+\bottomrule
+\end{tabularx}
+\endgroup
+\end{center}
+
+\derivedhere[{the $Z/A$ arithmetic recomputed, $B/A$ values AME2020; the NSE
+dominance rule is \citealt[\S 5]{hix1999b} and \citealt[Fig.~2]{hartmann1985},
+and the repo's own Saha solver reproduces it: \resultsref{2026-07-10} NSE fe56
+$= 0.69$ at $\Ye = 0.467$ and 2026-07-11 fe56 $= 0.72$ at $\Ye = 0.472$.}]
+
+So the composition arriving at the iron peak is a \textbf{direct readout of
+\Ye}, and the \nuc{Ni}{56} mass --- the thing that powers the supernova light
+curve \citep{boccioli2024, arnett1982} --- is set by how much of the burnt
+material stayed near $\Ye = 0.5$.
+
+\textbf{This is the reason the entire project is organised around \Ye{} and not
+around \nuc{Ni}{56}.} \Ye{} is upstream; \nuc{Ni}{56} is downstream. An
+emulator that gets \Ye{} right gets the endpoint right for the right reason.
+One tuned to reproduce \nuc{Ni}{56} can be right about \nuc{Ni}{56} and wrong
+about the physics --- and will then be wrong about \nuc{Ni}{57}, \nuc{Ni}{58},
+\nuc{Ti}{44} and everything else at once, because those \emph{also} depend on
+\Ye{} and the tuning did not.
+
+% =====================================================================
+\subsection{Hydrostatic versus explosive silicon burning}
+\label{sec:hydroexplosive}
+
+Tier~2 deferred this and it matters, because the two settings are physically
+different and the project's data models one of them.
+
+\textbf{Hydrostatic (pre-supernova) silicon burning} is what
+\S\ref{sec:neutrinoclock} described: the core burns for $\sim$a day (0.01~yr
+for a 20~\Msun{} star in \citealt{hix1999b}'s Table~1) at
+$\Tn \approx 3$--4, $\rho \approx 10^{7}$--$10^{9}$ (\citealt{hix1996} study
+3.5--5~GK and $10^{7}$--$10^{10}$~\gcc{} as the core-Si-burning cube), cooling
+by neutrinos, in quasi-equilibrium, with electron captures having plenty of
+time to act. \Ye{} falls substantially. The product is the iron core.
+
+\textbf{Explosive silicon burning} happens seconds later, when the bounce shock
+passes through the silicon and oxygen shells. Conditions: peak
+$\Tn \approx 4$--5+ (\citealt{boccioli2024}: incomplete Si burning for
+$4 < \Tn < 5$, full NSE above 5; \citealt{hix1999a}: $T_{9i} < 5$ incomplete),
+$\rho \approx 10^{7}$--$10^{8}$, and a duration set by the \emph{hydrodynamic
+expansion timescale} --- $\tau_{\mathrm{HD}} = (24\pi G\rho)^{-1/2} =
+446\,\rho_6^{-1/2}$~ms (\citealt{fowler1964}, as used by \citealt[eq.~1]{hix1999a}),
+i.e. 0.05--0.4~s for $\rho = 10^{6}$--$10^{8}$~\gcc, with the temperature
+falling on $3\tau_{\mathrm{HD}}$. The material is heated, burns, and then
+expands and cools on that same timescale.
+
+Three differences with real consequences:
+
+\begin{center}
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.0cm} Y Y@{}}
+\toprule
+ & \textbf{hydrostatic} & \textbf{explosive} \\
+\midrule
+duration at peak $T$ & $\sim 10^{5}$~s & $\sim 10^{-1}$~s \\
+weak reactions & have time; \Ye{} drops & \textbf{frozen}: $\Ye \approx$
+  inherited value \\
+endpoint & true QSE $\to$ NSE approach & interrupted; freeze-out matters \\
+product & iron core (collapses) & \textbf{the ejecta} (observable) \\
+\bottomrule
+\end{tabularx}
+\endgroup
+\end{center}
+
+\textbf{The weak-freeze difference is the important one}
+(\citealt[\S 2]{hix1996}: ``the timescales for changes in \Ye{} via weak
+reactions \ldots\ are much longer than the timescales for the strong and
+electromagnetic reactions'', so they treat \Ye{} as a constant parameter).
+Electron-capture rates across the box span $10^{-5}$--$10^{2}$~s$^{-1}$ per
+nucleus (Tier~1 \S V.1 table; magnitudes from \citealt[Figs.~5--6]{langanke2000})
+\provtag{[\textsc{assumed} band --- the upper decades belong to collapse
+densities $\rho\Ye \gtrsim 10^{9}$--$10^{10}$; retire by tabulating
+$\lambda_{\mathrm{EC}}$ for the \S\ref{sec:yecarriers} top-20 at the box
+corners; an earlier version quoted $10^{-2}$--$10^{0}$~s$^{-1}$, inconsistent
+with Tier~1's own table]}. Over $10^{5}$~s that changes \Ye{} by a lot; over
+0.1~s it changes it by $\sim 10^{-2}$ at most and often much less. So
+\textbf{explosive burning largely inherits the \Ye{} that hydrostatic burning
+produced} --- the \Ye{} statement itself is the HT96 timescale argument above;
+the shock's \emph{thermodynamic} conditions likewise ``are determined by the
+pre-explosive structure'' \citep{woosley2007} --- and the ejecta composition
+is a fossil of the pre-supernova core structure.
+
+Which closes the loop on why the project's regime box is the right one: the box
+is the hydrostatic-burning box, and hydrostatic burning is what \emph{sets} the
+\Ye{} that everything downstream inherits. The explosive episode redistributes
+it into species but does not create it.
+
+\textbf{A caveat the study notes should carry.} The box (\Tn{} 1.6--7.9, $\rho$
+$10^{7}$--$10^{9}$) is wide enough to overlap explosive conditions too, and the
+training data is a Sobol grid over that box with random compositions --- which
+corresponds to no physical setting in particular. Whether the induced sampling
+measure resembles either the hydrostatic or the explosive trajectory density
+has never been checked; that is \foreignreg{2}{R-07}, and
+\S\ref{sec:twodistributions} shows it is not an academic question.
+
+% =====================================================================
+\subsection{\texorpdfstring{$\alpha$}{alpha}-rich freeze-out --- the third regime}
+\label{sec:alpharich}
+
+One more setting, because it produces two of the observables in
+\S\ref{part:observables} and it is the case where ``NSE'' most badly misleads.
+
+Material shocked to \textbf{high temperature and low density} ($\Tn \gtrsim 5$
+with $\rho \lesssim 10^{7}$--$10^{8}$~\gcc{} --- equivalently high radiation
+entropy; the boundary between normal and $\alpha$-rich freeze-out is a line of
+constant entropy per gram, with $\rho_i \approx 10^{8}$ separating the two in
+\citealt[\S 2 and Fig.~1]{hix1999a}; the canonical parameter study is
+$\Tn = 5.5$, $\rho = 10^{7}$, $s/k \approx 5$, \citealt{the1998}) reaches (or
+nearly reaches) NSE, which at those conditions is dominated by free $\alpha$
+particles and nucleons rather than by the iron peak
+(\citealt[\S 5]{hix1999b}) --- high temperature favours the high-entropy,
+many-particle state. As the material then expands and cools, the composition
+tries to follow NSE back down toward the iron peak. Reassembling $\alpha$
+particles into heavy nuclei requires the \textbf{triple-$\alpha$ reaction} (and
+\nuc{He}{4}($\alpha$n,$\gamma$)\nuc{Be}{9}), which is a three-body process and
+therefore has a rate $\propto \rho^{2}$ (\citealt{hix1999a}: ``the quadratic
+density dependence of the rates for $\alpha+\alpha+\alpha \to \nuc{C}{12}$ and
+$\alpha+\alpha+\mathrm{n} \to \nuc{Be}{9}$''; \citealt{the1998}). At low density
+that rate cannot keep up with the expansion.
+
+The result is a \textbf{freeze-out with leftover $\alpha$ particles} --- 1--10\%
+by mass (the \nuc{He}{4} contours of \citealt[Fig.~1]{hix1999a}; 8\% in their
+$\Tn = 6$, $\rho = 10^{7}$ example) --- which then capture onto the iron-peak
+nuclei that did form. Consequences:
+
+\begin{itemize}
+\item extra \nuc{Ti}{44} (an $\alpha$-capture product; observable,
+  \S\ref{sec:remnants}; \citealt{the1998}; \citealt{jordan2003});
+\item shifted iron-peak isotopic ratios relative to a normal freeze-out
+  (\citealt[\S 5]{hix1999a});
+\item a composition that is \emph{not} NSE and, in the canonical $\alpha$-rich
+  freeze-out example (pure \nuc{Si}{28} at $\Tn = 5.5$, $\rho = 10^{7}$;
+  \citealt{the1998}, after \citealt{meyer1998}: a QSE with a heavy-nucleus
+  deficit), never fully was, despite having passed through NSE conditions.
+\end{itemize}
+
+\textbf{Why this belongs in a study document about a network emulator.} It is
+the cleanest example of the general rule that \textbf{passing through
+equilibrium conditions does not make the composition an equilibrium function}
+--- the history matters, because the \emph{rate} of departure from equilibrium
+competes with the rate of change of the conditions. That is the same statement
+as ``QSE is a reduction, not a solution'' (Tier~2 \S 0.1.1), and the same
+statement as ``NSE-as-a-predictor is a baseline that has never been run''
+(\foreignreg{2}{R-16}). It is also, incidentally, the physical reason that the
+low-density corner of this project's regime box is the awkward one --- Tier~1
+\S VIII.C.6's $e^{+}e^{-}$ pair problem lives at exactly ($\Tn = 7.9$,
+$\rho = 10^{7}$).
+
+% =====================================================================
+\subsection{The NSE transition --- where a network is replaced by a table}
+\label{sec:nsetransition}
+
+There is a boundary inside the regime box that no tier has treated, and it is
+the boundary the emulator's \emph{domain} should probably be defined against.
+
+\textbf{Some stellar-evolution and supernova hydro codes stop integrating the
+network at high temperature --- MESA does not.} Above a code-parameter
+threshold \typical[{$\sim$5--7~GK; \citealt[\S 5.2]{paxton2015} quote the
+generic switch ranges as $> 3$~GK (QSE) and $> 5$~GK (NSE); KEPLER's actual
+parameter not read here}] the strong reactions are so fast that the ODE system
+becomes maximally stiff, the composition is a function of state to high
+accuracy (\citealt{hix1999b}: hundreds of abundances ``uniquely defined by the
+thermodynamic conditions and a single measure of the weak interaction
+history''), and integrating it is both expensive and pointless. KEPLER-family
+codes \citep{weaver1978} and SN~Ia/CCSN hydro codes (e.g.\ \citealt{calder2007};
+\citealt{seitenzahl2009}; \citealt{timmes2000} for the NSE-energy-generation
+approach) therefore switch to an \textbf{NSE solve or table}: compute
+$X(T, \rho, \Ye)$ from Saha, and evolve only \Ye{} through the weak reactions
+evaluated on that composition. \textbf{MESA does not}: it runs the same in-situ
+network at all temperatures --- ``no NSE or QSE approximation was used; the
+same 204 isotope reaction network was used throughout''
+(\citealt[\S 6.1]{paxton2015}, and \S 5.2 for why they avoid the switch: ad-hoc
+NSE/QSE switching ``can introduce unphysical discontinuities'' and
+instabilities) --- and neither does bbq (grep of the r23.05.1 and bbq trees: no
+NSE control or code path). So the NSE regime below is a \emph{deployment-host}
+property, not a universal one. (An earlier version of this section stated the
+switch as universal stellar-code behaviour; corrected in the 2026-08-18 audit.)
+
+That is a \emph{different mathematical object} from a network step:
+
+\begin{center}
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{2.6cm} L{4.2cm} Y@{}}
+\toprule
+ & \textbf{network regime} & \textbf{NSE regime} \\
+\midrule
+composition & integrated ODE, path-dependent & algebraic function of
+  $(T, \rho, \Ye)$ \\
+free variables & $n$ abundances & \textbf{one} (\Ye) \\
+what is integrated & $\dd Y/\dd t = \nu R$ & $\dd\Ye/\dd t = \sum_{\mathrm{weak}}
+  (\ldots)$ evaluated at $X_{\mathrm{NSE}}$ (\citealt[\S 5]{hix1999b}: NSE
+  ``requires monitoring of weak reaction activity'') \\
+cost & stiff implicit solve & one Newton solve on 2 unknowns ($Y_p$, $Y_n$;
+  \citealt{hix1999b}) \\
+stiffness & $\ge 10^{14}$ (Tier~2 \S IV.1) & none \\
+\bottomrule
+\end{tabularx}
+\endgroup
+\end{center}
+
+Four consequences the project should be carrying and is not --- each scoped,
+after the 2026-08-18 audit, to the kind of host.
+
+\textbf{(i) For an NSE-switching host, the emulator's competitor above the
+threshold is not a network --- it is a Saha solve.} And a Saha solve is
+\emph{fast}: this project's own batched solver does 27 states with no fallback
+and agrees with pynucastro to $10^{-10}$~dex \resultsref{2026-07-10}. If a host
+code with an NSE switch would use NSE at $\Tn > 5$ anyway, then an emulator
+competing there is competing with something already cheap and already exact.
+This is exactly \foreignreg{2}{R-16} / this tier's \reg{T-08}
+(NSE-as-a-predictor as a baseline) arriving from the \emph{deployment} side
+rather than the evaluation side, and it is a strong independent argument for
+\reg{T-03}'s validity domain. For MESA the competitor at $\Tn > 5$ is the
+in-situ network at its stiffest, and the argument reverts to
+\S\ref{part:host}'s cost case.
+
+\textbf{(ii) In NSE-switching hosts the handoff is discontinuous, and the
+discontinuity is a physical modelling error nobody in this project has sized.}
+At the switch temperature the composition jumps from ``whatever the network
+integrated'' to ``exactly NSE''. Those differ, because the network was
+\emph{approaching} NSE, not at it (\S\ref{sec:alpharich}'s freeze-out is the
+general form of this). \citet[\S 5.2]{paxton2015} describe exactly these
+discontinuities and instabilities as the reason MESA avoids the switch;
+\tierone{VIII.E.6}'s ``unspecified handoff'' is the \emph{emulator
+$\leftrightarrow$ solver} handoff, a different seam. The sharper statement is
+that \textbf{the transition is where the label generator changes character},
+and it sits inside the regime box.
+
+\textbf{(iii) The pathology of \S\ref{part:pathology} lives on the wrong side
+of it --- for NSE-switching hosts.} The Appendix-B-displaced labels are at
+$\Tn \gtrsim 5$ --- i.e. in the band where an NSE-switching host would have
+handed off and never called the network at all. For MESA that band is network
+territory (\citealt{farmer2016} run 204 isotopes to collapse), so the ``least
+deployment-relevant'' argument holds only for NSE-switching hosts, and the
+benchmark-comparability tip toward \reg{T-03}'s third option is
+correspondingly weaker than an earlier version of this section claimed: if the
+host does not call a network there, training an emulator to reproduce buggy
+labels there costs nothing scientifically and buys benchmark comparability; if
+the host is MESA, it does call the network there.
+
+It also has a sharp corollary: \textbf{the shipped test trajectories run bbq's
+network at temperatures where an NSE-switching stellar code would not (MESA
+would).} bbq is a bare burner with no NSE switch, so the dataset explores a
+regime that one class of deployment path avoids.
+
+\textbf{(iv) \Ye{} still evolves in NSE, and that is the \emph{only} thing that
+evolves.} In the NSE regime the entire dynamical content is the weak sector
+--- the same 20 channels of \S\ref{sec:yecarriers} while the Saha composition
+stays in the $\Ye \gtrsim 0.46$ band (\citealt[\S 8]{paxton2015} note that
+NSE-regime weak rates need large isotope pools, \citealt{juodagalvis2010}),
+evaluated on a Saha composition. An emulator for that regime would be a very
+different and much smaller object: a map $(T, \rho, \Ye) \to \dd\Ye/\dd t$,
+three inputs and one output. Whether that is worth building separately, and
+whether it is in fact the \emph{easiest and most valuable} part of the problem,
+is not a question the project has asked.
+
+Registered as \reg{T-21}.
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-siburn}
+
+Answer without scrolling up.
+
+\begin{selfcheck}
+% source 0.10 Q13
+\item Above $\sim$5--7~GK some stellar/hydro codes replace the network with an
+  NSE solve; MESA does not. Give three consequences for this project, one of
+  which concerns where the label pathology lives, and say which survive when
+  the host is MESA.
+\end{selfcheck}

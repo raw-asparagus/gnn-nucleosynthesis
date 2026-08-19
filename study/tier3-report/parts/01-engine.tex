@@ -1,0 +1,853 @@
+% =====================================================================
+%  1 -- THE STAR AS A THERMODYNAMIC ENGINE, AND ITS LAST DAY.
+%
+%  Source: tier3.md Part 0 header + intro incl. the organising claim
+%          (228-254), 0.1 (256-441) with 0.1.1 (262), 0.1.2 (296),
+%          0.1.3 (351), 0.1.4 (398); 0.2 (443-869) with 0.2.1 (450),
+%          0.2.2 (574), 0.2.3 (612), 0.2.4 (711), 0.2.5 (734).
+%          Self-check: source 0.10 (2714-2755) questions Q1, Q2, Q3,
+%          Q4, Q5, Q11, Q12 (the rest of that block is redistributed
+%          to sections 2, 3, 4 and 6 -- see Appendix B).
+%
+%  Re-homings / rewordings performed here:
+%    - The organising-claim paragraph "Every clause of that has to be
+%      earned. SS0.1-0.4 earn ..." keeps its wording; each SS-range is
+%      replaced by the report's live \ref ranges (per the brief).
+%    - Source typo `\m\={u}` (backslash-m + u-macron) in the T_c equation (line 357/359) -> \bar\mu.
+%    - The em-dashes inside \text{} in the mixing equation (754-757)
+%      -> ---.
+%    - No sentence dropped, merged, or reworded otherwise.
+% =====================================================================
+
+\section{The star as a thermodynamic engine, and its last day}
+\label{part:engine}
+
+Three earlier documents touch this material and none of them is a substitute for
+it. Tier~0 Part~I lists the motivation chain as claims to defend. Tier~2 Part~0
+derives the equilibrium hierarchy and the $\Ye \to \Mch$ link because the
+algebra of that tier is unreadable without them. This part is the
+\emph{setting}: the star, the last day, the collapse, and the light that comes
+out. It is written so that someone who has never opened a stellar-structure
+textbook can follow every step, and so that someone who has can check every one.
+
+The organising claim, stated once so that everything below can be measured
+against it:
+
+\begin{invariant}
+\textbf{The project exists because a one-day episode of nuclear burning in a
+sphere a few thousand km in radius sets a single scalar --- \Ye{} --- that
+propagates through a collapse, a bounce, a shock and an explosion to become a
+number an astronomer measures. The episode is stiff, the network is expensive,
+and every stellar-evolution calculation currently pays for it by using a
+network too small to get \Ye{} right.}
+\end{invariant}
+
+% [edition] reworded cross-ref: "SS0.1-0.4 earn ... SS0.5 earns ... SS0.6 earns
+% ... SS0.7 earns ... SS0.8 earns" -- the section ranges are replaced by the
+% report's live references.
+Every clause of that has to be earned. \S\ref{part:engine},
+\S\ref{part:siburn} and \S\ref{part:collapse} earn ``one-day episode of nuclear
+burning''. \S\ref{part:collapse} earns ``propagates through a collapse''.
+\S\ref{part:observables} earns ``a number an astronomer measures''.
+\S\ref{part:weak} earns ``sets a single scalar''. \S\ref{part:host} earns
+``expensive'' and ``too small''.
+
+% =====================================================================
+\subsection{The star as a self-gravitating thermodynamic engine}
+\label{sec:engine}
+
+Everything about late stellar evolution follows from one structural fact: a star
+is a bound system whose gravity is its own, so its thermodynamics has a sign
+that laboratory thermodynamics does not.
+
+% ---------------------------------------------------------------------
+\subsubsection{Hydrostatic equilibrium, and the pressure a star needs}
+\label{sec:hydrostatic}
+
+A spherically symmetric star in mechanical balance satisfies (textbook:
+\citealt{kippenhahn2012}, Ch.~2; \citealt{clayton1968}, Ch.~2)
+%
+\begin{equation}
+\frac{dP}{dr} \;=\; -\,\frac{G\,m(r)\,\rho(r)}{r^{2}},
+\qquad
+\frac{dm}{dr} \;=\; 4\pi r^{2}\rho(r).
+\label{eq:hydrostatic}
+\end{equation}
+
+Integrating the first crudely --- replace $dP/dr$ by $-P_c/R$, $m$ by $M$,
+$\rho$ by the mean $M/(4\pi R^3/3)$ --- gives the central pressure a star of
+mass $M$ and radius $R$ must supply:
+%
+\begin{equation}
+\begin{gathered}
+P_c \;\sim\; \frac{3}{4\pi}\,\frac{GM^{2}}{R^{4}}\\[2pt]
+\text{(and }\tfrac{3}{8\pi}\text{ if the uniform-density case is
+integrated exactly rather than estimated).}
+\end{gathered}
+\label{eq:centralpressure}
+\end{equation}
+
+The exact coefficient depends on the density profile --- the two above differ by
+a factor of two and neither is right for a real star --- so the scaling
+$P_c \propto M^2/R^4$ is what matters, and it is robust. Two consequences to
+hold onto:
+
+\begin{enumerate}
+\item \textbf{Contraction raises the required pressure steeply.} Halving $R$
+  multiplies the demand by 16.
+\item \textbf{The star must supply that pressure from \emph{something}.} Which
+  something --- ideal gas, radiation, degenerate electrons --- is the entire
+  story of stellar evolution, and in silicon burning it is degenerate electrons
+  at ${\sim}$93--95\% of the total (Tier~0 \S0.1.2's worked example at
+  $\rho = 10^8$, $\Tn = 4$, $\Ye = 0.5$, $\bar A = 28$; recomputed 92--95\%
+  depending on the electron treatment), which is exactly why \Ye{} matters.
+\end{enumerate}
+
+% ---------------------------------------------------------------------
+\subsubsection{The virial theorem, and the negative heat capacity --- derived}
+\label{sec:virial}
+
+Take the hydrostatic equation, multiply by $4\pi r^3$, and integrate over the
+star (the textbook derivation --- \citealt{kippenhahn2012}, Ch.~3;
+\citealt{clayton1968}, Ch.~2 --- reproduced here so the sign of the heat
+capacity is not taken on trust):
+%
+\begin{equation}
+\int_0^R 4\pi r^{3}\,\frac{dP}{dr}\,dr
+\;=\; -\int_0^R \frac{G m}{r}\,4\pi r^{2}\rho\,dr \;=\; E_{\mathrm{grav}},
+\label{eq:virialstart}
+\end{equation}
+%
+where $E_{\mathrm{grav}}$ is the (negative) gravitational binding energy.
+Integrating the left side by parts, with $P(R) = 0$,
+%
+\begin{equation}
+\Big[4\pi r^{3}P\Big]_0^R - \int_0^R 12\pi r^{2} P\,dr
+\;=\; -3\int_0^R \frac{P}{\rho}\,dm .
+\label{eq:virialparts}
+\end{equation}
+
+So
+%
+\begin{equation}
+\boxed{\;-3\int \frac{P}{\rho}\,dm \;=\; E_{\mathrm{grav}}.\;}
+\label{eq:virial}
+\end{equation}
+
+Now specialise. For a non-relativistic ideal gas, $P/\rho = (\gamma-1)\,u$ with
+$\gamma = 5/3$ and $u$ the specific internal energy, so
+$\int (P/\rho)\,dm = (2/3)\,E_{\mathrm{int}}$ and
+%
+\begin{equation}
+E_{\mathrm{int}} \;=\; -\tfrac{1}{2}E_{\mathrm{grav}},
+\qquad
+E_{\mathrm{tot}} \;=\; E_{\mathrm{int}} + E_{\mathrm{grav}}
+\;=\; \tfrac12 E_{\mathrm{grav}} \;=\; -E_{\mathrm{int}} .
+\label{eq:virialideal}
+\end{equation}
+
+\textbf{Read the last equality.} The star's total energy is \emph{minus} its
+internal energy. Radiate energy away --- make $E_{\mathrm{tot}}$ more negative
+--- and $E_{\mathrm{int}}$ goes \textbf{up}. The star heats when it loses
+energy. Its effective heat capacity is negative.
+\derivedhere[standard --- \citealt{kippenhahn2012}, Ch.~3]
+
+This is the engine. It explains, with no further physics:
+
+\begin{itemize}
+\item why a star contracts and heats after each fuel is exhausted, with no need
+  for anything to ``trigger'' the next stage;
+\item why the burning stages form an ordered staircase in temperature;
+\item why the process runs away at the end rather than settling;
+\item and, crucially for this project, why the \emph{rate} of the sequence is
+  set by the \textbf{cooling} rate. A star that loses energy faster contracts
+  faster and burns faster. \S\ref{sec:neutrinoclock} turns that into the
+  day-long silicon-burning timescale.
+\end{itemize}
+
+For an ultra-relativistic gas ($\gamma = 4/3$, $P/\rho = u/3$) the same algebra
+gives $E_{\mathrm{int}} = -E_{\mathrm{grav}}$ and hence $E_{\mathrm{tot}} = 0$:
+the star is marginally bound, and the negative heat capacity vanishes
+(\citealt{shapiro1983} \S3.4 for the $\Gamma = 4/3$ marginal case).
+\textbf{That is not a curiosity --- it is the collapse condition}, and
+\S\ref{sec:gamma43} is the same statement with the corrections restored.
+
+% ---------------------------------------------------------------------
+\subsubsection{What temperature a contracting core reaches}
+\label{sec:tcore}
+
+Combine the virial relation with an ideal-gas equation of state,
+$P = \rho k T/(\bar\mu\, m_u)$, evaluated crudely at the centre:
+%
+\begin{equation}
+\frac{k T_c}{\bar\mu\, m_u} \;\sim\; \frac{G M}{3R}
+\qquad\Longrightarrow\qquad
+T_c \;\sim\; \frac{G M \bar\mu\, m_u}{3kR}
+\;\propto\; M^{2/3}\rho^{1/3}.
+\label{eq:tcore}
+\end{equation}
+
+The last proportionality uses $R \propto (M/\rho)^{1/3}$. Two things fall
+straight out.
+
+\textbf{The mass dependence sets which stars get anywhere.}
+$T_c \propto M^{2/3}$ at fixed $\rho$: a more massive core is hotter at the same
+density, which is why only stars above ${\sim}$8--10~\Msun{} reach silicon
+burning at all (\citealt{heger2003}: stars below ${\sim}9$~\Msun{} end as white
+dwarfs, ${\sim}$9--10~\Msun{} form degenerate ONe cores, above ${\sim}10$~\Msun{}
+core collapse is the only alternative) --- below that, electron degeneracy
+(\S\ref{sec:degeneracy}) halts contraction before the core is hot enough.
+
+\textbf{The density dependence sets the staircase.} $T_c \propto \rho^{1/3}$: to
+raise the core temperature by a factor of 10 you must raise its density by a
+factor of 1000. Numerically, for a 1.4~\Msun{} core with $\bar\mu \approx 1.87$
+(fully ionised \nuc{Si}{28}: $\mu = A/(Z+1) = 28/15$; an earlier version used
+$\bar\mu \approx 1.4$, which is no silicon-ash composition --- corrected in the
+2026-08-18 audit): \derivedhere
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{$\rho_c$ [\gcc]} & \textbf{$T_c$ from the virial estimate [GK]} \\
+\midrule
+$10^{2}$ & 0.074 \\
+$10^{6}$ & 1.59 \\
+$10^{8}$ & 7.4 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The last row is the punchline: \textbf{a Chandrasekhar-mass core compressed to
+${\sim}10^8$~\gcc{} is, by this estimate, at 7.4~GK --- silicon-burning
+temperature to within the factor ${\sim}2$ that the ideal-gas assumption
+costs.} The actual ${\sim}3.5$~GK is the regime box's centre; the crude estimate
+lands at its upper edge. The pairing was not chosen --- it is where the star
+puts itself. The box (\Tn{} 1.6--7.9, $\rho$ $10^7$--$10^9$, Tier~0 \S III.2)
+spans $\pm 1$ decade in $\rho$ and $\pm 0.35$~dex in $T$ around
+($10^8$~\gcc, 3.5~GK).
+
+The estimate is crude by a factor of ${\sim}2$ in $T$ (7.4~GK against the
+${\sim}3.5$~GK at which silicon actually burns; the ideal-gas assumption is
+already wrong at $10^8$~\gcc, where electrons are degenerate ---
+\S\ref{sec:degeneracy}), and it should not be quoted as a prediction. It is
+here to show that the regime box is \emph{derivable} from $M$, $G$ and $k$, not
+sampled from a paper.
+
+% ---------------------------------------------------------------------
+\subsubsection{Degeneracy: the wall the star runs into}
+\label{sec:degeneracy}
+
+Electron degeneracy pressure is independent of temperature (in the $T \to 0$
+limit; \citealt{kippenhahn2012}, Ch.~15; \citealt{shapiro1983} \S2.3), so a
+degenerate core does \textbf{not} heat when it contracts --- the virial argument
+above assumed an ideal gas and fails. Whether a core is degenerate is decided by
+comparing the electron Fermi energy with $kT$ (the zero-temperature Fermi
+momentum and kinetic Fermi energy in the form of \citealt{chabrier1998}
+\S II):
+%
+\begin{equation}
+\eF \;=\; \sqrt{(p_F c)^2 + (m_e c^2)^2} - m_e c^2,
+\qquad
+p_F = \hbar\left(3\pi^{2} n_e\right)^{1/3},
+\qquad
+n_e = \rho N_A Y_e .
+\label{eq:fermienergy}
+\end{equation}
+
+At $\Tn = 4$ ($kT = 0.345$~MeV), $\Ye = 0.5$ ($\Ye = 0.46$ lowers \eF{} by
+3--5\%): \derivedhere
+
+\begin{center}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{$\rho$ [\gcc]} & \textbf{\eF{} [MeV]} & \textbf{$\eF / kT$} &
+  \textbf{regime} \\
+\midrule
+$10^{6}$ & 0.14 & 0.4  & non-degenerate \\
+$10^{7}$ & 0.51 & 1.5  & marginal \\
+$10^{8}$ & 1.46 & 4.2  & degenerate \\
+$10^{9}$ & 3.61 & 10.5 & strongly degenerate \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+So the regime box spans the degeneracy transition --- its low-density edge is
+only marginally degenerate ($\eF/kT \approx 1.5$) and its high-density edge is
+strongly so. That single fact is why the box is a box rather than a line, why
+the equation of state has four competing components (Tier~0 \S0.1.1), and why
+the electron-capture threshold (which needs \eF{} above a nuclear threshold) is
+a \emph{box edge} rather than a global on/off switch (Tier~0 \S0.1.5).
+
+\textbf{The astrophysical role of degeneracy.} A star that becomes degenerate
+before igniting its next fuel is stuck: contraction no longer heats it, so it
+cools into a white dwarf. That is the fate of everything below
+${\sim}$8--10~\Msun{} \citep{heger2003}. Above that mass the core stays hot
+enough, relative to \eF, to keep igniting --- until the iron core, where there
+is no next fuel and degeneracy is all that is holding the star up. \textbf{The
+whole massive-star story is a race between contraction-heating and degeneracy,
+and the iron core is where degeneracy finally wins and then immediately loses}
+(\S\ref{sec:corecollapse}).
+
+% =====================================================================
+\subsection{The burning staircase, derived rather than tabulated}
+\label{sec:staircase}
+
+Tier~0 \S I.1 tabulates the stages. This section derives \emph{why the table
+looks like that}, because three of the project's design facts --- the
+Si-burning temperature, the one-day duration, and the neutrino-dominated
+energetics --- are consequences of the derivation rather than of the table.
+
+% ---------------------------------------------------------------------
+\subsubsection{Why each fuel ignites where it does}
+\label{sec:ignition}
+
+Tier~1 \S1.2 derives the Gamow peak (textbook: \citealt{clayton1968} \S4-3;
+\citealt{iliadis2015} \S3.2.1; the $E_0/kT$ and $\exp(-3E_0/kT)$ forms are also
+in \citealt{adelberger2011} \S II.A): for a non-resonant charged-particle
+reaction between nuclei of charges $Z_1$, $Z_2$ and reduced mass $\mu$, the
+effective burning energy and the rate's temperature dependence are governed by
+%
+\begin{equation}
+E_0 \;=\; \left(\frac{b\,kT}{2}\right)^{2/3},
+\qquad
+b \;=\; \frac{\sqrt{2\mu}\,\pi Z_1 Z_2 e^{2}}{\hbar},
+\qquad
+\langle\sigma v\rangle \;\propto\;
+\exp\!\left[-\,3\left(\frac{b}{2}\right)^{2/3}\!(kT)^{-1/3}\right].
+\label{eq:gamowpeak}
+\end{equation}
+
+It is convenient to name the combination $b^2 \equiv \EG$, the \textbf{Gamow
+energy}, and to write the exponent as a single dimensionless number:
+%
+\begin{equation}
+\EG \;=\; 2\mu c^{2}\left(\pi\alpha Z_1Z_2\right)^{2}
+\;=\; 0.979\,\left(Z_1Z_2\right)^{2}A_{\mathrm{red}}\ \mathrm{MeV},
+\qquad
+\tau \;\equiv\; \frac{3E_0}{kT} \;=\; 3\left(\frac{\EG}{4kT}\right)^{1/3},
+\label{eq:gamowenergy}
+\end{equation}
+%
+so that $\langle\sigma v\rangle \propto e^{-\tau}$ (the coefficient
+$0.979\,(Z_1Z_2)^2 A_{\mathrm{red}}$~MeV is \citet{rolfs1988}'s; CODATA
+$\alpha$ gives 0.9791). Ignition happens when the rate becomes fast enough to
+balance the star's losses. \textbf{The tempting move at this point is wrong and
+worth doing carefully}, because getting it wrong is how one ends up with a
+staircase that does not exist.
+
+The tempting move: hold the exponent fixed at ignition,
+$\tau_{\mathrm{ign}} \approx \mathrm{const}$, and read off
+$\Tign \propto \EG \propto (Z_1Z_2)^2\mu$. That would make carbon ignite at
+$36^2 \times 12 \approx 1.6 \times 10^4$ times the pp ignition temperature, i.e.
+at ${\sim}60$~GK --- hotter than anything short of the bounce shock. It does
+not; the actual factor is 200. Inverting the definition of $\tau$ instead,
+%
+\begin{equation}
+k\Tign \;=\; \frac{\EG}{4}\left(\frac{3}{\tau_{\mathrm{ign}}}\right)^{3}
+\qquad\Longrightarrow\qquad
+\Tign \;\propto\; \frac{\EG}{\tau_{\mathrm{ign}}^{3}} ,
+\label{eq:tign}
+\end{equation}
+%
+and \textbf{$\tau_{\mathrm{ign}}$ is not slowly varying} --- it is the whole
+story. Check against the fuels, with \EG{} computed from the formula above and
+$\tau_{\mathrm{ign}}$ evaluated at each stage's actual ignition temperature:
+\derivedhere[ignition temperatures after \citealt{woosley2002} (not re-read
+here), bracketed by \citealt{kato2020} for a 15~\Msun{} MESA model --- H
+$4 \times 10^7$, He $1.5 \times 10^8$, C $7 \times 10^8$, Ne $1.4 \times 10^9$,
+O $1.6 \times 10^9$, Si ${\sim}3 \times 10^9$~K --- and by \citealt{arnett1989}
+for 20~\Msun{} (via \citealt{odrzywolek2004}): C 0.81, Ne 1.69, O 2.10,
+Si 3.70~GK]
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{1.3cm} L{2.2cm} L{0.9cm} L{0.9cm} L{1.5cm} Y L{1.2cm}@{}}
+\toprule
+\textbf{fuel} & \textbf{dominant channel} & \textbf{$Z_1Z_2$} &
+  \textbf{$A_{\mathrm{red}}$} & \textbf{\EG{} [MeV]} &
+  \textbf{\Tign{} (actual)} & \textbf{$\tau_{\mathrm{ign}}$} \\
+\midrule
+H (pp) & p + p & 1 & 0.50 & 0.49 &
+  0.004~GK (pp threshold in the lowest-mass stars; H ignites at
+  0.03--0.04~GK in a massive star, \citealt{kato2020}) & 21.3 \\
+H (CNO) & \nuc{N}{14}(p,$\gamma$)\nuc{O}{15} & 7 & 0.933 & 44.8 & 0.03~GK &
+  48.9 \\
+He & $\alpha + \alpha$ ($\to$ \nuc{C}{12}) & 4 & 2.0 & 31.3 & 0.15--0.2~GK &
+  \emph{resonant} \\
+C & \nuc{C}{12} + \nuc{C}{12} & 36 & 6.0 & 7\,617 & 0.8~GK & 90.7 \\
+Ne & \nuc{Ne}{20}($\gamma$,$\alpha$) & --- & --- & --- (\textbf{photo}) &
+  1.5~GK & --- \\
+O & \nuc{O}{16} + \nuc{O}{16} & 64 & 8.0 & 32\,100 & 2.0~GK & 107.9 \\
+Si & \nuc{Si}{28}($\gamma$,$\alpha$) & --- & --- & --- (\textbf{photo}) &
+  3--4~GK & --- \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Because $\tau_{\mathrm{ign}}$ is \emph{defined} from the actual \Tign,
+$\EG/\tau_{\mathrm{ign}}^3 = 4k\Tign/27$ reproduces the ignition temperatures
+\emph{identically} --- that is a bookkeeping identity, not a test (an earlier
+version of this paragraph presented the agreement as a prediction ``to better
+than 1\%''; corrected in the 2026-08-18 audit). What the table does show is
+\emph{how the ratio is made}: from pp to oxygen, \textbf{\EG{} grows by
+$6.6 \times 10^4$ while \Tign{} grows by only 500, so $\tau_{\mathrm{ign}}^3$
+must absorb a factor of 130} ($\tau_{\mathrm{ign}}$ rising from 21 to 108). The
+Coulomb barrier really is enormous; the reason the staircase is compressed into
+under three decades of temperature rather than nearly five is that the star
+simply burns deeper into the exponential tail for each successive fuel
+($\tau_{\mathrm{ign}} \approx 21 \to 49 \to 91 \to 108$). What sets
+$\tau_{\mathrm{ign}}$ is the rate the star needs --- $E_{\mathrm{fuel}}$ divided
+by the loss rate --- which is why it is not universal.
+
+Two rows do not belong to that scaling at all, for two different reasons.
+
+\textbf{Helium is resonant.} Triple-$\alpha$ proceeds through the \nuc{Be}{8}
+ground state and the Hoyle resonance in \nuc{C}{12} (\citealt{salpeter1952};
+\citealt{hoyle1954}; textbook, \citealt{iliadis2015} \S5.2.2), so its rate is
+set by a narrow-resonance formula, not by the non-resonant Gamow integral; its
+$\tau$ is not the controlling quantity and the row is listed only for the
+barrier comparison.
+
+\textbf{Neon and silicon are not fusion at all.} They do not ignite because
+their Coulomb barriers become penetrable; they ignite because the thermal photon
+bath acquires enough $\gamma$-rays above the ($\gamma$,$\alpha$) threshold
+(\citealt{kato2020} for neon; \citealt{boccioli2024} for the ``re-adjustment of
+the chemical composition'' character of the O-to-Fe stages). Take the same
+estimate seriously for \nuc{Si}{28} + \nuc{Si}{28}: $Z_1Z_2 = 196$ and
+$A_{\mathrm{red}} = 14$ give $\EG = 5.3 \times 10^5$~MeV, $16.4\times$
+oxygen's, and extrapolating the slowly-rising
+$\tau_{\mathrm{ign}} \approx 115$--130 puts fusion ignition at
+\textbf{${\approx}20$~GK} (19--27~GK across that $\tau$ range) --- far above
+where the star ever gets in hydrostatic burning, and above the temperature at
+which the Fe peak itself dismantles. More directly: at $\Tn = 3.5$ the Si + Si
+exponent is $\tau = 228$ against 108 for O + O at its ignition, i.e. a
+penetrability suppressed by $e^{-120}$.
+
+\textbf{This is the single most important structural fact in the project}, and
+it is worth stating in the sharpest available form:
+
+\begin{invariant}
+\nuc{Si}{28} cannot burn by fusing with itself, at any temperature the star
+survives. It burns by being taken apart.
+\end{invariant}
+
+Everything downstream --- the near-balanced forward/reverse pairs, the
+quasi-equilibrium clustering, the catastrophic cancellation, the $\kappa$
+diagnostic, the stiffness, and the entire Target A design --- is a consequence
+of that sentence.
+
+The photodisintegration threshold itself is derivable. The relevant quantity is
+$Q/kT$ for the ($\gamma$,$\alpha$) channel, with $kT = 86.2~\mathrm{keV} \times
+\Tn$:
+%
+\begin{equation}
+{}^{28}\mathrm{Si}(\gamma,\alpha)^{24}\mathrm{Mg}: \quad Q = 9.98\ \mathrm{MeV}
+\qquad\Longrightarrow\qquad
+\frac{Q}{kT} = \frac{115.8}{T_9}.
+\label{eq:photothreshold}
+\end{equation}
+
+At $\Tn = 3$ that exponent is 38.6; at $\Tn = 4$ it is 28.9.
+\derivedhere[Q from the AME2020 mass excesses
+($S_\alpha(\nuc{Si}{28}) = 9.984$~MeV), Tier~0 \S0.3.1] Between those two
+temperatures the Boltzmann suppression changes by a factor
+$e^{9.65} \approx 1.6 \times 10^4$. The transition from ``no
+photodisintegration'' to ``photodisintegration controls everything'' occupies
+less than a factor of 1.5 in temperature, which is why \S0.2 of Tier~2 can say
+the regime change happens across less than a factor of two in $T$, and why the
+kill-test priority window is 3.3--5~GK.
+
+% ---------------------------------------------------------------------
+\subsubsection{The energy per gram of each stage, computed}
+\label{sec:energypergram}
+
+Take the binding energies (Tier~0 \S0.3.1's sign convention: $B > 0$, and the
+energy released is $\Delta B$) and compute the specific energy release of each
+stage. For a reaction with total $\Delta B$ over $A$ nucleons, the release per
+gram is $N_A \times (\Delta B/A)$~[MeV] $\times\ 1.602 \times 10^{-6}$~erg/MeV.
+\derivedhere[Q-values from the AME2020 mass excesses \citep{wang2021} with
+CODATA 2018 constants \citep{tiesinga2021}, all four rows recomputed in the
+2026-08-18 audit]
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{1.7cm} Y L{2.6cm} L{2.0cm} L{2.2cm}@{}}
+\toprule
+\textbf{stage} & \textbf{representative reaction} & \textbf{$\Delta B$ [MeV]} &
+  \textbf{per nucleon [MeV]} & \textbf{per gram [erg/g]} \\
+\midrule
+H $\to$ He & $4p \to \nuc{He}{4} + 2e^+ + 2\nu$ &
+  26.7 (gross; $\nu$ carry off ${\sim}$2--7\%) & 6.7 & $6.5 \times 10^{18}$ \\
+C burning & $2\,\nuc{C}{12} \to \nuc{Ne}{20} + \alpha$ & 4.62 & 0.192 &
+  $1.9 \times 10^{17}$ \\
+O burning & $2\,\nuc{O}{16} \to \nuc{Si}{28} + \alpha$ & 9.60 & 0.300 &
+  $2.9 \times 10^{17}$ \\
+Si burning & $2\,\nuc{Si}{28} \to \nuc{Ni}{56}$ & 10.92 & 0.195 &
+  $1.9 \times 10^{17}$ \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Two lessons.
+
+\textbf{(i) Hydrogen burning releases 22--35$\times$ more per gram than anything
+after it} (34$\times$ against carbon and silicon, 22$\times$ against oxygen).
+The first stage carries almost the whole nuclear energy budget of the star's
+life; everything from carbon onward is scraping the barrel. This is why the
+late stages cannot last: there is very little fuel value left, and
+(\S\ref{sec:neutrinoclock}) the losses are enormous.
+
+\textbf{(ii) Silicon burning is not even the most productive late stage.} Oxygen
+burning releases 50\% more per gram. Silicon's distinction is not its energy
+yield --- it is that it is the \emph{last} one, that it produces the iron peak,
+and that it is where the composition acquires the neutron excess that decides
+what happens next.
+
+For the record, the binding-energy-per-nucleon values that matter at the top of
+the curve: \nuc{Fe}{56} 8.790, \nuc{Ni}{62} 8.795, \nuc{Ni}{56}
+8.643~MeV/nucleon. \provtag{[AME2020: 8790.36, 8794.56, 8642.78 keV]}
+\nuc{Ni}{62} is the maximum, not \nuc{Fe}{56} \citep{fewell1995} --- the
+standard shorthand is false, and Tier~2 \S0.2.3 explains why \nuc{Fe}{56}
+nonetheless wins in NSE at $\Ye \approx 0.46$: the free energy is minimised at
+fixed \Ye, and the winner is the nucleus whose $Z/A$ \emph{matches} \Ye{} among
+the near-maximally-bound ones.
+
+% ---------------------------------------------------------------------
+\subsubsection{The neutrino clock --- why the last stages are short}
+\label{sec:neutrinoclock}
+
+Here is the fact that turns an ordered staircase into an accelerating collapse.
+
+\textbf{From carbon burning onward, the star's dominant energy loss is neutrino
+emission from the plasma, not photon radiation from the surface}
+(\citealt{limongi2017}: pair-neutrino emission ``starts to become efficient when
+the central temperature exceeds ${\sim}8 \times 10^8$~K, i.e., at the beginning
+of core C burning''; \citealt{odrzywolek2004}). The contrast is in \emph{how the
+energy gets out}, not in how long a fuel lasts. Photons are trapped: the
+interior is optically thick, so energy random-walks outward on a thermal
+(Kelvin--Helmholtz) timescale of ${\sim}10^4$ years for a massive main-sequence
+star (much shorter for the extended supergiant envelope), is reprocessed on the
+way, and emerges from the surface at whatever rate the star's structure permits
+--- the luminosity is set by the envelope, not by the burning region. Neutrinos
+have cross-sections around $10^{-44}$~cm$^2$ at these energies
+(\citealt{odrzywolek2004}: spectrum-averaged
+$\sigma(\bar\nu_e p) \approx 7 \times 10^{-44}$~cm$^2$ for pre-supernova
+neutrinos) and mean free paths vastly exceeding the stellar radius, so they leave
+\textbf{at the speed of light, directly from the point of production} (Tier~0
+\S0.4.2; \citealt{limongi2017}), and the loss rate is set by the local plasma
+conditions alone. The core is optically thin to its own dominant coolant, and
+that is what decouples its cooling rate from its structure.
+
+(The \emph{duration} of each stage is $E_{\mathrm{fuel}}/L$, a nuclear timescale
+--- $10^7$ years for hydrogen (\citealt{kato2020} for a 15~\Msun{} model;
+\citealt{limongi2017}: $10^7$--$10^6$~yr over 13--120~\Msun) because there is a
+great deal of hydrogen and \S\ref{sec:energypergram}'s release per gram is
+large, not because of any transport time. What the transport argument
+establishes is the switch of coolant, and \S\ref{sec:neutrinoclock}'s remaining
+paragraphs are what turn that into a duration.)
+
+The dominant thermal channel here is \textbf{electron--positron pair
+annihilation}, $e^+e^- \to \nu\bar\nu$ (\citealt{kato2020};
+\citealt{patton2017}). Its emissivity requires a thermal positron population,
+which requires $kT$ no longer negligible against $m_e c^2 = 0.511$~MeV ---
+$kT/m_e c^2 \approx 0.17$ at $\Tn = 1$, where the Boltzmann factor
+$e^{-2m_e c^2/kT} \approx 10^{-5}$ already makes the pair population
+non-negligible; onset ${\sim}$0.8--1~GK (\citealt{limongi2017};
+\citealt{odrzywolek2004}). Once that threshold is crossed the positron number
+density rises as roughly $\exp(-2m_e c^2/kT)$ times phase-space factors, and
+the emissivity per gram rises extremely steeply --- approximately as $T^9$ in
+the relativistic non-degenerate limit (\citealt{fowler1964};
+\citealt{itoh1996}, ApJS 102, 411, for the fitting formulae stellar codes use);
+across 2--3.5~GK the effective exponent of the pair rate is ${\approx}$7--8
+\derivedhere[from the non-relativistic form
+$\varepsilon \propto \Tn^3\, e^{-11.86/\Tn}$], and the emissivity per gram is
+further reduced by electron degeneracy at $\rho \gtrsim 10^7$--$10^8$~\gcc{}
+(\citealt{kato2020} \S2).
+
+Put the two facts together with the virial engine of \S\ref{sec:virial}:
+%
+\begin{equation}
+\begin{gathered}
+\text{contraction}
+\;\longrightarrow\; T\uparrow
+\;\longrightarrow\; \varepsilon_\nu \propto T^{9}\ \text{rises catastrophically}\\[2pt]
+\;\longrightarrow\; \text{must burn faster}
+\;\longrightarrow\; \text{contraction}
+\end{gathered}
+\label{eq:coolingrunaway}
+\end{equation}
+
+The runaway is not in the burning; it is in the \textbf{cooling}
+(\citealt{limongi2017}: ``an almost constant nuclear energy \ldots{} coupled to
+the dramatic increase of the total luminosity''). Each stage must generate
+energy at the rate the neutrinos remove it, and that rate rises by roughly seven
+to nine powers of $T$ while the available fuel energy per gram
+(\S\ref{sec:energypergram}) is roughly constant. So the duration of stage $n$
+scales as
+%
+\begin{equation}
+\tau_n \;\sim\; \frac{E_{\mathrm{fuel}}}{\varepsilon_\nu(T_n)} \;\propto\; T_n^{-9}
+\label{eq:stageduration}
+\end{equation}
+%
+to leading order (effective exponent closer to 7--8 across 2--3.5~GK; $\rho$
+and degeneracy neglected). Check it: from oxygen burning ($\Tn \approx 2$,
+months --- 180~d for 20~\Msun, \citealt{arnett1989} via
+\citealt{odrzywolek2004}; 14 months for 15~\Msun, \citealt{kato2020}) to silicon
+burning ($\Tn \approx 3.5$), the temperature ratio is 1.75 and $1.75^9 = 154$
+(with the effective exponent 7.5 the factor is $1.75^{7.5} \approx 70$ --- still
+``of order a day''). Months\,/\,154 is of order a day. \textbf{The one-day
+silicon-burning timescale is a $T^9$ scaling law applied to the oxygen-burning
+duration.} \derivedhere[{order-of-magnitude only; the actual duration depends
+on core mass and shell structure: roughly a day (shorter for the most massive
+cores) to a couple of weeks --- 2~d (20~\Msun; \citealt{arnett1989} via
+\citealt{odrzywolek2004}), 4.5~d (15~\Msun{} MESA model; \citealt{kato2020}),
+${\sim}10^{-2}$~yr ${\approx}$ 4~d \citep{limongi2017}; the ${\sim}$2-week upper
+end is Tier~0 \S I.1 (after \citealt{woosley2002}), not re-verified here
+\typical}]
+
+Three consequences that shape this project:
+
+\begin{enumerate}
+\item \textbf{The regime is transient and the star never settles.} There is no
+  steady-state silicon-burning configuration to compute; the whole episode is a
+  relaxation with continuously changing $(T, \rho)$. That is why the training
+  data is a grid of \emph{initial states} burned for fixed $\Delta t$ rather
+  than a library of equilibria, and why the operator-splitting framing of
+  Tier~0 \S IV.1 is the right one.
+\item \textbf{Neutrino losses are a first-class output, not an afterthought.}
+  \epsnu{} appears in the NNN's loss function and in the emulator's specified
+  output head for the same reason it appears in the star's energy equation: it
+  is the dominant term. Tier~1 \S VIII.C.3 flags that the flux route currently
+  drops the tabulated NU column; \S\ref{sec:neutrinoclock} is why that flag
+  matters.
+\item \textbf{``Burning'' and ``cooling'' are not separable.} The $T^9$ coolant
+  and the temperature-sensitive burning are locked together. An emulator
+  validated at \emph{imposed} $(T, \rho)$ --- which is all of this project's
+  data --- has never been tested inside that loop. This is
+  \tierone{VIII.C.4}\,/\,\foreignreg{2}{R-11}, and \S\ref{sec:mesastep}
+  returns to it.
+\end{enumerate}
+
+% ---------------------------------------------------------------------
+\subsubsection{What the star is doing while the network is being called}
+\label{sec:whilecalled}
+
+To ground the above: at silicon-burning conditions, the star's core is
+${\sim}1.4$~\Msun{} of matter a few thousand km in radius, with central density
+$\rho_c \sim 10^8$~\gcc{} ($4.9 \times 10^7$ in the 20~\Msun{} model of
+\citealt{arnett1989} via \citealt{odrzywolek2004}; a uniform 1.4~\Msun{} sphere
+at $10^8$ would be only $1.9 \times 10^3$~km, a centrally condensed core with
+$\rho_c \sim 10^8$ is ${\sim}7 \times 10^3$~km --- an earlier version wrote ``a
+${\sim}10^4$~km sphere at $\rho \sim 10^8$'', an inconsistent triple; corrected
+in the 2026-08-18 audit) and $T_c \sim 3.5$~GK (3.7~GK in that model),
+converting silicon to iron-peak nuclei over about a day
+(\citealt{farmer2016}: ``Silicon ignites at the center within one day of
+core-collapse''), radiating almost all of that energy as neutrinos that leave
+instantly, contracting as the fuel is depleted and the entropy is drained by
+neutrinos, and building an iron core that grows toward a mass limit it cannot
+exceed.
+
+Meanwhile, in a MESA calculation of the same object, the nuclear network is
+being evaluated for every zone at every Newton iteration of every timestep in
+the default fully coupled mode (once per hot zone per step, with internal
+sub-steps, in \code{op\_split\_burn} mode) --- hundreds to thousands of zones
+(\citealt{paxton2011} \S6.1), and timesteps so short at the end that the last
+day of the star's life can consume a large fraction of the total run time of the
+whole $10^7$-year calculation. \S\ref{part:host} quantifies that.
+
+% ---------------------------------------------------------------------
+\subsubsection{Convection --- the transport a one-zone burner cannot see}
+\label{sec:convection}
+
+Tier~0 \S0.7 puts the convective turnover time in the timescale table
+($10^1$--$10^3$~s, with an honest warning that both factors in
+$L/v_{\mathrm{conv}}$ are uncertain by a decade; the 3D Si- and O-shell
+simulations of \citealt{couch2015} and \citealt{muller2016b} give
+${\approx}20$~s) and concludes ``one-zone is an approximation''. That is where
+the treatment stops in every existing tier. It should not, because mixing is
+not a small correction to late-stage burning --- \textbf{it is co-dominant with
+it}, and it changes what the emulator's error budget means.
+
+\textbf{Silicon shell burning is convective} (\citealt{couch2015}: ``strong
+convection driven by violent Si burning in the shell surrounding the iron
+core''). The energy generation rate is a steep function of temperature, so the
+burning region is strongly superadiabatic and convection sets in immediately. In
+a 1D stellar-evolution code this is modelled by mixing-length theory (MLT):
+convection becomes a diffusive process with diffusivity
+$D \approx \tfrac13\, v_{\mathrm{conv}}\,\ell$ (\citealt{paxton2011} \S5.2;
+MESA r23.05.1 \code{turb/private/mlt.f90:156},
+\code{D = conv\_vel*Lambda/3d0}), and the composition equation acquires a
+transport term (\citealt{paxton2011} \S6):
+%
+\begin{equation}
+\frac{\partial Y_i}{\partial t}
+\;=\; \underbrace{\big[\nu\,\mathbf R(\mathbf Y;T,\rho)\big]_i}_{\text{the network --- what this project emulates}}
+\;+\;\underbrace{\frac{\partial}{\partial m}\!\left[(4\pi r^2\rho)^2 D\,\frac{\partial Y_i}{\partial m}\right]}_{\text{mixing --- outside the split}} .
+\label{eq:burnmix}
+\end{equation}
+
+Those two terms can be \textbf{operator-split} from each other. With MESA's
+\code{op\_split\_burn} option (\citealt{jermyn2023} \S10.2 --- off by default,
+but switched on in MESA's own core-collapse test-suite models and the mode the
+NNN paper \S4 envisages plugging into; the default solver couples burning,
+mixing and structure in one Newton solve, \citealt{paxton2011} \S6.1), each hot
+zone is burned first at fixed $(T, \rho)$, and mixing is then solved together
+with the structure. The emulator replaces the burn operator only. (An earlier
+version described the burn-mix-structure sequence as MESA's universal behaviour;
+corrected in the 2026-08-18 audit.)
+
+\textbf{The competition is quantified by a Damk\"ohler number.} Define
+%
+\begin{equation}
+\Da_i \;=\; \frac{\tau_{\mathrm{mix}}}{\tau_{\mathrm{burn},i}} ,
+\label{eq:damkohler}
+\end{equation}
+%
+the ratio of the mixing time to the timescale on which process $i$ changes the
+composition (the standard combustion definition,
+$\Da = \tau_{\mathrm{transport}}/\tau_{\mathrm{reaction}}$, so $\Da > 1$ means
+burning is faster than mixing). $\Da \gg 1$ means burning wins and gradients
+survive; $\Da \ll 1$ means mixing wins and the region is homogeneous in that
+quantity. Read the numbers off Tier~0 \S0.7's table with
+$\tau_{\mathrm{mix}} \approx 10^1$--$10^3$~s: \derivedhere
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.2cm} L{2.6cm} L{2.8cm} Y@{}}
+\toprule
+\textbf{process} & \textbf{$\tau$} & \textbf{$\Da = \tau_{\mathrm{mix}}/\tau$} &
+  \textbf{verdict} \\
+\midrule
+intra-group equilibration & $\lesssim 10^{-3}$~s &
+  \textbf{$10^{4}$ -- $10^{6}$} & burning wins overwhelmingly \\
+inter-group (bridge) flow & $10^{-1}$ -- $10^{2}$~s &
+  \textbf{$10^{-1}$ -- $10^{4}$} & \emph{comparable} --- no clean answer \\
+weak reactions\,/\,\Ye & $10^{2}$ -- $10^{5}$~s &
+  \textbf{$10^{-4}$ -- $10^{1}$} & \textbf{mixing wins, mostly} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+Three consequences, and the second is the one that matters most.
+
+\textbf{(i) The fast species are local; \Ye{} is not.} Group-internal
+equilibrium is established far faster than material can be transported, so the
+QSE composition is a \emph{local} function of the local state --- which is what
+licenses treating the network call as a per-zone problem at all. But \Ye{}
+evolves on a timescale comparable to or longer than mixing, so \textbf{\Ye{} is
+spatially homogenised across the convective region}. The quantity the whole
+project is organised around is the one mixing most strongly averages.
+
+\textbf{(ii) That averaging does not save a systematic error --- and the
+arithmetic is \S\ref{sec:mch}'s argument, in space instead of time.} Suppose the
+emulator makes a per-zone \Ye{} error $\delta$, and the convective region spans
+$N_z$ zones (of order $10^2$--$10^3$ \assumednote{order of magnitude;
+\citet[\S 6.1]{paxton2011} give ``hundreds to thousands'' of cells for the
+\emph{whole} model} in a MESA model). After mixing, the region's error is
+%
+\begin{equation}
+\delta_{\text{mixed}} \;=\;
+\begin{cases}
+\delta/\sqrt{N_z} & \text{if per-zone errors are independent},\\[2pt]
+\delta & \text{if the error is a systematic function of the state.}
+\end{cases}
+\label{eq:mixederror}
+\end{equation}
+
+Zones in one convective region have \emph{similar} $(T, \rho, X)$ --- that is
+what being in one convective region means --- so a learned model's error on
+them is strongly correlated, not independent. \textbf{Mixing averages away
+almost none of a neural network's error, while it would have averaged away most
+of a random one.} A third independent argument for the conclusion Tier~2
+\S0.4.2 reaches for soft penalties and Tier~0 \S IV.3 reaches for rollout:
+\emph{the character of the error matters more than its size, and correlated
+error is the enemy.} \derivedhere
+
+\textbf{(iii) Mixing feeds the network states that are mixtures, not
+trajectories.} The composition arriving at a network call is a blend of burnt
+and unburnt material from different depths --- not the endpoint of any single
+burning history. This cuts \emph{in favour} of the Sobol design in a way nobody
+in the project has said out loud:
+
+\begin{warn}
+The relaxed manifold (\S\ref{sec:twodistributions}, distribution B) is built
+from constant-$(T, \rho)$ single-history relaxations, the \emph{opposite}
+extreme from the training grid's random mixtures. Real convective burning sits
+\textbf{between} them: compositions partially relaxed \emph{and} partially
+mixed. Neither measured distribution is the deployment distribution, and the
+true one is probably not bracketed by them either, because mixing can inject
+fuel no relaxation would produce.
+\end{warn}
+
+That is a sharper statement of the distribution problem than
+\S\ref{sec:twodistributions} gives alone, and it means the Sobol $\to$
+real-MESA gate is testing something more complicated than ``physical versus
+unphysical states''.
+
+\textbf{And the modelling caveat that tempers all of it.} MLT captures the bulk
+velocity scale of late-stage shell convection reasonably well
+(\citealt{meakin2007}; \citealt{muller2016b}) but misses the boundary physics.
+Three-dimensional hydrodynamic simulations of oxygen and silicon shell burning
+show turbulent entrainment at convective boundaries (\citealt{meakin2007};
+\citealt{muller2016b}: the O shell grew from 0.51 to 0.56~\Msun{} by
+entrainment), large-scale bulk motions at Mach numbers approaching 0.1 in the
+oxygen shell at collapse (\citealt{muller2016b}; ${\sim}0.03$ in
+\citealt{meakin2007}; ${\sim}0.02$ in the Si shell of \citealt{couch2015} as
+estimated by \citealt{muller2016b}), and --- in some models --- \textbf{shell
+mergers}, where the oxygen and neon shells convectively merge and the
+composition changes qualitatively (in 1D: \citealt{sukhbold2018}; 3D
+``encroachment'' short of a full merger before collapse: \citealt{muller2016a};
+the full 3D O--Ne merger of \citealt{yadav2020} and the 1D shell-merger survey
+of \citealt{collins2018} were not opened here). Shell mergers change the
+pre-supernova structure and the compactness (\citealt{sukhbold2018}: ``when this
+occurs, the compactness is usually small'') and the yields
+\provtag{\textsc{[assumed]}}, and 1D codes reproduce them only through
+calibrated prescriptions. (An earlier version said MLT ``is known to describe
+late-stage convection poorly''; both cited 3D papers say the opposite of the
+bulk flow --- corrected in the 2026-08-18 audit.)
+
+So the honest hierarchy of modelling error in a pre-supernova model is
+\textbf{3D convection $\gg$ network size $\gtrsim$ rate uncertainties $\gg$
+emulator target} (the network-size rung: \citealt{farmer2016} find the isotope
+count ``plays a more significant role in determining the span of the variations
+for neon, oxygen and silicon burning'' than resolution; the rate-uncertainty
+rung is \citealt{fields2018}, not opened here; the ordering itself is this
+author's judgement) --- \S\ref{sec:errorhierarchy} assembles it properly,
+because it determines what the project can claim.
+
+Nothing about mixing appears in any tier's register. Registered as \reg{T-19},
+and it feeds \reg{T-20} (the error hierarchy).
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-engine}
+
+Answer without scrolling up.
+
+\begin{selfcheck}
+% source 0.10 Q1
+\item Derive the virial statement $E_{\mathrm{tot}} = -E_{\mathrm{int}}$ for a
+  non-relativistic ideal-gas star, and say in one sentence why it makes stellar
+  evolution a \emph{sequence} rather than an equilibrium.
+% source 0.10 Q2
+\item $T_c \propto M^{2/3}\rho^{1/3}$. Use it to explain both why 8~\Msun{} is
+  roughly the threshold for reaching silicon burning and why the regime box sits
+  at $\rho \sim 10^8$.
+% source 0.10 Q3
+\item Why does \nuc{Si}{28} not burn by fusing with \nuc{Si}{28}, and what
+  single structural consequence does that have for every equation in
+  Tiers~1--2?
+% source 0.10 Q4
+\item Silicon burning releases \emph{less} energy per gram than oxygen burning.
+  Why is it nevertheless the stage this project emulates?
+% source 0.10 Q5
+\item The last stages of a massive star's life accelerate. Name the coolant, its
+  temperature scaling, and use it to get the silicon-burning duration from the
+  oxygen-burning duration.
+% source 0.10 Q11
+\item Compute the Damk\"ohler number for intra-group equilibration, bridge flow
+  and the weak sector, and say which composition quantity convection
+  homogenises.
+% source 0.10 Q12
+\item A convective region spans 300 zones. By how much does mixing reduce the
+  emulator's \Ye{} error if it is random? If it is a smooth function of the
+  state? What does that add to the case for structural conservation?
+\end{selfcheck}

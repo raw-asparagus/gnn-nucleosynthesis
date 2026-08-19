@@ -1,0 +1,553 @@
+% =====================================================================
+%  Front matter.
+%  Source: tier3.md:1-226 (title blurb, the six-node list, the Part 0
+%          paragraph, Status of this document, the flux-convention
+%          table, How to study each node, Contents, and the collapsed
+%          "Full section list").
+%  The Contents table and the full section list are NOT dropped -- they
+%  are reproduced verbatim as Appendix A, because they are the source
+%  document's own architecture and this report re-orders it.
+%  The measured-results index (sec:resultsindex) is NEW: it exists
+%  because measurements stay attached to the derivation that produces
+%  them, so a reader who wants them together needs one index.  Every
+%  row is a pointer; no number originates here.
+% =====================================================================
+
+\begin{titlepage}
+\centering
+\vspace*{3.0cm}
+
+{\Huge\bfseries Tier 3 --- Astrophysics and the Verdict\par}
+
+\vspace{1.2em}
+{\Large The star this project is about,\\[0.3em]
+the data that came out of it,\\[0.3em]
+and the decision Phase 0 was built to make\par}
+
+\vspace{0.8em}
+{\large\itshape A study report for the conservation-by-construction GNN\\
+emulator of silicon burning\par}
+
+\vspace{2.6em}
+\begin{minipage}{0.84\textwidth}
+\small
+\textbf{Complete deep dive: the star this project is about, the data that came
+out of it, and the decision Phase 0 was built to make.}
+Tier~2 ended with instruments. $\nu$ and $C$ were exported and their null
+spaces measured; \kap{} was defined four ways and computed; the Saha solver was
+validated against an independent implementation; a reference integrator was
+built that produces $(\Phifl, \Delta Y = \nu\Phifl)$ pairs by construction.
+Every one of those exists to answer one question, and Tier~3 is where the
+question gets asked of real data and answered.
+\end{minipage}
+
+\vfill
+{\small Literature audit 2026-08-18\par}
+\vspace{0.5em}
+{\small Source document: \code{study/tier3.md}\par}
+\end{titlepage}
+
+% ---------------------------------------------------------------------
+\section*{What this tier covers}
+\addcontentsline{toc}{section}{What this tier covers}
+\label{sec:covers}
+
+Six nodes:
+\begin{itemize}
+\item \textbf{S11} --- bbq and MESA as \emph{operated}: what a one-zone burner
+  is, what hydrostatic mode does, how the shipped labels were generated, and how
+  the 209-run-per-network rerun campaign that supplies the verdict distribution
+  was designed, executed and validated.
+\item \textbf{S12} --- the trajectory files: format, the \code{eps\_nuc}
+  convention that had to be \emph{pinned by measurement} rather than read off a
+  header, and the ``stall'' that turned out to be an attractor arrival.
+\item \textbf{S13} --- silicon burning on actual burning histories, and
+  \textbf{the label pathology}: the shipped training labels carry a MESA bug
+  that displaces the equilibrium the network relaxes to, at $\Tn \gtrsim 5$, and
+  therefore gets \Ye{} itself wrong there. This is the tier's headline result
+  and its most consequential.
+\item \textbf{S14} --- the kill-test: the active set, $\cond(\Sact)$, coverage,
+  spread, churn, timescale separation, measured on two distributions that turn
+  out to be different worlds.
+\item \textbf{S15} --- the ML target decided: Target A, full-width, with the
+  equilibrium mask measured empty; why the decision is \emph{not} about
+  expressivity; and what the split verdict costs.
+\item \textbf{S16} --- the baseline: what the NNN actually is, what it
+  achieves, what ``beating it'' has to mean, and the evaluation protocol that
+  claim requires.
+\end{itemize}
+
+Plus the front part the map does not show: \textbf{Part~0}, the astrophysics.
+Tier~0 Part~I gave the motivation chain as a sequence of claims to defend;
+Tier~2 Part~0 gave the equilibrium theory the algebra needs. This part gives the
+\emph{whole astrophysical setting}, derived: the star as a thermodynamic engine,
+the burning staircase and why it accelerates, silicon burning in its hydrostatic
+and explosive forms, the collapse in detail, the observables at the far end, and
+the computational situation that makes emulation worth attempting. It is long on
+purpose. Everything in Tiers~0--2 is \emph{for} this, and none of it is derivable
+from the code.
+
+% ---------------------------------------------------------------------
+\section*{Status of this document}
+\addcontentsline{toc}{section}{Status of this document}
+\label{sec:status}
+
+\begin{warn}
+\textbf{Personal study material, not project spec.} Deliberately written without
+reference to \code{docs/} --- everything is derived from first principles or
+read off the business code, configs, notebooks, and tests.
+\end{warn}
+
+\begin{itemize}
+\item Textbook physics and derivations here are \textbf{mine to check}, not
+  citable project output. Where I compute something myself it is tagged
+  \derivedhere: reproducible from the numbers given, but not a
+  \code{RESULTS.md} row.
+\item Measured project numbers quoted here originate in \code{RESULTS.md} with
+  script $+$ commit $+$ data provenance, tagged \resultsref{}. This file is
+  \textbf{not} their source of truth; if a number here disagrees with
+  \code{RESULTS.md}, \code{RESULTS.md} wins.
+\item \textbf{Bibliographic details were verified in the 2026-08-18 literature
+  audit} (the former \textbf{[sourced --- verify]} tags are resolved). Every
+  externally-attributable claim now carries an inline author-year citation
+  resolved in the \textbf{References} section at the end; ${\sim}700$ claims
+  were inventoried across twelve chunks, every worked number was recomputed in
+  float64, and every \code{[RESULTS]} quotation was cross-checked against
+  \code{RESULTS.md}. Corrections found by the audit were applied in place, with
+  an inline ``(corrected in the 2026-08-18 audit)'' note wherever the physics
+  content itself changed. The headline ones: MESA has \textbf{no} NSE switch
+  (\S\ref{sec:nsetransition}, \reg{T-21} --- the ``5--7\,GK handoff'' is a
+  KEPLER/hydro-code property); MESA's own \code{op\_split\_burn} route zeroes
+  the $\partial\epsnuc/\partial T$, $\partial\rho$ terms, so \reg{T-25}'s
+  derivatives are route-dependent (\S\ref{sec:callsite}, \S\ref{sec:netreturns});
+  the coherent-scattering formula and the Bethe-era trapped lepton fraction
+  ($0.35 \to 0.29$--$0.30$, homologous core $0.7 \to 0.5\,\Msun$) in
+  \S\ref{sec:trapping}--\S\ref{sec:homologous}; the $\tau_{\mathrm{ign}}$
+  ``prediction'' in \S\ref{sec:ignition} was a bookkeeping identity; the
+  two-group QSE picture is Woosley, Arnett \& Clayton 1973's, not BCF68's, and
+  the \nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46} bottleneck is WAC73/HT96's, not the
+  NNN paper's (\S\ref{sec:twoclusters}); the NNN's architecture is 12/9 layers of
+  1024/2048, not the code's 4-layer default, and its author list is Grichener,
+  Renzo, Kerzendorf et al.\ (\S\ref{sec:nnnis}); the NuGNN column of the novelty
+  table understated that paper (\S\ref{sec:decodestep}, \S\ref{sec:nugnn});
+  Ovadia et al.\ 2019 was cited against its own conclusion
+  (\S\ref{sec:calibrated}, \reg{T-37}); the binomial in \S\ref{sec:multiplicity}
+  (5\% is $\ge 63/108$, not $\ge 60$); and the ``${\approx}75\%$'' premise of
+  \reg{T-41} is sourced (WAC73 via HT96) but for a different quantity.
+  Pre-arXiv classics were verified only bibliographically this session (ADS
+  abstract pages were unreachable; CrossRef/INSPIRE and cached bibliographies
+  were used) --- their content is marked ASSUMED-with-attribution where no cached
+  secondary states it. Part~0 leans on the CCSN and nucleosynthesis literature
+  more heavily than any earlier tier; the References provenance notes say,
+  entry by entry, what was actually opened.
+\item Astrophysical numbers that are \emph{representative of a model class}
+  rather than measured --- pre-supernova core masses, explosion energies,
+  \nuc{Ni}{56} yields --- are tagged \typical. They vary by progenitor, code and
+  mechanism, and quoting them as if they were constants is the single easiest
+  way to write something false in this subject.
+\end{itemize}
+
+\paragraph{Maths formatting.} In the source, every \emph{equation} --- anything
+with its own line --- is \LaTeX{} in a \code{\$\$ \ldots \$\$} block with the
+delimiters on their own lines. Short conditions embedded in a sentence are
+inline \code{\$\ldots\$}. Symbols named in running prose stay in unicode; maths
+is never set in \code{monospace}, which is reserved for code identifiers,
+filenames and literal values. The delimiter convention is moot in a \LaTeX{}
+document, but the \emph{separation} it enforces is preserved here: displayed
+equations are numbered, inline conditions stay inline, and \code{monospace}
+never carries mathematics.
+
+\paragraph{Cross-references.} \S0.x, \S I.x, \S V.x with no other qualifier
+point into \code{tier0.md}; \S II.x--\S VII.x with an (S2)\ldots(S6) label into
+\code{tier1.md}; \S0.x/\S I.x--\S VII.x with a (S7)\ldots(S10) label into
+\code{tier2.md}. In the \emph{source} of this report, Part~0 sections are \S0.x
+and node sections are \S I.x (S11), \S II.x (S12), \S III.x (S13), \S IV.x
+(S14), \S V.x (S15), \S VI.x (S16); in this report every reference \emph{within}
+the document is a live \S-link, and Appendix~\ref{app:concordance} maps the
+source's numbering to this one.
+% [edition] reworded: the source's "Within *this* file, Part 0 sections are
+% SS0.x and node sections are SS I.x (S11) ..." sentence is retained as a
+% statement about the source and followed by the live-link statement.
+
+\begin{invariant}
+\textbf{One convention carried forward from Tier~2}, because
+\S\ref{part:killtest} depends on it:
+
+\begin{center}
+\begin{tabularx}{0.95\textwidth}{@{}L{1.8cm} Y L{2.6cm}@{}}
+\toprule
+\textbf{symbol} & \textbf{meaning} & \textbf{units} \\
+\midrule
+$R_j$, $\fp_j$ & \textbf{gross} rate of reaction $j$, one direction &
+  mol\,g$^{-1}$\,s$^{-1}$ \\
+$\netflux_j$ & \textbf{net instantaneous} flux, $\fp_j - \fm_j$ &
+  mol\,g$^{-1}$\,s$^{-1}$ \\
+$\Phifl_j$ & \textbf{time-integrated} flux over a label step,
+  $\int R_j\,\dd t$ & mol\,g$^{-1}$ \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+$\kap_j = |\netflux_j| / (\fp_j + \fm_j)$ is the cancellation ratio, evaluated
+in the \textbf{unscreened} convention for every equilibrium statement
+(\code{CLAUDE.md}'s two-\kap{} rule).
+\end{invariant}
+
+% ---------------------------------------------------------------------
+\section*{How to study each node}
+\addcontentsline{toc}{section}{How to study each node}
+\label{sec:howtostudy}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  stepbox/.style={draw, rounded corners=2pt, line width=0.7pt,
+               minimum height=8mm, inner xsep=6pt, fill=resultrule!6},
+  num/.style={circle, draw, line width=0.7pt, inner sep=1.2pt,
+              minimum size=5.2mm, font=\footnotesize\bfseries,
+              fill=white}]
+
+\node[stepbox] (a) {\textbf{DERIVE}};
+\node[stepbox, below=5mm of a] (b) {\textbf{READ}};
+\node[stepbox, below=5mm of b] (c) {\textbf{ORACLE}};
+\node[stepbox, below=5mm of c] (d) {\textbf{SEE}};
+
+\node[num] at ([xshift=-9mm]a.west) {1};
+\node[num] at ([xshift=-9mm]b.west) {2};
+\node[num] at ([xshift=-9mm]c.west) {3};
+\node[num] at ([xshift=-9mm]d.west) {4};
+
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]a.east)
+  {pen-and-paper: get the equation from physics before reading code};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]b.east)
+  {the module, top-to-bottom; its docstring states the contract};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]c.east)
+  {the test file --- it encodes what ``correct'' means, numerically};
+\node[anchor=west, text width=0.66\textwidth] at ([xshift=6mm]d.east)
+  {the notebook figure --- the measured behaviour on real data};
+
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (a) -- (b);
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (b) -- (c);
+\draw[-{Latex[length=2mm]}, line width=0.6pt] (c) -- (d);
+\end{tikzpicture}
+\caption{The four-step study loop for each node of the curriculum (source
+line 124).}
+\label{fig:studyloop}
+\end{figure}
+
+Tier~3 is where this loop changes character. In Tiers~0--2 the oracle was
+usually an exact algebraic statement or an independent implementation. Here
+there are three nodes (\textbf{S11}, \textbf{S12}, \textbf{S13}) whose
+``oracle'' is \emph{an experiment on external software you do not control}: run
+bbq under two MESA versions and see which one reproduces the shipped labels. The
+epistemics of that are different and worth naming ---
+\S\ref{sec:epistemics} does it explicitly.
+
+The other change: \textbf{this tier's headline results are all negative or
+qualified.} The QSE single-cluster plateau is not confirmed, the maskable set is
+empty, the timescale separation the design assumed does not exist, and the
+training labels are wrong above 5\,GK. Not one of those was the expected answer.
+A tier that returns four surprises either has broken instruments or is measuring
+something real; \S\ref{sec:verdict} is the argument that it is the latter, and
+it is the argument you should be most sceptical of.
+
+% ---------------------------------------------------------------------
+\section*{A note on this edition}
+\addcontentsline{toc}{section}{A note on this edition}
+\label{sec:edition}
+
+The source document is organised \emph{node by node}: Part~0 the astrophysics,
+then S11 bbq/MESA, S12 the trajectory files, S13 the label pathology, S14 the
+kill-test, S15 the target, S16 the baseline, then the handoff, the open register,
+the boundary audit, and the emulator-as-an-object pass. Each of those parts
+interleaves five different \emph{kinds} of statement --- astrophysical theory,
+description of the object, a derivation, the code that implements it, and the
+measured claim that closes it. That interleaving is the
+DERIVE\,/\,READ\,/\,ORACLE\,/\,SEE study loop the source was written around.
+
+This report re-architects the same material into a \textbf{physics arc}, in
+which the S11--S16 curriculum labels are dissolved and the argument runs in the
+order the physics does --- the order of the source's own organising claim
+(\S\ref{part:engine}): a one-day episode of nuclear burning sets a single scalar,
+which propagates through a collapse to become a number an astronomer measures;
+the episode is stiff and expensive, so it is emulated; the emulator's data,
+labels, verdict, target and baseline follow.
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{0.9cm} L{4.6cm} Y@{}}
+\toprule
+\textbf{\S} & \textbf{Theme} & \textbf{Covers} \\
+\midrule
+\ref{part:engine} & The star as an engine, and its last day &
+  hydrostatic equilibrium, the virial theorem and the negative heat capacity;
+  the $\rho$--$T$ plane and degeneracy; the burning staircase derived; the
+  $T^9$ neutrino clock and why Si burning lasts a day; convection and the
+  Damk\"ohler competition \\
+\ref{part:siburn} & Silicon burning &
+  the mechanism, mechanically; the two clusters and the group boundary; the
+  endpoint and why \Ye{} chooses it; hydrostatic vs explosive burning;
+  $\alpha$-rich freeze-out; the NSE transition \\
+\ref{part:weak} & Where \Ye{} comes from &
+  the identity and what can move it; electron capture in a degenerate plasma;
+  the measured \Ye{} carriers \\
+\ref{part:collapse} & The iron core, and its collapse &
+  the onion; the effective Chandrasekhar mass; compactness; pre-supernova
+  \Ye; which stars; $\Gamma_1 < 4/3$; the two runaways; free fall; trapping with
+  numbers; the homologous core; why the prompt shock fails; the delayed
+  mechanism; the mass cut; what ``explodability'' operationally is \\
+\ref{part:observables} & The observable end &
+  \nuc{Ni}{56} and the light curve; isotopic ratios; GCE; remnants; the
+  derivative nobody has assembled; the error hierarchy \\
+\ref{part:host} & The computational setting &
+  what MESA does per timestep; MESA's network solver; the cost model; the
+  emulation landscape; what this project adds; the unmeasured bottleneck
+  premise; the seven-item call-site contract; what the network returns; the
+  astrophysics $\to$ gates map \\
+\ref{part:generator} & The label generator &
+  what a one-zone burner is; bbq's four modes; the inlist; the shipped-label
+  pipeline; the rerun campaign, its coverage geometry, execution and
+  validation \\
+\ref{part:trajectories} & Trajectories and the \code{eps\_nuc} pin &
+  the file format; what a row is not; the composition route to energy; the pin
+  as a hypothesis test; the stall, reinterpreted twice \\
+\ref{part:pathology} & Real histories and the label pathology &
+  what a real trajectory looks like; the NSE census; gh-575 traced from a
+  Fortran branch; the witness experiment; how it could have been caught on day
+  one; \Ye{} itself is wrong; the epistemics; what is not invalidated \\
+\ref{part:killtest} & The kill-test &
+  the question; the instruments; the two distributions; every gate, measured;
+  the verdict and the statistics it does not carry; the statistics package;
+  what would have changed the answer \\
+\ref{part:target} & The ML target, decided &
+  A vs B restated; what the verdict decided; conservation in the decode step;
+  \Phifl{} supervision; identifiability; the simplex; gradients through the
+  conservation map \\
+\ref{part:baseline} & The baseline &
+  the NNN as an object; read critically; what it achieves; NuGNN; what
+  ``beating it'' has to mean; the protocol, written out \\
+\ref{part:beyond} & Beyond the map &
+  the boundary audit (ten areas with no study node) and the third pass (the
+  emulator as an object) \\
+\ref{part:register} & The open register &
+  T-01 \ldots T-42, the two ranked lists, and how the register was built \\
+\ref{part:handoff} & What Tier~3 hands forward &
+  what Phase~0 established and retired, the four escalations, the state Tier~4
+  inherits, the three ideas to carry, and where Tier~3 hands off \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\emph{No content has been omitted.} The cost of the physics arc is that the
+source's part boundaries no longer align with this report's sections. Three
+things hold that together: every relocated argument carries cross-references in
+both directions; Appendix~\ref{app:sectionmap} reproduces the source document's
+own contents table and full section list verbatim; and
+Appendix~\ref{app:concordance} is a heading-by-heading concordance from the
+source's numbering to this one, including every self-check question that moved
+so that no question tests material the reader has not yet reached; and the
+\hyperref[sec:resultsindex]{index of measured results} lists every measured
+result, since measurements stay attached to the derivations that produce them.
+All of it is checked mechanically by \code{study/tier3-report/check\_coverage.py}.
+
+Three blocks of material were re-homed across the source's part boundaries,
+rather than merely re-ordered:
+
+\begin{itemize}
+\item \textbf{Where \Ye{} comes from (source \S0.7) moves up} to
+  \S\ref{part:weak}, directly after silicon burning and before the iron core:
+  the weak sector is where the scalar the whole chain propagates is \emph{set},
+  and $\Mch \propto \Ye^2$ (\S\ref{sec:mch}) and the collapse are what consume it.
+  Honestly stated, this buys narrative order rather than reference direction:
+  nothing in the source's \S0.4--0.6 refers to \S0.7, while two sentences in
+  \S0.7 now point forward (its opener, and ``the runaway of \S0.5.2''); both
+  are reworded to say so and marked with a TeX comment in the source file.
+\item \textbf{MESA's network solver (source \S I.2) and what the network
+  returns (\S I.2b) join the computational setting} in \S\ref{part:host},
+  beside the call-site contract of \S0.8.6 that \S I.2b explicitly says is
+  ``the same thing from inside MESA''. The label generator
+  (\S\ref{part:generator}) refers back to them.
+\item \textbf{The boundary audit and the emulator-as-an-object pass (source
+  Parts IX and X) precede the register and the handoff}, so that the
+  register's second- and third-pass tables and the handoff's ``requirements the
+  plan does not know it has'' point backward at material already read.
+\end{itemize}
+
+The source's Part~0 self-check (sixteen questions) is split across the five
+sections that now hold the material it tests; Appendix~\ref{app:selfcheckmoves}
+records every move. The source's other six blocks travel whole.
+
+\begin{aside}
+\textbf{Three places where the source is inconsistent with itself}, carried as
+they stand in Appendix~\ref{app:sectionmap} and resolved nowhere in this
+report: its Contents row for Part~X calls that part ``the fourth pass'' while
+the part's own heading and its Part~VIII summary call it the third; its
+Contents row for Part~VIII says ``T-01 \ldots T-32'' while the full section
+list and the register itself run to T-42; and \S VIII.3 closes with ``Of
+thirty-two items'' although the register by then holds forty-two. Each is a
+count that the source's later passes outgrew. Nothing in the numbers is
+affected.
+\end{aside}
+
+% ---------------------------------------------------------------------
+\section*{Index of measured results}
+\addcontentsline{toc}{section}{Index of measured results}
+\label{sec:resultsindex}
+
+Measurements in this report stay attached to the derivation that produces them
+--- that ordering \emph{is} the argument. This index exists so they can still be
+read together. \textbf{No number originates here}; every row points at the
+section that derives it, and the provenance tag on that row is the authority.
+
+\begingroup
+\small
+\begin{longtable}{@{}L{6.4cm} L{5.0cm} L{3.2cm}@{}}
+\toprule
+\textbf{measurement} & \textbf{value} & \textbf{derived in} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{measurement} & \textbf{value} & \textbf{derived in} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+verdict insensitivity to the Si-group boundary variant &
+  $\le 0.02$ in top-$k$ shares & \S\ref{sec:twoclusters} \\
+mesa\_80 bridge set (relaxed manifold) &
+  Ne22($\alpha$,n)Mg25 0.20, Al27(p,$\alpha$)Mg24 0.13, P31(p,$\alpha$)Si28
+  0.11; top-20 carry 0.88 & \S\ref{sec:twoclusters} \\
+\nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46} rank &
+  2/251 relaxed (\code{a24\_46}); 31/251 on the training grid &
+  \S\ref{sec:twoclusters}, \S\ref{sec:unretired} \\
+NSE dominance from the repo's Saha solver &
+  fe56 $= 0.69$ at $\Ye = 0.467$; 0.72 at 0.472 & \S\ref{sec:endpoint} \\
+Saha solver vs pynucastro NSE &
+  27 states, no fallback, $10^{-10}$\,dex & \S\ref{sec:nsetransition},
+  \S\ref{sec:census} \\
+weak columns; strong left-nullity &
+  46/607, 173/1518; nullity 2 $= \mathrm{span}\{A, Z\}$ & \S\ref{sec:yeidentity} \\
+$\kap \equiv 1$ on weak columns &
+  exactly, on $8.8\times10^{6}$\,/\,$33.2\times10^{6}$ samples &
+  \S\ref{sec:yeidentity}, \S\ref{sec:gate1} \\
+mesa\_80 weak sector vs the \Ye-controller set &
+  6/9 EC controllers, 0/8 $\beta$-decay partners & \S\ref{sec:ecratchet} \\
+\Ye{} carriers, high-\Ye{} QSE window &
+  \nuc{Ni}{56} EC 0.62\,/\,0.28; top-5 0.96\,/\,0.75; top-20 1.00 &
+  \S\ref{sec:yecarriers}, \S\ref{sec:gate1} \\
+\#1 \Ye{} carrier on the training grid &
+  Ne18 $\to$ F18 EC & \S\ref{sec:yecarriers} \\
+NNN \Ye{} improvement over approx21, reproduced &
+  377--651\% (mesa\_80), 277--390\% (mesa\_151) & \S\ref{sec:costmodel},
+  \S\ref{sec:nnnachieves} \\
+conservation drift under random 12-decade fluxes &
+  column drift exactly 0.0; $\le \max(10^{-12}s, 10^{-13}G)$ &
+  \S\ref{sec:whatadds}, \S\ref{sec:established} \\
+canonical reaction counts, MESA\_ONLY &
+  607\,/\,1518; 0 & \S\ref{sec:netsolver} \\
+screening identification &
+  \code{chugunov\_2007}: median ratio 0.99999, max $|\log_{10}| = 0.0021$;
+  screened \kap{} offset ${\sim}7\times10^{-2}$ & \S\ref{sec:netsolver} \\
+weak-table ordering &
+  LMP $>$ Oda $>$ FFN, \code{use\_suzuki} false: 14/23 $\to$ 0 mismatches &
+  \S\ref{sec:netsolver} \\
+shipped-dataset audits &
+  1,041,400 rows/CSV; real dt off nominal by $\le 5\%$; 154,405 join
+  collisions; 7,176 (0.68\%) missing Sobol rows, benign; floor 1e-15;
+  $\div 10^{16}$ uniform & \S\ref{sec:shippedpipeline} \\
+shipped-trajectory stall onset &
+  median age $2.2\times10^{5}$\,/\,$3.9\times10^{4}$\,s & \S\ref{sec:campaign},
+  \S\ref{sec:stall} \\
+stock r23.05.1 vs shipped labels (witness states) &
+  0.01\,/\,0.03\,dex; early-time agreement 0.996\,/\,0.998 &
+  \S\ref{sec:campaign}, \S\ref{sec:witness} \\
+campaign execution &
+  418/418, 0 failures, 19,486\,s wall on 10 workers ${\approx}54$ core-h &
+  \S\ref{sec:execution} \\
+campaign validation &
+  38/209 and 56/209 frozen; terminal $\Tn \ge 5$ vs NSE 8.6\,/\,9.0\,dex,
+  fraction within 0.05\,dex $= 0.000$; comparability median 0.9963\,/\,0.9977 &
+  \S\ref{sec:validation} \\
+$\rQSE$ plateau on clean data &
+  intra-group std 0.87\,/\,0.80\,dex; plateau rows 0/303, 0/316; non-group
+  2.19\,/\,1.29\,dex & \S\ref{sec:validation} \\
+subfloor-controller class of handshake failures &
+  25.1\%\,/\,12.6\% & \S\ref{sec:rowisnot} \\
+the \code{eps\_nuc} pin &
+  integrated, net of $\nu$, no $10^{16}$; median $\log_{10}$ ratio $-0.000$;
+  slope 0.000 over twenty decades; rate reading slope $+1.00$ &
+  \S\ref{sec:pin} \\
+flux-route vs composition-route energy (independent leg) &
+  median 0.979\,/\,0.996 & \S\ref{sec:pin}, \S\ref{sec:gates378} \\
+first-quiet vs terminal rules &
+  differ on 459/1508 files & \S\ref{sec:stall} \\
+shortest label is a full stiff relaxation &
+  99.99\%\,/\,100.00\% of cells $\tau < \dd t$; 20\,/\,0 linearisable of
+  2.4M\,/\,4.5M & \S\ref{sec:realtrajectory} \\
+rate-level residual on linearisable cells &
+  median $3.6\times10^{-3}$\,/\,$2.8\times10^{-3}$; $\le 5\%$ for
+  90.3\%\,/\,94.4\% & \S\ref{sec:realtrajectory} \\
+label distance from NSE at $\Tn \ge 5$ &
+  6.9 $\to$ 11.5\,dex\,/\,6.7 $\to$ 13.0\,dex; fraction $>1$\,dex $= 1.000$ &
+  \S\ref{sec:census} \\
+gh-575 static size vs pynucastro &
+  10.0--11.1\,dex ($|\Delta N| = 1$); 20.6--22.7 ($|\Delta N| = 2$); chapter-8
+  low by 9.5--11.3; clean forwards median 0.0 & \S\ref{sec:gh575} \\
+stock-MESA \kap{} floor at NSE &
+  median $3.6\times10^{-3}$\,/\,$3.3\times10^{-3}$; $\kap \to 1$ on gh-575
+  channels & \S\ref{sec:gh575} \\
+witness experiment &
+  state 80: si30 0.5615 (label) vs fe56 0.985 (24.08.1) vs 0.70 (reference);
+  state 646: he4 0.521 $+$ fe56 0.378 & \S\ref{sec:witness} \\
+dt-freeze signature &
+  si30 $= 5.615\times10^{-1}$ identical across $\dd t = 10^{-5}\ldots10^{1}$\,s
+  & \S\ref{sec:witness} \\
+\Ye{} evolution at state 80 over $10^{2}$\,s &
+  $-4\times10^{-4}$ (labels) vs $-9.8\times10^{-3}$ (fixed): factor ${\sim}25$
+  & \S\ref{sec:yewrong} \\
+QSE-window integrator/label agreement &
+  0.74--0.99 in band & \S\ref{sec:notinvalidated}, \S\ref{sec:phisupervision} \\
+training grid (distribution A) &
+  median $\log_{10}\kap \approx -0.05$; $\kap > 0.1$ fraction 0.985--0.999;
+  active union 327/327, 846/846; cond 41.8\,/\,57.4 &
+  \S\ref{sec:twodistributions} \\
+relaxed manifold (distribution B) &
+  $\kap > 0.1$ falls to 0.70\,/\,0.64 in [5.0, 6.3); balanced pairs
+  $\le 0.4\%$ & \S\ref{sec:twodistributions} \\
+maskable columns per row, $\varepsilon$ sweep &
+  \textbf{median and p90 $= 0$ at every $\varepsilon$}; churn 0.00--0.03
+  flips/step & \S\ref{sec:gate5} \\
+worst-dominant coverage &
+  0.1658\,/\,0.0700 in [4.0, 5.0) relaxing; 0.0022--0.0290\,/\,0.0084--0.0475
+  in [5.0, 6.3) & \S\ref{sec:gate2} \\
+low-\kap{} share of active net columns &
+  median 0.9\%--24\%; worst 0.24\,/\,0.21 & \S\ref{sec:gates378} \\
+timescale separation &
+  per-stratum medians $-12.2\ldots+1.4$; p10 $-25$, p90 $+3.5$ &
+  \S\ref{sec:gates378} \\
+energy identity residual (gate as written) &
+  median $6\times10^{-6}\ldots2.5\times10^{-5}$; max $8.7\times10^{-4}$;
+  fraction $\le 1\%$ is 1.000 & \S\ref{sec:gates378}, \S\ref{sec:phisupervision} \\
+ICC, design effect, $n_{\mathrm{eff}}$ &
+  0.22--0.70; 6.5--18.6; ${\sim}300$ independent systems & \S\ref{sec:verdict} \\
+weak \dYe{} preserved by the projector &
+  change $\le 3.4\times10^{-21}$ & \S\ref{sec:decodestep} \\
+reference integrator &
+  identity residual $2.1\times10^{-16}$; RHS $\equiv$ engine $\le 10^{-12}$;
+  BDF $\equiv$ Radau $5\times10^{-8}$; median wall $\ge 383$\,/\,1519\,s;
+  full corpus $\ge 110{,}647$\,/\,$439{,}302$ core-h & \S\ref{sec:phisupervision} \\
+NNN reproduction &
+  ratio 1.000 in all 108 comparisons; loader deviation 0.0; relative \Ye{}
+  error 0.33--0.54\%\,/\,0.55--0.73\% ($\approx 2.4\times10^{-3}$ per step)
+  & \S\ref{sec:nnncritical}, \S\ref{sec:nnnachieves} \\
+rate pipeline vs independent Fortran code &
+  0.004\,dex; 135 outliers class-explained & \S\ref{sec:established} \\
+chapters 4--5 share of reactions &
+  397/979 & \S\ref{sec:rhoinput} \\
+\end{longtable}
+\endgroup
+
+\clearpage
+\tableofcontents
+\clearpage

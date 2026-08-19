@@ -1,0 +1,532 @@
+% =====================================================================
+%  9 -- SILICON BURNING ON REAL HISTORIES, AND THE LABEL PATHOLOGY
+%       (source node S13, Part III).
+%
+%  Source: tier3.md lines 3457-3839 in full and in order --
+%          Part III header (3457-3461),
+%          III.1 What a real trajectory looks like (3463-3499),
+%          III.2 The census (3501-3540),
+%          III.3 The mechanism: gh-575 (3542-3617),
+%          III.4 The witness experiment (3619-3660),
+%          III.4b How this could have been caught on day one (3662-3711),
+%          III.5 The consequence: Ye itself is wrong (3713-3743),
+%          III.6 The epistemics (3745-3812),
+%          III.7 What the pathology does *not* invalidate (3814-3838),
+%          III.8 Self-check for S13 (3830-3839; 7 questions).
+%
+%  Rendering notes:
+%    * the Horn A / Horn B blockquote (3764-3774) -> aside.
+%    * the two "!" (warning-glyph) list items in III.6 keep the glyph
+%      as \warnglyph{}.
+%    * the "corrected here in the 2026-08-18 audit" parenthetical in
+%      III.6 is kept verbatim.
+%  Cross-refs reworded: none (anchor rewrites only; no direction
+%  changed -- every referenced section keeps its relative order).
+% =====================================================================
+
+\section{Silicon burning on real histories, and the label pathology}
+\label{part:pathology}
+
+\textbf{The payoff node, and the one that changed the project.} Everything
+before this was instrumentation. Here the instruments get pointed at the
+dataset the emulator is supposed to learn, and the dataset fails.
+
+% =====================================================================
+\subsection{What a real trajectory looks like}
+\label{sec:realtrajectory}
+
+Take one constant-$(T, \rho)$ hydrostatic run at, say, $\Tn = 4$,
+$\rho = 10^{8}$, starting from a silicon-rich mix. Read the output rows in
+order and you see four phases:
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.6cm} L{2.6cm} Y@{}}
+\toprule
+\textbf{phase} & \textbf{age} & \textbf{what happens} \\
+\midrule
+\textbf{1 --- free-particle relaxation} & $10^{-8}$ \ldots\ ${\sim}10^{-6}$ s &
+  whatever free n, p, $\alpha$ the initial composition carried are captured
+  almost instantly: $\lvert \Delta X\rvert / X \sim 1$ in a single step. A
+  \textbf{stiff relaxation}, not a linear step \\
+\textbf{2 --- strong-sector equilibration} & ${\sim}10^{-6}$ \ldots\ $10^{0}$ s &
+  the fast capture/photodisintegration pairs balance within each group;
+  $\kappa$ on those columns falls; the composition organises into the Si and
+  Fe groups \\
+\textbf{3 --- QSE burning} & $10^{0}$ \ldots\ $10^{4}$--$10^{6}$ s &
+  net flow through the bridges carries material from the Si group to the Fe
+  group. \textbf{This is the physics the project is about}; \enuc{} is roughly
+  steady \\
+\textbf{4 --- weak drift} & after arrival &
+  strong sector frozen at its attractor; \Ye{} continues to fall through
+  electron captures; composition changes slowly \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Phase 1 is the single most under-appreciated fact about the \emph{training}
+labels. The Sobol initial compositions carry free nucleons (median
+$X_{\mathrm{neut}} \approx 1.7 \times 10^{-2}$), so even the \textbf{shortest
+label timestep} is not a linear step. The measurement: \textbf{99.99\% /
+100.00\% of (state, isotope) cells have $\tau < \mathrm{dt}$} at
+$\mathrm{dt}_1 \approx 1.01 \times 10^{-6}$ s, with label $|\Delta X|/X$ median
+$\approx 1$, and only \textbf{20 / 0} linearisable cells out of 2.4M / 4.5M
+\resultsref{2026-07-10}.
+
+Read that again. \textbf{Every label in the shipped training set encodes a full
+stiff relaxation, at every timestep, everywhere in the box.} There is no
+``small step'' regime in this dataset. Consequences:
+
+\begin{itemize}
+\item Target A's $\Phi$ is a \emph{time-integrated effective flux}
+  $\Phi_j = \int \varphi_j\,\dd t$ over the label interval, never an
+  instantaneous rate. \code{CLAUDE.md} states this and
+  \code{fluxes/integrate.py} is the reference producer.
+\item Conditioning the model on $\log \Delta t$ is conditioning on the wrong
+  variable; the natural one is $\Delta t/\tau$, since what varies across the
+  dataset is \emph{how many relaxation times} the step covers
+  (\foreignreg{2}{R-10}).
+\item Any handshake between the engine's instantaneous rates and the labels can
+  only be attempted on the small subset where $\tau > 10\Delta t$; that is why
+  the trajectory handshake is restricted to linearisable cells (median
+  rate-level residual $3.6 \times 10^{-3}$ / $2.8 \times 10^{-3}$, $\le 5\%$
+  for 90.3\% / 94.4\% of cells \resultsref{2026-07-10}).
+\end{itemize}
+
+% =====================================================================
+\subsection{The census: how far are the labels from NSE?}
+\label{sec:census}
+
+The question that started the investigation is simple. At high temperature,
+silicon burning should approach NSE (\S\ref{sec:staircase},
+\S\ref{sec:endpoint}): the fast pairs balance, and with enough time the
+composition should be the Saha solution $X(T, \rho, \Ye)$. So take the
+\textbf{longest} label (dt $= 10^{2}$ s), at \textbf{high} \Tn{}, and compare
+against the project's independent Saha solver.
+
+The solver is independent in the sense that matters: it is built from the same
+pynucastro nuclear inputs (\citealt{smithclark2023}; \citealt{rauscher1997} /
+\citealt{rauscher2003} partition functions, binding energies, spins) but solves
+the equilibrium conditions itself, in log space with a damped Newton and a
+bisection fallback, and it agrees with pynucastro's own NSE solver to
+$\mathbf{2.7 \times 10^{-10}}$ / $\mathbf{1.5 \times 10^{-10}}$ \textbf{dex}
+over a 27-state grid \resultsref{2026-07-10}. It is a trustworthy reference.
+
+The result, over \Tn{} bins from $[5.0, 5.5)$ to $[7.0, 7.94)$, 120 states per
+bin, \resultsref{2026-07-11}:
+
+\begin{tabularx}{\textwidth}{@{}Y L{4.0cm} L{3.4cm}@{}}
+\toprule
+\textbf{quantity} & \textbf{\msn{80}} & \textbf{\msn{151}} \\
+\midrule
+median $\max|\Delta\log_{10}X|$ over $X > 10^{-6}$ species &
+  \textbf{6.9 $\to$ 11.5 dex} across bins & \textbf{6.7 $\to$ 13.0 dex} \\
+fraction of states more than 1 dex from NSE &
+  \textbf{1.000 in every bin} & \textbf{1.000} \\
+\bottomrule
+\end{tabularx}
+
+\textbf{Not one sampled high-\Tn{} label endpoint is anywhere near NSE.} And
+the discrepancy \emph{grows} with temperature, which is the opposite of the
+physical expectation --- hotter should mean faster equilibration.
+
+The displaced states have structure, which is the first clue that this is a
+mechanism rather than noise:
+
+\begin{itemize}
+\item \textbf{high $\rho$}: \nuc{Si}{30} / \nuc{Si}{29} / \nuc{Mg}{26}
+  dominated. State 80 ($\Tn = 7.08$, $\rho = 3.0 \times 10^{8}$): si30
+  $X = 0.578$, where NSE says fe56 $= 0.72$.
+\item \textbf{low $\rho$}: \nuc{C}{12} / \nuc{O}{16} dominated. State 646
+  ($\Tn = 7.78$, $\rho = 2.0 \times 10^{7}$): c12 $= 0.294$ + o16 $= 0.266$,
+  where NSE says \nuc{He}{4} and the Fe group.
+\end{itemize}
+
+And these are \textbf{the same class of state} as the Step-5 trajectory-stall
+frozen compositions (\nuc{Si}{30}-dominated at $\Tn = 6.1$). Two independent
+investigations, from different directions, landed on the same anomaly.
+
+% =====================================================================
+\subsection{The mechanism: gh-575, traced from a Fortran branch}
+\label{sec:gh575}
+
+The cause is a bug in MESA r23.05.1's detailed-balance reverse-rate
+construction --- MESAHub/mesa issue \textbf{gh-575} \citep{gh575} (opened 2023-08-07, closed
+2024-05-06; the fix, PR \#632, merged May 2024 and first shipped in release
+24.08.1 --- verified by measurement, \resultsref{2026-07-10}; the release-note
+text is recorded in \resultsref{2026-07-09}: ``incorrect phase space factors
+for reverse reaction rates involving greater than 2 reactants or products
+\ldots\ inconsistent equilibrium compositions \ldots\ at temperatures exceeding
+4 GK'').
+
+\paragraph{The static locus.} In \code{rates/private/reaclib\_support.f90},
+\code{compute\_rev\_ratio} applies the detailed-balance phase-space factor
+%
+\begin{equation}\label{eq:revfac}
+\mathrm{fac} \;=\; \frac{1}{N_A}\left(\frac{10^{9}k_B}{2\pi\hbar^{2}N_A}\right)^{3/2} \;=\; 9.868\times10^{9},
+\qquad \log_{10}\mathrm{fac} = 9.994,
+\end{equation}
+%
+together with its accompanying $T^{3/2}$, \textbf{only in the single-product
+branch} (\code{reaclib\_support.f90:197, 222--235}; the constant is
+\citealt{rauscher2000}'s $9.8685 \times 10^{9}\,\Tn^{3/2}$, recomputed
+$9.86846 \times 10^{9}$ with CODATA 2018, \citealt{tiesinga2021}). Tier~1
+\S III derives why that factor is there: the reverse of an
+A + B $\to$ C reaction involves a change $\Delta N$ in the number of free
+particles, and each unit of $\Delta N$ brings a factor of
+$(2\pi\mu kT/h^{2})^{3/2}/(\rho N_A)$ from the phase-space integration. A
+reverse rate with more than one product needs the factor raised to the power
+$|\Delta N|$; the buggy code applies it once, or not at all.
+
+\paragraph{The empirical size.} Measured against pynucastro at
+$\Tn \in \{1.6, 4.0, 7.9\}$ \resultsref{2026-07-09}:
+
+\begin{tabularx}{\textwidth}{@{}Y L{5.0cm}@{}}
+\toprule
+\textbf{channel class} & \textbf{$|\Delta\log_{10}|$} \\
+\midrule
+$|\Delta N| = 1$ multi-body inverses & \textbf{10.0 -- 11.1 dex} \\
+$|\Delta N| = 2$ (h1+h1+he4+he4 $\to$ he3+be7) & \textbf{20.6 -- 22.7 dex} \\
+chapter-8 photodisintegration reverses (1 $\to$ 3) &
+  \textbf{low by 9.5 -- 11.3 dex} \\
+harness control: all matched clean REACLIB forwards &
+  median \textbf{0.0 exactly} \\
+\bottomrule
+\end{tabularx}
+
+The last row is what makes the rest credible: the comparison harness
+reproduces clean channels bit-for-bit, so the 10-dex discrepancies are not the
+harness.
+
+\textbf{The chapter-8 row is the one that matters here, and it goes beyond what
+the NNN paper's own Appendix B names.} The paper names one light-sector channel
+(n + n + \nuc{He}{4} + \nuc{He}{4} $\to$ \nuc{H}{3} + \nuc{Li}{7}) and states
+the class --- ``all reactions involving more than two reactants and/or
+products'' --- which contains the 1 $\to$ 3 reverses without identifying them,
+and it states that \msn{80}'s equilibrium composition is ``qualitatively
+consistent'' with the larger networks; this project found that the 1 $\to$ 3
+photodisintegration reverses --- including \textbf{c12 $\to$ 3$\alpha$, the
+reverse of the triple-$\alpha$ reaction}, and be9 $\to$ n + 2$\alpha$, li6
+$\to$ n + p + $\alpha$ --- are low by 9.5--11.3 dex in stock r23.05.1. Those
+reactions control \textbf{light $\leftrightarrow$ heavy equilibration}: they
+are how the free-$\alpha$ reservoir talks to the carbon/oxygen sector.
+
+Now the mechanism is visible. If c12 $\to$ 3$\alpha$ is suppressed by ten
+orders of magnitude while 3$\alpha$ $\to$ c12 is correct, then detailed balance
+is broken by ten orders of magnitude on the reaction that links the $\alpha$
+reservoir to everything above it. The system relaxes to a \textbf{fixed point
+of the broken rate set} --- an equilibrium of a rate network that satisfies no
+thermodynamic constraint. At high $\rho$ that fixed point is
+\nuc{Si}{30}-dominated; at low $\rho$ it is \nuc{C}{12}/\nuc{O}{16}-dominated,
+because carbon cannot be photodisintegrated back into $\alpha$ particles.
+
+\textbf{This also explains the $\kappa$ floor.} Tier~2 \S IV.8b's Wegscheider
+measurement (the cycle condition of \citealt{wegscheider1901}, in the
+generalised form of \citealt{schuster1989}) found
+$Q \notin \mathrm{rowspace}(\nu)$ for the strong sector and predicted a
+$\kappa$ data floor of $6 \times 10^{-4}$ \ldots\ $4 \times 10^{-3}$; the
+measured stock-MESA $\kappa$ floor at NSE is median $3.6 \times 10^{-3}$ /
+$3.3 \times 10^{-3}$ \resultsref{2026-07-10}, and \textbf{$\kappa \to 1.0$
+exactly on gh-575 channels} --- a broken pair is maximally out of balance by
+construction.
+
+% =====================================================================
+\subsection{The witness experiment}
+\label{sec:witness}
+
+A mechanism is a story until it makes a prediction that could fail. The
+prediction: \emph{if gh-575 is the cause, then running the exact same label
+states under the exact same configuration but with the fixed MESA should relax
+toward NSE instead.}
+
+\code{scripts/step6\_label\_nse\_census.py} ran it on the two witness states,
+with bbq built against both MESA versions, under exact label conditions and
+initial compositions \resultsref{2026-07-11}:
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{4.6cm} Y Y@{}}
+\toprule
+ & \textbf{state 80 (\Tn{} 7.08, $\rho$ 3.0e8)} &
+   \textbf{state 646 (\Tn{} 7.78, $\rho$ 2.0e7)} \\
+\midrule
+\textbf{shipped label} & si30 $= 0.5615$ & c12 0.294 + o16 0.266 \\
+\textbf{stock r23.05.1 bbq} & reproduces the label to \textbf{0.01 dex} &
+  reproduces to \textbf{0.03 dex} \\
+\textbf{MESA 24.08.1 bbq} (gh-575 verified fixed) &
+  \textbf{fe56 $= 0.985$}, 1.2 dex residual, \Ye{} still evolving &
+  \textbf{he4 $= 0.521$ + fe56 $= 0.378$} \\
+\textbf{independent pf-true reference integrator} &
+  fe56 $= 0.70$ at $10^{-6}$ s (vs 24.08.1's 0.66) & --- \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Three independent codes --- stock bbq, fixed bbq, and this project's own BDF
+integrator with pf-corrected reverse rates --- arrange themselves exactly as
+the mechanism predicts. Stock reproduces the pathology; fixed and independent
+both relax toward NSE.
+
+\textbf{This is the strongest single piece of evidence in the whole of Phase
+0}, and it is worth naming why. It is a \emph{controlled} experiment: same
+inlist, same initial composition, same solver tolerances, same screening, same
+weak tables --- one code version changed (whose relevant diff is the gh-575
+fix; 24.08.1 also carries a minor spillover into approx21), and the outcome
+switches from ``reproduces the shipped labels'' to ``does the physically
+expected thing''. Everything else in this project is a comparison of computed
+numbers; this is an intervention.
+
+\textbf{The dt-freeze signature} seals it. State 80's final composition is
+\emph{identical to four digits} (si30 $= 5.615 \times 10^{-1}$) across
+\textbf{dt $= 10^{-5}$ \ldots\ $10^{1}$ s}, and is already reached at
+dt $= 10^{-6}$ \resultsref{2026-07-11}. A slow transient would show dt
+dependence. A fixed point does not. The labels are sitting at an attractor of
+the label generator, reached almost immediately and held for seven decades of
+time.
+
+% =====================================================================
+\subsection{How this could have been caught on day one}
+\label{sec:dayone}
+
+Worth extracting as a reusable test, because the pathology was found in Step 6
+and could have been found in Step 1 with an hour's work and no MESA at all.
+
+\textbf{The generic test: is the label set a fixed point of its own generator,
+and is that fixed point the one physics predicts?}
+
+For a sample of high-temperature states:
+
+\begin{enumerate}
+\item take the label at the \textbf{longest} $\Delta t$;
+\item compare it against an independent equilibrium reference --- the Saha
+  solution $X_{\mathrm{NSE}}(T, \rho, \Ye)$;
+\item compare the label \textbf{across $\Delta t$ decades} --- the freeze
+  signature.
+\end{enumerate}
+
+Step 2 needs a Saha solver, which pynucastro ships. Step 3 needs nothing but
+the shipped CSVs --- and it is the \emph{decisive} one: a composition identical
+to four digits across dt $= 10^{-5}$ \ldots\ $10^{1}$ s is a fixed point, full
+stop. \textbf{That check reads nine files and takes a minute.} It would have
+fired on day one.
+
+Three general lessons, stated so they transfer:
+
+\paragraph{(i) A benchmark dataset is a fixed point of its generator, and that
+is a testable claim about the generator, not about nature.} Any dataset
+produced by running a solver to completion encodes the solver's attractors.
+Checking those attractors against an independent equilibrium theory is the
+cheapest possible audit of a labelled dataset, and it is not, to our knowledge,
+standard practice in scientific ML.
+
+\paragraph{(ii) Invariance across a control parameter is a stronger signal than
+agreement with a reference.} The dt-freeze is more convincing than the NSE
+distance, because it needs no reference at all --- it is internal to the data.
+Look for quantities that \emph{should} vary and do not.
+
+\paragraph{(iii) The check that fires is the one comparing to something the
+pipeline does not share.} Tier~1 \S VIII.D's habit --- \emph{ask of any green
+test what would still be wrong if it passed} --- generalises to \emph{any check
+whose two sides share a provenance can only find typos.} The rate cross-check
+(Tier~1 \S VI) compared MESA against pynucastro and found the bug's
+\emph{static} form in Step 4; it took an independent \textbf{equilibrium}
+reference, which shares no code with either, to find the bug's \emph{dynamical
+consequence}.
+
+Registered as \reg{T-29}: adopt the fixed-point audit as a standing check on
+any labelled dataset the project ingests, including its own future $\Phi$
+labels.
+
+% =====================================================================
+\subsection{The consequence: \texorpdfstring{\Ye}{Ye} itself is wrong}
+\label{sec:yewrong}
+
+If the bug only displaced \emph{which} silicon isotope dominates, it would be a
+composition-detail problem. It is not, and this is the finding that forced an
+escalation.
+
+At state 80, over $10^{2}$ s \resultsref{2026-07-11}:
+
+\begin{tabularx}{\textwidth}{@{}L{5.0cm} Y@{}}
+\toprule
+\textbf{path} & \textbf{\Ye{} evolution} \\
+\midrule
+labels / stock r23.05.1 & 0.4717 $\to$ \textbf{0.4713}
+  ($\Delta = -4 \times 10^{-4}$) \\
+fixed MESA (24.08.1) & 0.4717 $\to$ \textbf{0.4619}
+  ($\Delta = -9.8 \times 10^{-3}$) \\
+\bottomrule
+\end{tabularx}
+
+\textbf{A factor of ${\sim}25$ in the \Ye{} change} (24.5 at the quoted
+4-digit precision). The reason is direct: electron-capture rates are
+per-nucleus and species-specific (\S\ref{sec:yecarriers}; \citealt{heger2001}
+tabulate the dominant EC flows; \citealt{langanke2000} give the iron-peak
+rates), so \emph{which species host the material} determines which EC channels
+are active. A composition frozen at si30-dominated hosts EC on silicon-group
+nuclei; a composition relaxed to fe56-dominated hosts EC on the iron peak,
+where the rates are much larger and the thresholds much more favourable. The
+bug displaces the composition, the composition selects the EC channels, and the
+EC channels set $\dd\Ye/\dd t$.
+
+Put in the terms of \S\ref{sec:gatemap}'s budget: the \textbf{discrepancy
+between the label \Ye{} evolution and the physically-correct one is
+${\sim}9 \times 10^{-3}$ over $10^{2}$ s} --- which is larger than the
+project's entire per-trajectory \Ye{} budget ($5 \times 10^{-3}$) and three
+thousand times the per-step gate. At $\Tn \gtrsim 5$, the labels are not merely
+imprecise; they are outside the tolerance the emulator is being asked to
+achieve, in the quantity the emulator exists to predict.
+
+% =====================================================================
+\subsection{The epistemics: what a negative result about your own dataset obliges}
+\label{sec:epistemics}
+
+This is the part of Tier 3 that is about method rather than physics, and it is
+the part most worth internalising.
+
+\paragraph{What was superseded.} Step 4 had established a working premise: the
+training labels were assumed to have been generated with the authors'
+\emph{locally fixed} MESA --- an inference from the paper's Appendix B, which
+reports ``We fixed the bug in the current mesa version'' without stating which
+build produced the training sets, and whose software list names mesa-23.05.1
+--- so labels are clean and \emph{our} stock MESA is the outlier. That premise
+was reasonable, an inference from the paper rather than a statement in it, and
+recorded (RESULTS 2026-07-09 phrases it as ``the paper's App. B says so'',
+which over-reads the appendix in the same way; corrected here in the 2026-08-18
+audit). It is now known to be false at the fixed-point level for
+$\Tn \gtrsim 5$ --- because the chapter-8 1 $\to$ 3 reverses this project found
+``beyond the paper'' are demonstrably label-active, whatever the paper's own
+channel list says. The \code{RESULTS.md} entry states the supersession
+explicitly and identifies which earlier row it overrides. \textbf{That is the
+discipline: a superseding measurement names its predecessor.}
+
+\paragraph{What was validated by accident.} \code{ADR 0005} chose stock
+r23.05.1 for the rerun campaign on \emph{comparability} grounds, before the
+pathology was known. The pathology measurement then showed stock reproduces
+label behaviour to 0.01 dex --- so the choice was measured-correct after the
+fact. A decision made for one good reason turning out to be right for a
+stronger one is luck, and it should be recorded as luck rather than as
+foresight.
+
+\paragraph{What it forces.} Five consequences were recorded
+\resultsref{2026-07-11}, and two of them are \emph{escalations to a human}, not
+technical fixes:
+
+\begin{enumerate}
+\item rerun-campaign comparability \textbf{validated} (above);
+\item the Step-5 stall anomaly \textbf{reinterpreted} --- the frozen states are
+  the bug's displaced pseudo-equilibria; the output-dt hypothesis is at most
+  secondary (\S\ref{sec:stall});
+\item \code{validate\_campaign}'s terminal-NSE check must \textbf{expect} the
+  displaced equilibrium on stock reruns at $\Tn \gtrsim 5$, with 24.08.1 as
+  the physics-true witness (\S\ref{sec:validation}, check 2);
+\item \warnglyph{}~\textbf{Phase-1 supervision at $\Tn \gtrsim 5$ faces a
+  benchmark-versus-physics fork} --- escalated, human decision;
+\item \warnglyph{}~\textbf{NNN itself was trained on these labels} --- an
+  external-communication decision, escalated.
+\end{enumerate}
+
+\textbf{The fork (item 4) is a genuine dilemma, and it is worth stating both
+horns fairly.}
+
+\begin{aside}
+\textbf{Horn A --- train on the labels.} The emulator's job is to reproduce
+the reference solver. The published benchmark (NNN) was trained on these
+labels, and comparability requires matching them. Training on physics-true
+labels at $\Tn \gtrsim 5$ would make every published comparison in that band
+meaningless --- the emulator would ``lose'' against a baseline that is
+reproducing a bug.
+
+\textbf{Horn B --- train on corrected physics.} The emulator's job is to be a
+fast nuclear network. A network that reproduces a known bug is a liability the
+moment anyone uses its output for science, and the bug is \emph{in the quantity
+the project exists to predict} (\S\ref{sec:yewrong}). Every downstream \Ye{}
+conclusion in that band would be wrong by design.
+\end{aside}
+
+There is a third option that the study notes should name because it is
+probably right and nobody has written it down: \textbf{declare a validity
+domain.} $\Tn < 5$ is where local $\Phi$ labels are proven feasible
+(\S\ref{sec:phisupervision}), where every kill-test gate passes, and where the
+labels are not pathological. Restricting the emulator's claimed domain to
+$\Tn < 5$ and handing $\Tn \ge 5$ to an NSE table or the real solver (which is
+the \S\ref{sec:landscape} hybrid anyway, and exactly what an OOD-fallback gate
+is \emph{for}) resolves the fork by refusing it. It costs a claim about the hot
+band and buys a defensible product. Registered as \reg{T-03}.
+
+\textbf{Item 5 is the uncomfortable one.} The published NNN model, its reported
+accuracies, and this project's own reproduction of them
+(\resultsref{2026-07-08}, ratio 1.000 in all 108 comparisons) are all measured
+against labels that are wrong above 5 GK. That does not make the NNN paper's
+\emph{methods} wrong --- its errors are measured against its own labels, which
+is the standard and correct protocol --- but it does mean that a statement like
+``the NNN reproduces the composition to X\%'' carries an unstated qualifier in
+that band. How and whether to communicate that externally is a judgement call
+for a person, and the project correctly escalated it rather than deciding it
+inside a results log.
+
+% =====================================================================
+\subsection{What the pathology does \emph{not} invalidate}
+\label{sec:notinvalidated}
+
+Being precise about the blast radius matters, because a finding this large
+invites over-generalisation.
+
+\textbf{Still valid:}
+
+\begin{itemize}
+\item \textbf{Everything below $\Tn \approx 5$.} The gh-575 channels are
+  light-sector and chapter-8 multi-body; they matter where the
+  $\alpha$/nucleon reservoir controls equilibration, which is the hot regime.
+  The QSE window (3.3--5 GK) shows integrator/label agreement of 0.74--0.99 in
+  band \resultsref{2026-07-12}.
+\item \textbf{The kill-test itself.} It is a measurement \emph{on the label
+  manifold}, and the reruns are exactly label-comparable (0.996/0.998
+  early-time agreement). The question ``is Target A viable on this data'' is
+  well-posed regardless of whether the data is physically right --- because
+  that is the data the model will see. \S\ref{sec:verdict} develops this.
+\item \textbf{All the algebra.} Conservation, the projector, the flux engine's
+  rate agreement, the Saha solver --- none of it depends on the labels being
+  right.
+\item \textbf{The bridge sets and the \nuc{Sc}{45} confirmation}, which live
+  in the QSE window.
+\end{itemize}
+
+\textbf{Compromised:}
+
+\begin{itemize}
+\item Any \emph{physical} claim about equilibrium structure at $\Tn \gtrsim 5$
+  on this data.
+\item The Guidry $\varepsilon$-sweep result read as a statement about silicon
+  burning (as opposed to about the label manifold) --- see \S\ref{sec:gate5},
+  which is careful about exactly this.
+\item \Ye{} supervision in the hot band (\S\ref{sec:yewrong}).
+\end{itemize}
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-pathology}
+
+\begin{selfcheck}
+% source III.8 Q1
+\item Why does the \emph{shortest} label timestep in the shipped set encode a
+  full stiff relaxation? Give the measurement.
+% source III.8 Q2
+\item Reproduce the argument from ``a phase-space factor applied only in the
+  single-product branch'' to ``the labels sit at a
+  \nuc{C}{12}/\nuc{O}{16}-dominated fixed point at low density''.
+% source III.8 Q3
+\item The census found the NSE distance \emph{growing} with temperature. Why is
+  that the opposite of the physical expectation, and why is it the signature
+  of a mechanism rather than of noise?
+% source III.8 Q4
+\item Describe the witness experiment, name its one changed variable, and say
+  what result would have falsified the mechanism.
+% source III.8 Q5
+\item The bug displaces composition. Explain in two steps why it therefore
+  corrupts \Ye{}, and give the measured factor.
+% source III.8 Q6
+\item State both horns of the benchmark-versus-physics fork fairly, then give
+  the third option and what it costs.
+% source III.8 Q7
+\item Name three things the pathology does not invalidate, with the reason for
+  each.
+\end{selfcheck}

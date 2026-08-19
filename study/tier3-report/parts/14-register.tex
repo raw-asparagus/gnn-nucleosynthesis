@@ -1,0 +1,699 @@
+% =====================================================================
+%  14 -- THE OPEN REGISTER  (source Part VIII).
+%
+%  Source: tier3.md Part VIII in full and in order -- header (5028-5034),
+%          VIII.1 the register T-01..T-18 (5036-5057),
+%          "The second-pass items (Part IX)" T-19..T-32 (5059-5077),
+%          "The third-pass items (Part X)" T-33..T-42 (5079-5097),
+%          VIII.2 Ranked -- the top eight (5099-5142),
+%          VIII.3 How this register was built (5144-5201).
+%
+%  Cross-reference rewrites: every Markdown anchor in the "derived in"
+%  column -> \S\ref{...} via the label registry; "(Part IX)" / "(Part X)"
+%  in the two subsubsection titles -> \S\ref{sec:boundaryaudit} /
+%  \S\ref{sec:emulatorobject}; "Part IX" / "Part X" / "SS IX.5" / "SS X.11"
+%  in VIII.3 -> live refs; tier1.md SS VIII links -> \tierone{...};
+%  "tier2.md SS VI" and "tier2.md SS VII" -> \code{tier2.md} \S VI / \S VII
+%  (foreign document, no live ref).  T-ids in the ID column are \textbf
+%  (this IS the register); T-ids in prose are \reg{}; R-xx are
+%  \foreignreg{2}{}.  No wording changed.
+% =====================================================================
+
+\section{The open register}
+\label{part:register}
+
+\textbf{This is the single register for Tier~3.} One row per open item; the
+content lives in the section that owns it. Cross-tier items stay in
+\tierone{VIII} and \code{tier2.md} \S VI; where a row here extends one of
+those, it says so.
+
+% =====================================================================
+\subsection{The register}
+\label{sec:register}
+
+\begingroup
+\footnotesize\setlength{\tabcolsep}{2pt}
+\begin{longtable}{@{}L{1.0cm} L{6.0cm} L{2.2cm} L{1.7cm} L{4.7cm}@{}}
+\toprule
+\textbf{ID} & \textbf{open item} & \textbf{derived in} & \textbf{cost} &
+\textbf{what closing it changes} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{open item} & \textbf{derived in} & \textbf{cost} &
+\textbf{what closing it changes} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{T-01} &
+\textbf{$\partial M(\nuc{Ni}{56})/\partial\Ye$, $\partial\xic/\partial\Ye$,
+$\partial(\text{explodability})/\partial\Ye$ have never been assembled.} The
+per-step gate is an \emph{input} uncertainty used as an \emph{output}
+tolerance & \S\ref{sec:missingderivative} & ${\sim}1$\,d, mostly literature &
+justifies --- or relaxes by orders --- the project's most expensive
+requirement. Extends \foreignreg{2}{R-14} \\
+
+\textbf{T-02} &
+\msn{80} has the EC ratchet and \textbf{0/8} $\beta$-decay partners. The
+predicted \Ye{} bias direction vs \msn{151} has never been tested on the
+shipped labels & \S\ref{sec:ecratchet} & ${\sim}2$\,h &
+a physics-level validation (or refutation) of the size-transfer premise, on
+data already on disk \\
+
+\textbf{T-03} &
+\textbf{No validity domain is declared.} $\Tn < 5$ is where labels are sound,
+gates pass, and $\Phi$ labels are feasible; $\Tn \ge 5$ is none of those &
+\S\ref{sec:epistemics} & decision $+$ ADR &
+resolves the benchmark-vs-physics fork by refusing it; makes the OOD gate's
+job concrete \\
+
+\textbf{T-04} &
+The Guidry sweep measures $\delta_r$ against \textbf{true NSE}, but the
+manifold relaxes to a \emph{displaced} attractor. Departure from an
+equilibrium the system is not heading toward may be the wrong test &
+\S\ref{sec:gate5} & ${\sim}3$\,h &
+could turn the empty maskable set non-empty, reviving Component B's physics
+prior \\
+
+\textbf{T-05} &
+No kill-test statistic carries a cluster-robust interval; ICC 0.22--0.70,
+$n_{\mathrm{eff}} \approx 300$ not 657k \derivedhere[\S\ref{sec:verdict} /
+Tier~2 \S V.3] & \S\ref{sec:verdict} & ${\sim}1$\,h &
+supplies the missing uncertainty on every headline number. Extends
+\foreignreg{2}{R-08} \\
+
+\textbf{T-06} &
+\textbf{No null distribution for any kill-test statistic.} Is 0.87 dex of
+\rQSE{} spread large? Is Spearman $+0.49$ good? Unknown &
+\S\ref{sec:verdict} & ${\sim}4$\,h &
+calibrates the scale of two published negative verdicts. Generalises
+\foreignreg{2}{R-18} \\
+
+\textbf{T-07} &
+The NNN's \Ye{} error in the project's own units --- \textbf{${\approx}\,2.4
+\times 10^{-3}$/step vs the $3 \times 10^{-6}$ gate, a factor ${\sim}800$}
+--- appears in no project document & \S\ref{sec:nnncritical} & ${\sim}0$ &
+calibrates ambition; forces either a defence of the gate or an admission it
+is over-specified. Couples to \reg{T-01} \\
+
+\textbf{T-08} &
+\textbf{Trivial baselines never run}: persistence, nearest-neighbour, and
+NSE-as-a-predictor & \S\ref{sec:beating} & ${\sim}1$\,h &
+may redefine the emulator's real domain and its real competitor. Extends
+\foreignreg{2}{R-16} \\
+
+\textbf{T-09} &
+The pathology attribution rests on \textbf{two witness states}. A stratified
+24.08.1 census (${\approx}50$ states) would give the affected \emph{fraction}
+and the \emph{band boundary} & \S\ref{sec:witness} & ${\sim}1$\,d compute &
+turns ``the labels are wrong above ${\sim}5$\,GK'' into a quantified
+contamination map --- which \reg{T-03} needs to draw its line \\
+
+\textbf{T-10} &
+\textbf{What fraction of the 1.04M-state training corpus is pathological?}
+The census sampled 120 states/bin at $\dd t = 10^{2}$\,s &
+\S\ref{sec:census} & ${\sim}3$\,h &
+sizes the damage; decides whether hot-band data is discarded, reweighted, or
+relabelled \\
+
+\textbf{T-11} &
+\textbf{Everything is constant-$(T, \rho)$.} No data exists on time-varying
+conditions, which is the only mode deployment has &
+\S\ref{sec:inlist}, \S\ref{sec:mesastep} & experiment &
+the label manifold is a measure-zero slice of the deployment manifold. Extends
+\foreignreg{2}{R-11} / \tierone{VIII.C.4} \\
+
+\textbf{T-12} &
+\textbf{Explosive Si burning and $\alpha$-rich freeze-out are outside the
+data} although the box overlaps their conditions &
+\S\ref{sec:hydroexplosive}, \S\ref{sec:alpharich} & ${\sim}2$\,h analysis &
+states what the emulator does and does not claim to model; feeds \reg{T-03} \\
+
+\textbf{T-13} &
+\textbf{The relaxed manifold is coarse}: 7 \Tn{} $\times$ 3 $\rho$ $\times$ 3
+\Ye{} cells, 209 runs. Nothing quantifies how representative it is of the
+box, or of a real track & \S\ref{sec:campaign} & ${\sim}2$\,h &
+bounds the generalisability of the verdict. Couples to \foreignreg{2}{R-07} \\
+
+\textbf{T-14} &
+\textbf{The verdict's sensitivity to $\theta = 0.1$ has never been swept.}
+The active-set threshold is unsourced and the split verdict depends on it &
+\S\ref{sec:gate2}, \S\ref{sec:gatemap} & ${\sim}2$\,h &
+tells you whether the split verdict is a fact or a threshold artifact.
+Consumes \foreignreg{2}{R-01}'s entropy-weighted replacement \\
+
+\textbf{T-15} &
+\textbf{No solver-independent ground truth.} Every check compares MESA
+against pynucastro-derived rates --- now known insufficient, since MESA was
+\emph{wrong} & \S\ref{part:pathology} & ${\sim}1$\,wk &
+SkyNet \citep{lippuner2017} / WinNet \citep{reichert2023} would have caught
+the pathology directly. Elevates \tierone{VIII.E.3} from debt to priority \\
+
+\textbf{T-16} &
+\textbf{$\Phi$ labels blocked at $\Tn \ge 5$} on the neglected tabular-EC
+$\rho\Ye$ Jacobian chain; the unlock is identified and unimplemented &
+\S\ref{sec:phisupervision} & ${\sim}2$\,d &
+opens hot-strata supervision --- but only matters if \reg{T-03} keeps that
+band in scope \\
+
+\textbf{T-17} &
+\textbf{The neutrino head has no flux-level labels.} $\langle E_\nu\rangle$
+per reaction is unsourced; the trajectory \code{eps\_nuc} is \emph{net} of
+$\nu$ losses, conflating the two &
+\S\ref{sec:pin}, \S\ref{sec:neutrinoclock} & ${\sim}1$\,d &
+\epsnu{} is a first-class output of the star's energy equation and is
+currently unsupervisable. Extends \tierone{VIII.C.3} and Tier~0 \S 0.4.3 \\
+
+\textbf{T-18} &
+\textbf{The evaluation protocol against the NNN is unspecified} --- six
+components named, none decided. \S\ref{sec:protocol} writes the
+specification; three decisions remain &
+\S\ref{sec:beating}, \S\ref{sec:protocol} & design, ${\sim}\tfrac12$\,d &
+decides before Phase 1 what the project will claim, instead of after \\
+\end{longtable}
+\endgroup
+
+% ---------------------------------------------------------------------
+\subsubsection{The second-pass items (\S\ref{sec:boundaryaudit})}
+\label{sec:register-second}
+
+\begingroup
+\footnotesize\setlength{\tabcolsep}{2pt}
+\begin{longtable}{@{}L{1.0cm} L{6.0cm} L{2.2cm} L{1.7cm} L{4.7cm}@{}}
+\toprule
+\textbf{ID} & \textbf{open item} & \textbf{derived in} & \textbf{cost} &
+\textbf{what closing it changes} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{open item} & \textbf{derived in} & \textbf{cost} &
+\textbf{what closing it changes} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{T-19} &
+\textbf{Mixing is co-dominant with burning and appears in no tier.}
+$\Da = \tau_{\mathrm{mix}}/\tau_{\mathrm{burn}}$ is $10^{4}$--$10^{6}$ for
+intra-group, $10^{-4}$--$10^{1}$ for the weak sector --- convection
+\textbf{homogenises \Ye} and leaves the fast species local; correlated
+emulator error survives that averaging intact & \S\ref{sec:convection} &
+${\sim}3$\,h &
+a third independent argument for structural conservation, and a sharper
+statement of the distribution problem (real states are partly relaxed
+\emph{and} partly mixed --- bracketed by neither measured distribution) \\
+
+\textbf{T-20} &
+\textbf{The error hierarchy has never been assembled}: 3D convection $\gg$
+mechanism/mass cut $\gg$ progenitor spread $\gg$ rate library $\gtrsim$
+network size $\gg$ emulator target $\gg$ conservation drift &
+\S\ref{sec:errorhierarchy} & ${\sim}\tfrac12$\,d &
+supplies the \textbf{artificial-vs-physical error} framing, which is the
+strongest defensible claim the project has and is not the one it currently
+makes \\
+
+\textbf{T-21} &
+\textbf{The NSE transition is unexamined.} Some host codes (KEPLER-family, SN
+hydro codes) replace the network with a Saha solve above ${\sim}5$--7\,GK ---
+where the labels are pathological --- but MESA, the NNN's own host, runs the
+network throughout \citep{paxton2015}; the emulator's competitor there is a
+Saha solve for NSE-switching hosts and the in-situ network for MESA &
+\S\ref{sec:nsetransition} & ${\sim}2$\,h &
+tips the benchmark-vs-physics fork toward \reg{T-03} for NSE-switching hosts
+(weaker for MESA, \S\ref{sec:nsetransition}~iii); identifies a much smaller
+$(T,\rho,\Ye) \to \dd\Ye/\dd t$ emulator as possibly the valuable object \\
+
+\textbf{T-22} &
+Every real-track statement rests on \textbf{one 20\,\Msun{} model}. Mass,
+metallicity, rotation and binarity all move the $(T, \rho)$ locus --- and
+binarity decides which \S\ref{part:observables} observable applies &
+\S\ref{sec:whichstars} & ${\sim}1$\,d &
+turns \foreignreg{2}{R-07}'s $n = 1$ measurement into a population statement;
+decides whether the box's uniform measure is defensible \\
+
+\textbf{T-23} &
+\textbf{The deployment story with the best economics is unnamed}:
+parametrised-1D explodability grids run stellar evolution to collapse
+hundreds of times, paying the network cost each time &
+\S\ref{sec:explodability} & ${\sim}0$ (framing) &
+names a compute-bound workload that exists and would notice a $20\times$
+speedup; also splits \reg{T-01} into its feasible and infeasible halves \\
+
+\textbf{T-24} &
+\warnglyph{} \textbf{The bottleneck premise is unmeasured.} Nobody has
+profiled MESA. Amdahl caps the achievable speedup at $\min(1/(1-p),\,1/f)$
+and \textbf{neither $p$ nor $f$ is known} & \S\ref{sec:bottleneck} &
+\textbf{${\sim}1$ afternoon} &
+the project's founding claim, with everything needed already installed. Could
+justify the work strongly or force a rescope onto \reg{T-23}'s workload \\
+
+\textbf{T-25} &
+\warnglyph{} \textbf{The host's fully-coupled route needs
+$\partial\enuc/\partial\ln T$ and $\partial\enuc/\partial\ln\rho$} for its
+implicit structure solve (MESA's \code{op\_split\_burn} route sets them to
+zero --- \citealt{jermyn2023} \S 10.2 --- so the requirement is
+route-dependent). Never specified as outputs, so nothing constrains them ---
+and a sign error breaks the host's Newton. The second term of the derivative
+\textbf{is} \tierone{VIII.E.2}'s unimplemented $Q(T)$ &
+\S\ref{sec:callsite}, \S\ref{sec:netreturns}, \S\ref{sec:gradients} &
+design $+$ ${\sim}1$\,d &
+converts an installation blocker into a claimed advantage (autodiff gives
+exact, \emph{smoother} derivatives than the incumbent); promotes
+\S VIII.E.2 \\
+
+\textbf{T-26} &
+\warnglyph{} \textbf{An emulator has no convergence failure}, so the host's
+timestep controller loses the signal it used to reduce $\Delta t$ on. S22's
+OOD detector may really need to be a \emph{calibrated continuous error
+estimate}, not a binary fallback flag & \S\ref{sec:callsite} & design &
+respecifies S22 before it is built; changes what UQ has to deliver and to
+whom \\
+
+\textbf{T-27} &
+\textbf{Per-call latency at the real batch size is uncosted.} A Fortran inner
+loop calling PyTorch on a 150-node graph is framework-overhead-bound; the FLOP
+speedup may not survive the call site & \S\ref{sec:callsite} & ${\sim}1$\,d &
+decides whether deployment needs batched-per-timestep calls, a compiled
+export, or both. Composes with \reg{T-24}'s Amdahl bound \\
+
+\textbf{T-28} &
+\warnglyph{} \textbf{float32 labels versus the cancellation the model must
+learn.} Label noise ${\sim}10^{-7}$ relative, against dominant species whose
+net evolution rides on $\kappa \sim 10^{-3}$ columns --- \emph{the labels may
+not contain the signal} & \S\ref{sec:rowisnot} & ${\sim}2$\,h &
+either retires a serious worry or invalidates supervision on exactly the
+species \S\ref{sec:gate2} flags. Sharpens \tierone{VIII.E.4} \\
+
+\textbf{T-29} &
+Adopt the \textbf{fixed-point audit} as a standing check on any labelled
+dataset: compare the longest-$\dd t$ label against an independent
+equilibrium reference, and check invariance across $\dd t$ decades. Would
+have caught \S\ref{part:pathology} on day one, in a minute &
+\S\ref{sec:dayone} & ${\sim}0$ (policy) &
+protects the project's own future $\Phi$ labels; a transferable method result
+worth stating publicly \\
+
+\textbf{T-30} &
+\textbf{Positivity and exact linear conservation pull in opposite directions}
+--- structural positivity wants an exponential map, structural conservation
+wants linearity, and combining them naively \emph{is} the NuGNN failure mode.
+Compositional data analysis (clr/ilr, zero replacement) is the uncited
+literature; the projector's unweighted metric is a recorded-nowhere choice &
+\S\ref{sec:simplex} & ${\sim}\tfrac12$\,d &
+the correct framing of \foreignreg{2}{R-04}; extends \foreignreg{2}{R-17}
+with why the metric choice is not innocuous \\
+
+\textbf{T-31} &
+\textbf{No experiment design for the comparison.} 2 nets $\times$ 9
+$\Delta t$ $\times$ 6 metrics $= 108$ cells; a coin-flip model wins $\ge 60$
+of them ${\sim}15$\% of the time ($\ge 63$: ${\sim}5$\%). No pre-registered
+primary metric, no seed replication on the headline, no declared definition
+of ``beating'' & \S\ref{sec:multiplicity} & ${\sim}0$ (policy) &
+\code{RESULTS.md}'s provenance discipline is one policy line away from
+pre-registration; prevents a null result becoming a paper \\
+
+\textbf{T-32} &
+\textbf{The artifact lifecycle is unspecified}: no serving artifact without
+Python in the loop, no determinism contract across batch size / threads /
+device, no model identity in the consumer's output --- and \textbf{the
+conservation guarantee must be pinned to float64 in the exported graph},
+which nothing tests & \S\ref{sec:artifact} & ADR $+$ tests &
+decides whether the work is usable or merely correct; batch-size-dependent
+output would silently break retries \\
+\end{longtable}
+\endgroup
+
+% ---------------------------------------------------------------------
+\subsubsection{The third-pass items (\S\ref{sec:emulatorobject}) --- the
+  emulator as an object}
+\label{sec:register-third}
+
+Nine of these ten are measurements \emph{of a trained model} or of its
+coupling to a host solver, so most cannot run before an artifact exists. They
+are therefore best read as \textbf{the measurement plan the first training
+run should be gated on}, not as a backlog.
+
+\begingroup
+\footnotesize\setlength{\tabcolsep}{2pt}
+\begin{longtable}{@{}L{1.0cm} L{6.0cm} L{2.2cm} L{1.7cm} L{4.7cm}@{}}
+\toprule
+\textbf{ID} & \textbf{open item} & \textbf{derived in} & \textbf{cost} &
+\textbf{what closing it changes} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{ID} & \textbf{open item} & \textbf{derived in} & \textbf{cost} &
+\textbf{what closing it changes} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{T-33} &
+\warnglyph{} \textbf{The emulator has its own fixed points and nobody has
+asked what they are.} The true map at large $\Delta t$ is nearly a projection
+onto the NSE manifold indexed by \Ye; the learned map's attractor is whatever
+the weights make it, and a per-step loss is nearly blind to it because true
+increments are smallest exactly there & \S\ref{sec:fixedpoints} &
+${\sim}\tfrac12$\,d &
+\textbf{the same failure mode as the label pathology, in the model.} Long
+rollouts converge to the learned attractor, not the physical one. Runs
+\code{step6\_label\_nse\_census.py} against a model instead of a dataset;
+suggests a free fixed-point consistency loss at Saha solutions. Complements
+\foreignreg{2}{R-13} (which bounds divergence but not \emph{which} fixed
+point) \\
+
+\textbf{T-34} &
+\textbf{Does stiffness survive learning?} The true flow map is severely
+rank-deficient ($\mathrm{spec} \approx e^{\lambda\Delta t}$); a learned map
+can be \textbf{under-contracting} (rollout blow-up --- what S20's heuristics
+hope to prevent) or \textbf{over-contracting} (collapses the slow manifold
+and destroys the \Ye{} signal while looking stable) & \S\ref{sec:jacobian} &
+${\sim}\tfrac12$\,d &
+turns rollout stability from a hoped-for property into a measured one,
+\emph{before} an expensive rollout study. Reference $\partial\Phi/\partial X$
+is available from ADR-0006's analytic $\partial R/\partial Y$ \\
+
+\textbf{T-35} &
+\warnglyph{} \textbf{A fallback dispatcher is a discontinuity in the host's
+Newton residual.} As the structure solve iterates, the OOD score moves and
+the dispatch can flip --- jumping the residual by exactly the
+emulator-vs-solver difference the gate exists because it is large &
+\S\ref{sec:dispatcher} & design &
+classic discontinuous-EOS pathology, reproduced. Three mitigations, none
+specified; the training-side analogue (mask churn) \emph{is} specified in the
+architecture report, which shows the pattern was seen one level up and not
+carried down \\
+
+\textbf{T-36} &
+\textbf{$\rho$ is not a free input dimension.} One-/two-/three-body sectors
+scale as $\rho^{0}$/$\rho^{1}$/$\rho^{2}$, so a two-body-only network would
+be exactly invariant under $(\rho, \Delta t) \to (\lambda\rho,
+\Delta t/\lambda)$ & \S\ref{sec:rhoinput} & ${\sim}2$\,h &
+a structured conditioning variable ($\rho\Delta t$) composing with
+\foreignreg{2}{R-10}'s $\Delta t/\tau$; a \textbf{label-free consistency
+test} (the model's invariance violation must match the reference's); and a
+rate-free probe of QSE onset \\
+
+\textbf{T-37} &
+\textbf{``Calibrated'' has a literature the project has not named.} Deep
+ensembles are the most expensive UQ (\foreignreg{2}{R-12}'s critical path)
+and, like every UQ method, lose calibration under the distribution shift
+\S\ref{sec:twodistributions} \emph{measured} --- they degrade least in
+\citet{ovadia2019}, but still substantially. Conformal prediction is the
+tool; its exchangeability assumption fails in two already-quantified ways &
+\S\ref{sec:calibrated} & ${\sim}\tfrac12$\,d &
+\textbf{weighted conformal needs exactly R-07/T-13's density ratio} --- two
+unrelated-looking items are one measurement. And the project already computes
+four free physics-residual OOD scores (entropy sign \foreignreg{2}{R-05},
+energy consistency, positivity \foreignreg{2}{R-04}, fixed-point distance
+\reg{T-33}) without labelling them as such \\
+
+\textbf{T-38} &
+\textbf{Rates as inputs --- the capability nobody claimed.} With a
+low-dimensional rate-perturbation input, autodiff gives
+$\partial\Ye'/\partial\theta$ at inference, i.e.\ \S\ref{sec:nucleardata}'s
+propagation study in milliseconds & \S\ref{sec:ratesinputs} & scope decision &
+changes what the artifact \emph{is}: from a fast network to a differentiable
+model of the network's dependence on its own inputs. Affordable restricted
+forms: a categorical FFN/LMP selector, or multipliers on the top-20 \Ye{}
+carriers \\
+
+\textbf{T-39} &
+\textbf{Which $\Delta t$ does the host actually take?} The nine-decade grid
+is inherited from the NNN, which inherited it from nobody's measurement &
+\S\ref{sec:hostdt} & ${\sim}0$ (same run as \reg{T-24}) &
+tells you which decades are training capacity spent on regions never
+visited, and where extrapolation risk actually lives \\
+
+\textbf{T-40} &
+\textbf{Sample complexity / capacity allocation.} Training compositions are
+random, hence spread over the full 80-dim simplex; deployment lies on a 3--9
+dim manifold (\foreignreg{2}{R-02}) --- so most of the corpus and most of the
+model's capacity go to states it will never be asked about &
+\S\ref{sec:samplecomplexity} & ${\sim}2$\,h &
+an argument for trajectory-derived data on \textbf{sample-efficiency}
+grounds, independent of distribution shift; predicts a few $10^{3}$
+on-manifold states could beat a great many off-manifold ones, which would
+make \S\ref{sec:phisupervision}'s $\Phi$-label budget the right design rather
+than a compromise \\
+
+\textbf{T-41} &
+\warnglyph{} \textbf{An unretired design premise, found while sweeping}: the
+architecture report's ``\nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46} carries
+\textbf{${\approx}75$\%} of the inter-group flow'' versus the measured
+\textbf{share 0.10--0.12, rank 2/251 (\msn{151}); top-20 carry 0.88
+(\msn{80})}. Both documents report this as CONFIRMED --- which it is
+\emph{qualitatively} and is not \emph{quantitatively} &
+\S\ref{sec:unretired} & ${\sim}1$\,h &
+second instance of a named pattern --- \textbf{a magnitude attached to a
+correct qualitative claim that does not survive measurement}: unsourced for
+``6--8 orders'' (retired \S\ref{sec:gates378}), sourced-but-transplanted for
+the 75\% (\citealt{woosley1973} via \citealt{hix1996}: ${\approx}70$\% of
+the flux \emph{into the iron-peak group} at one state, not the share of all
+inter-group carriers on the relaxed manifold). Retire with the measured
+replacement, then audit the remaining inherited premises for others. A
+\code{referee} task \\
+
+\textbf{T-42} &
+\textbf{Write the Tier-4 Part 0 before the first training run.}
+\S\ref{sec:fixedpoints}--\ref{sec:calibrated} plus
+\foreignreg{2}{R-03/R-05/R-13/R-21/R-24} are its contents; four open Phase-0
+checklist rows are its measurements; two architecture components have
+retired premises waiting there & \S\ref{sec:convergingnow} & ${\sim}1$\,wk &
+converts a list of post-hoc diagnostics into a \textbf{gate on the first
+training run}, which is the only time most of them are cheap \\
+\end{longtable}
+\endgroup
+
+% =====================================================================
+\subsection{Ranked --- the top eight}
+\label{sec:ranked}
+
+By (leverage on a project conclusion) $\div$ (cost to close). The second-pass
+items displace two of the original six, and the top of the list has changed
+character: it is now dominated by \textbf{questions about whether the project
+is aimed correctly}, which is what a boundary audit produces.
+
+\begingroup
+\small
+\begin{longtable}{@{}L{0.5cm} L{4.0cm} L{1.9cm} L{8.4cm}@{}}
+\toprule
+\textbf{\#} & \textbf{item} & \textbf{cost} & \textbf{why it is here} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{item} & \textbf{cost} & \textbf{why it is here} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+1 & \warnglyph{} \reg{T-24} --- profile MESA; get $p$, then Amdahl &
+\textbf{1 afternoon} &
+The founding premise, unmeasured, with MESA already built.
+$\min(1/(1-p),\,1/f)$ bounds the entire enterprise and \textbf{neither factor
+is known}. If $p = 0.5$ the ceiling is $2\times$ and everything downstream is
+differently valuable. Nothing else is this cheap and this decisive. \\
+
+2 & \reg{T-03} --- declare the validity domain & decision $+$ ADR &
+Free. Resolves an escalated fork, scopes \reg{T-16}, gives the OOD gate a
+target, and --- with \reg{T-21}'s observation that host codes use NSE there
+anyway --- is now clearly the right call rather than merely a defensible
+one. \\
+
+3 & \reg{T-07} $+$ \reg{T-01} $+$ \S\ref{sec:nucleardata} --- is
+$3 \times 10^{-6}$ the right gate? & ${\sim}1$\,d each &
+Three independent routes to the same question, which sets the project's whole
+cost. \textbf{Do \S\ref{sec:nucleardata} first} (rate-uncertainty
+propagation): the machinery exists, and it is the only one of the three that
+is both cheap and complete. \reg{T-07} is a division whose inputs both exist
+--- the baseline sits ${\approx}800\times$ outside the gate and nobody has
+written that down. \\
+
+4 & \reg{T-08} $+$ \reg{T-21} --- the real incumbent & ${\sim}1$\,h &
+Run NSE, persistence and nearest-neighbour as baselines; and notice that
+above 5\,GK an NSE-switching host code would use a Saha solve, not a network
+(MESA, the NNN's own host, would not --- \S\ref{sec:nsetransition}). Together
+these may redefine the emulator's domain \emph{and} its competitor, which is
+a scoping result, not a measurement. \\
+
+5 & \reg{T-05} $+$ \reg{T-06} $+$ \reg{T-14} --- make the verdict a claim &
+${\sim}\tfrac12$\,d &
+Cluster bootstrap over trajectories, null distributions (including the
+\textbf{positive control that the mask detector can detect a mask}), and the
+$\theta$ sweep. \S\ref{sec:statspackage} predicts the intervals will be wide
+enough that the split verdict's \emph{boundaries} are soft. A referee finds
+all three immediately. \\
+
+6 & \warnglyph{} \reg{T-25} $+$ \reg{T-26} --- the interface requirements &
+design $+$ ${\sim}1$\,d &
+An emulator with no $\partial\enuc/\partial\ln T$ cannot be installed on
+MESA's fully-coupled route (its \code{op\_split\_burn} route already runs
+without them), and removing the network's convergence failure silently breaks
+the host's timestep controller. Both respecify S22 \emph{before} it is built.
+\reg{T-25} also promotes \tierone{VIII.E.2} from an accuracy item to a
+prerequisite. \\
+
+7 & \reg{T-31} $+$ \reg{T-18} $+$ \reg{T-29} --- decide the rules before the
+numbers & ${\sim}0$, policy &
+Pre-register a primary metric, declare what ``beating'' means, and adopt the
+fixed-point audit as a standing dataset check. All three are policy lines on
+infrastructure the project already has, and all three become impossible to
+adopt honestly once results exist. \\
+
+8 & \reg{T-09} $+$ \reg{T-10} $+$ \reg{T-28} --- quantify the damage &
+${\sim}1$\,d compute &
+The pathology rests on $n = 2$ witnesses and a 120-state-per-bin census; and
+\reg{T-28} asks whether float32 labels even contain the cancellation the
+model must learn. \reg{T-03} needs the first two to draw its line honestly. \\
+\end{longtable}
+\endgroup
+
+Displaced but not dismissed: \reg{T-19} (mixing) and \reg{T-20} (the error
+hierarchy) are the two that most change how the project \emph{talks about
+itself} --- the artificial-versus-physical error framing is the strongest
+claim available and is not currently made --- but neither changes what to do
+next week.
+
+The shape of the ranking is worth naming. \textbf{Six of the eight are cheap;
+five are about knowing what you already have rather than measuring something
+new; and four are scoping decisions rather than experiments.} That is the
+characteristic signature of a project that has done a great deal of careful
+work and has not yet stopped to ask what it establishes, for whom, and
+against what.
+
+\textbf{The third-pass items rank separately, and deliberately so.} Nine of
+the ten require a trained model, so they cannot compete with the eight above
+on do-it-now grounds. They form a second list --- \emph{the gate on the first
+training run} --- with its own order:
+
+\begingroup
+\small
+\begin{longtable}{@{}L{0.5cm} L{4.4cm} L{9.9cm}@{}}
+\toprule
+\textbf{\#} & \textbf{item} & \textbf{why in this order} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{item} & \textbf{why in this order} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+1 & \reg{T-42} --- write the Tier-4 Part 0 first &
+It is the container for everything below, and it is the item
+\tierone{VIII.E.1} has been asking for since Tier 1. Doing it \emph{before}
+training is the difference between a measurement plan and a post-mortem. \\
+
+2 & \reg{T-33} --- the fixed-point census &
+The largest single risk that no existing gate can see, it is this tier's own
+headline failure mode aimed at the model, and the instrument
+(\code{step6\_label\_nse\_census.py} $+$ \code{solve\_nse}) already exists. \\
+
+3 & \reg{T-34} --- the Jacobian spectrum &
+Turns S20 from heuristics into a checked property, and can be run on a
+half-trained model to catch a bad architecture early. \\
+
+4 & \reg{T-35} $+$ \reg{T-37} --- the deployment numerics of the gate &
+Both respecify S22 before it is built: one says a dispatcher breaks the
+host's Newton, the other says the specified ensemble is the wrong tool on
+both statistical and economic grounds --- and that four free physics-residual
+scores already exist. \\
+
+5 & \reg{T-36} $+$ \reg{T-39} $+$ \reg{T-40} --- conditioning and data
+design &
+All three change what the training run \emph{is} (inputs, $\Delta t$
+coverage, which states to label), so they are worth settling before spending
+the compute, and all three are cheap. \\
+
+6 & \reg{T-41} --- audit the inherited premises &
+An hour, a \code{referee} task, and it is the second instance of a named
+pattern rather than a one-off. \\
+
+7 & \reg{T-38} --- rates as inputs &
+A scope decision to \emph{record}, most likely deferred; it changes what the
+artifact is for, and deciding it late costs a retraining. \\
+\end{longtable}
+\endgroup
+
+% =====================================================================
+\subsection{How this register was built}
+\label{sec:registerbuilt}
+
+Two passes, mirroring \code{tier2.md} \S VII's method.
+
+\textbf{Pass 1 --- per-node gap sweep.} For each of S11--S16, three
+questions: what does this node assume that nothing measures? what does it
+measure whose \emph{scale} is uncalibrated? what does it decide that could
+have been decided otherwise? Produced \reg{T-02}, \reg{T-04}, \reg{T-05},
+\reg{T-06}, \reg{T-09}, \reg{T-10}, \reg{T-13}, \reg{T-14}, \reg{T-16},
+\reg{T-18}.
+
+\textbf{Pass 2 --- swept along axes the nodes do not organise by.} Domain of
+validity (\reg{T-03}, \reg{T-12}), deployment realism (\reg{T-11}), external
+references (\reg{T-01}, \reg{T-07}, \reg{T-08}), independent verification
+(\reg{T-15}), and outputs other than composition (\reg{T-17}).
+
+\textbf{Axes checked and found already covered}, listed so the sweep is
+auditable:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{5.2cm} Y@{}}
+\toprule
+\textbf{axis} & \textbf{already covered by} \\
+\midrule
+conservation exactness & Tier~2 \S I.2, gate is blocking \\
+rate provenance & Tier~1 \S VI, 135 outliers class-explained \\
+join keys and dataset identity & \S\ref{sec:shippedpipeline},
+  \code{state\_id} discipline \\
+screening convention & \code{CLAUDE.md} two-$\kappa$ rule $+$
+  \code{manifold.py}'s refusal \\
+group-boundary sensitivity & config variant, both reported, $\le 0.02$
+  effect \\
+campaign reproducibility & manifests $+$ sha256 $+$ DONE sentinels \\
+energy convention & \S\ref{sec:pin}, pinned by measurement \\
+positivity & \foreignreg{2}{R-04} (open there, not duplicated here) \\
+identifiability & \foreignreg{2}{R-03} (referenced in
+  \S\ref{sec:identifiability}, not duplicated) \\
+the speedup ceiling & \foreignreg{2}{R-12} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Pass 3 --- the boundary sweep}, run as a separate audit and written
+up as \S\ref{sec:boundaryaudit}. It swept three axes the tier map does not
+organise by (the physical setting outside the burning zone; the interface;
+the mathematics and practice of producing the result) and produced
+\reg{T-19} \ldots{} \reg{T-32}.
+
+\textbf{Pass 4 --- the emulator as an object}, written up as
+\S\ref{sec:emulatorobject}. Run without waiting for an artifact, by asking
+what one would measure \emph{of} a trained model and what a host solver would
+do \emph{with} it. Produced \reg{T-33} \ldots{} \reg{T-42}.
+
+\textbf{Is it converging?} \S\ref{sec:converging} gives the answer after
+pass 3 and \S\ref{sec:convergingnow} the answer after pass 4 --- the short
+version being that the yield stopped \emph{spreading}: pass 3's ten items sat
+on four axes, pass 4's ten sit on one. The remaining unexplored prerequisite
+is essentially a single subject --- \textbf{the theory and practice of a
+learned flow map} --- which is a Tier-4 Part 0 (\reg{T-42}). The fuller
+reasoning follows; the short version is that \textbf{the physics audit has
+converged and the boundary audit has not.} Pass 3's physics axis found
+exactly one gap (mixing) --- and that one was already a flagged caveat in
+Tier 0, so the audit upgraded a known approximation rather than discovering
+an unknown. Its \emph{interface} axis found four items from four questions. A
+pass that scores every time it looks is not finished, and the structural
+reason is that the project has no artifact yet: there is nothing to ask
+interface questions of. Expect another audit's worth when the first model is
+deployed.
+
+The honest statement, now across all three passes: \textbf{the measurement
+debt in Tier~3 is small, the interpretation debt is large, and the interface
+debt is entirely unpaid.} Of thirty-two items, eleven cost an hour or less;
+five of those are about reading numbers that already exist; and four of the
+top eight are scoping decisions rather than experiments.

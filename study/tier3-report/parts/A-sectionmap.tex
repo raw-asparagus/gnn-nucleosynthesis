@@ -1,0 +1,183 @@
+% =====================================================================
+%  Appendix A -- the source document's own section map.
+%  Source: tier3.md:148-224 (the Contents table and the collapsed
+%  "Full section list"), reproduced so that the source's own
+%  Part 0 / I ... X architecture survives the re-architecture into a
+%  physics arc.
+% =====================================================================
+
+\section{The source document's section map}
+\label{app:sectionmap}
+
+This report re-architects \code{study/tier3.md} into a physics arc
+(\hyperref[sec:edition]{A note on this edition}). The source's own organisation
+--- Part~0 the astrophysics, then node by node from S11 to S16, then the
+handoff, the register, the boundary audit and the emulator-as-an-object pass ---
+is reproduced here so that nothing about it is lost, and so that a reader who
+knows the source document can navigate this one.
+Appendix~\ref{app:concordance} is the heading-by-heading map between them.
+
+\subsection{The source's Contents table}
+\label{app:sourcecontents}
+
+\begingroup
+\small
+\begin{longtable}{@{}L{2.6cm} L{12.4cm}@{}}
+\toprule
+\textbf{Part} & \textbf{Covers} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Part} & \textbf{Covers} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{0} --- The astrophysics &
+The star as a self-gravitating engine (virial theorem, negative heat capacity,
+the $\rho$--$T$ plane); the burning staircase derived (ignition temperatures,
+energy per gram, the $T^9$ neutrino clock, why Si burning lasts a day); silicon
+burning hydrostatic \emph{and} explosive, $\alpha$-rich freeze-out; the onion,
+the iron core, compactness; \textbf{core collapse derived end to end}
+($\Gamma_1 < 4/3$, trapping, the homologous core, why the prompt shock fails,
+the delayed mechanism, the mass cut); the observable end (\nuc{Ni}{56} light
+curves, isotopic ratios, GCE, remnants); where \Ye{} comes from; the
+computational setting and the emulation landscape; \textbf{the astrophysics
+$\to$ gate mapping table} \\
+
+\textbf{I} (S11) --- bbq\,/\,MESA operation &
+What a one-zone burner is and what it deliberately is not; MESA's network
+solver; bbq's four modes and why only one of them can produce a trajectory; the
+inlist as a config surface; the shipped-label pipeline reconstructed; the rerun
+campaign (ADR 0005) --- design, families, cadence, execution, validation \\
+
+\textbf{II} (S12) --- Trajectories \& eps\_nuc &
+The file format; the composition route to energy derived from mass excesses;
+\textbf{the convention pin as a hypothesis test over $2 \times 2 \times 2$
+candidates}; the stall, reinterpreted twice; \code{terminal} vs
+\code{first\_quiet} and why the default moved \\
+
+\textbf{III} (S13) --- Si burning \& the label pathology &
+What a real trajectory looks like; the NSE census; \textbf{the gh-575 mechanism
+traced from a Fortran branch to a displaced attractor to a wrong \Ye}; the
+witness experiment; the dt-freeze signature; the benchmark-vs-physics fork; what
+a negative result about your own dataset obliges you to do \\
+
+\textbf{IV} (S14) --- The kill-test &
+The question as a matrix question; the instruments and the strata; \textbf{the
+two distributions}; every gate, measured; the split verdict and the $1/\kap$
+amplification it names; the statistics the verdict does not carry (R-08); what
+would have changed the answer \\
+
+\textbf{V} (S15) --- The ML target &
+Target A/B restated post-verdict; why the decision is about conditioning and
+supervision, not expressivity; the empty mask and what Component B becomes;
+\Phifl-supervision feasibility and the identifiability cost; the NuGNN failure
+mode as a design constraint \\
+
+\textbf{VI} (S16) --- The baseline &
+The NNN as an object: architecture, training set, loss, the nine-model
+structure; what it achieves and where it fails; the reproduction; NuGNN;
+\textbf{what ``beating it'' must mean and the evaluation protocol that
+requires} \\
+
+\textbf{VII} --- Handoff &
+What Phase 0 established, what it retired, the four escalations, and the state
+Tier 4 inherits \\
+
+\textbf{VIII} --- The open register &
+T-01 \ldots T-32, each pointing at the section that derives it, plus a ranked
+top eight and the cross-tier links \\
+
+\textbf{IX} --- Prerequisites outside the map &
+\textbf{The cross-tier boundary audit}: ten areas with no study node anywhere in
+Tiers 0--3 --- mixing, the NSE transition, progenitor diversity, what computes
+explodability, the error hierarchy, the runtime fraction, the seven-item
+call-site contract, simplex geometry, experiment design, the artifact lifecycle.
+Plus the axes checked and found covered, and an honest convergence assessment \\
+
+\textbf{X} --- The emulator as an object &
+\textbf{The fourth pass}, run without waiting for an artifact: the learned map's
+\textbf{own fixed points} (this tier's headline failure mode, aimed at the
+model); its \textbf{Jacobian spectrum} (does stiffness survive learning ---
+under- vs over-contraction); a \textbf{fallback dispatcher as a discontinuity in
+the host's Newton solve}; \textbf{$\rho$ is not a free input dimension}; what
+\emph{calibrated} means (conformal, and the four free physics-residual OOD
+scores the project already computes); rates as inputs; the host's real
+$\Delta t$ distribution; capacity allocation; \textbf{one unretired design
+premise found while sweeping}; and why the audit has now localised to a single
+subject \\
+\end{longtable}
+\endgroup
+
+\begin{aside}
+The Contents table is transcribed as it stands, including its ``T-01 \ldots
+T-32'' for Part~VIII and ``The fourth pass'' for Part~X; the full section list
+below and the register itself say T-42 and ``the third pass''
+(\hyperref[sec:edition]{A note on this edition}).
+\end{aside}
+
+\subsection{The source's full section list}
+\label{app:sourcelist}
+
+Reproduced verbatim from the collapsed \code{<details>} block of the source
+(lines 164--224), with the source's unicode set in ASCII (superscript isotopes
+as plain digits, the warning glyph as ``!'', Greek letters spelled out).
+
+\begin{srclistingtiny}
+0.1  The star as an engine        hydrostatic eq . virial theorem . negative heat
+     capacity . the rho-T plane . why massive stars stay non-degenerate
+0.2  The burning staircase        ignition from the Gamow peak . energy per gram
+     computed . the T9 neutrino clock . why Si burning lasts a day
+     0.2.5 ! CONVECTION: the Damkohler competition; mixing homogenises Ye but
+           averages away none of a correlated error
+0.3  Silicon burning              rearrangement mechanically . hydrostatic vs
+     EXPLOSIVE . complete/incomplete burning . alpha-rich freeze-out
+     0.3.6 ! the NSE TRANSITION: where a host replaces the network with a table
+0.4  The onion and the Fe core    shells . effective M_ch . entropy . compactness
+     0.4.5 ! which stars? mass . metallicity . rotation . BINARITY (n = 1 today)
+0.5  Core collapse, derived       Gamma1<4/3 . the two runaways . free-fall .
+     TRAPPING with numbers . the homologous core . why the prompt shock fails .
+     the delayed mechanism . the mass cut . where Ye enters, five times
+     0.5.9 ! what "explodability" operationally IS -- and why its derivative is
+           a threshold on a non-monotonic function, not a number to look up
+0.6  The observable end           56Ni + Arnett . isotopic ratios . GCE .
+     remnants and 44Ti . ! the missing derivative (R-14 / T-01)
+     0.6.6 ! THE ERROR HIERARCHY -- artificial vs physical error, the framing
+           the project should be using and is not
+0.7  Where Ye comes from          EC threshold . the ratchet . the controllers
+0.8  The computational setting    MESA's inner loop . the cost model . the
+     emulation landscape . what this project adds
+     0.8.5 ! THE BOTTLENECK PREMISE IS UNMEASURED -- Amdahl x the 1/f ceiling
+     0.8.6 ! THE CALL-SITE CONTRACT -- seven requirements, six with no gate
+0.9  Astrophysics -> gates         the mapping table + the requirements with NO
+     gate at all                  0.10 self-check (16 questions)
+
+I.1-I.4   one-zone burners . MESA's solver . ! I.2b what the network RETURNS
+          (derivatives; the convergence flag) . bbq's modes . the inlist
+I.5-I.8   the shipped-label pipeline . the campaign . ! I.6b coverage geometry .
+          execution . validation
+II.1-II.4 format . ! II.1b what a row is NOT (float32 vs cancellation) .
+          the composition route . the PIN . the stall
+III.1-III.7 real trajectories . the NSE census . gh-575 . the witness .
+            ! III.4b the fixed-point audit that would have caught it on day one .
+            the freeze . the Ye consequence . the fork
+IV.1-IV.9  the question . instruments . two distributions . every gate .
+           the split . ! IV.8b the statistics package (bootstrap . theta sweep .
+           the positive control nobody ran) . what would have changed the answer
+V.1-V.6    A vs B post-verdict . the empty mask . Phi supervision . identifiability
+           ! V.5b the SIMPLEX: positivity and linear conservation pull apart
+           ! V.5c host-side derivatives == tier1 SVIII.E.2's unimplemented Q(T)
+VI.1-VI.6  the NNN . the reproduction . NuGNN . what beating it means .
+           ! VI.5b the protocol, written out
+VII        handoff        VIII  the register T-01 ... T-42 (two ranked lists)
+IX         ! THE BOUNDARY AUDIT -- ten areas with no node in any tier;
+           experiment design & multiplicity; the artifact lifecycle;
+           nuclear-data uncertainty promoted; is the audit converging?
+X          ! THE EMULATOR AS AN OBJECT -- its own fixed points . its Jacobian
+           spectrum . the dispatcher discontinuity in the host's Newton .
+           rho is not a free dimension . conformal + the free physics scores .
+           rates as inputs . the host's real Dt . capacity allocation .
+           an unretired premise (45Sc "75%") . the audit has LOCALISED
+```\end{srclistingtiny}

@@ -1,0 +1,210 @@
+% =====================================================================
+%  3 -- WHERE Y_e COMES FROM: THE WEAK SECTOR, QUANTITATIVELY.
+%
+%  Source: tier3.md 0.7 intro (2213-2216), 0.7.1 (2218-2263),
+%          0.7.2 (2265-2321), 0.7.3 (2323-2350);
+%          plus self-check Q9 from 0.10 (2736-2738) -> sec:selfcheck-weak.
+%  Headings covered: "0.7 Where Ye comes from -- the weak sector,
+%          quantitatively" (-> \section),
+%          "0.7.1 The identity, and what can move it",
+%          "0.7.2 Electron capture in a degenerate plasma -- why it is
+%                 (nearly) a one-way ratchet",
+%          "0.7.3 The measured Ye carriers".
+%  Re-homings / rewordings: this section is MOVED UP from source 0.7 to
+%          report section 3, i.e. it now precedes the collapse section
+%          (source 0.4-0.5) and the observable end (source 0.6).
+%          Consequently the opening sentence "SS0.3-0.6 established that
+%          Ye is the quantity" is reworded to a mixed past/forward form
+%          (TeX comment at the spot).  "the runaway of SS0.5.2" is left
+%          as a forward \ref (fine).  Blockquote 2228-2229 -> invariant.
+% =====================================================================
+
+\section{Where \texorpdfstring{\Ye}{Ye} comes from --- the weak sector, quantitatively}
+\label{part:weak}
+
+% [edition] reworded cross-ref: "SS0.3-0.6 established that Ye is the quantity."
+\S\ref{part:siburn} established, and \S\ref{part:collapse}--\S\ref{part:observables}
+will establish, that \Ye{} is the quantity. This section is where it actually
+changes, which is the sector this project's invariants protect most fiercely.
+
+% =====================================================================
+\subsection{The identity, and what can move it}
+\label{sec:yeidentity}
+
+From the definitions (Tier~0 \S II.5),
+%
+\begin{equation}
+\Ye \;=\; \sum_i Z_i Y_i \;=\; \sum_i \frac{Z_i}{A_i}X_i ,
+\label{eq:yeidentity}
+\end{equation}
+%
+and the key structural fact:
+
+\begin{invariant}
+\textbf{No strong or electromagnetic reaction can change \Ye.} They conserve
+$Z$ and $A$ separately, so $\sum Z_i\,\dd Y_i = 0$ identically for every
+strong/EM column of $\nu$.
+\end{invariant}
+
+Nullity $\ge 2$ follows by construction (strong and electromagnetic reactions
+conserve $Z$ and $A$ separately; \citealt[\S I]{langanke2003a}); that the left
+null space of $\nu$ restricted to strong/EM columns is \emph{exactly}
+2-dimensional and equals $\mathrm{span}\{A, Z\}$ --- the strong subgraph is
+connected --- is measured in Tier~2 \S I.2.1 (no RESULTS.md row yet: RESULTS
+2026-07-08 logs the full-$\nu$ nullity 1 only). So \textbf{every bit of \Ye{}
+evolution comes through the weak columns}, which are 46 of 607 in \msn{80} and
+173 of 1518 in \msn{151} \resultsref{2026-07-09}.
+
+Three consequences that shape everything:
+
+\begin{enumerate}
+\item \textbf{Invariant \#2 is structural, not stylistic.} Masking a weak
+  column as ``equilibrated'' does not lose a little accuracy; it deletes part
+  of the only channel that can produce the signal. And weak reactions are
+  \emph{not} in detailed balance in this regime --- the inverse of an electron
+  capture is neutrino absorption on the daughter, and the neutrinos have
+  already left the star (no final-state neutrino blocking;
+  \citealt{langanke2000} set $S_\nu = 0$ for exactly this reason); the
+  $Z$-restoring channels --- $\beta^{-}$ decay and positron capture --- are
+  separate reactions with their own phase space, not the time-reverse of EC.
+  There is nothing to balance against. (An earlier version called positron
+  capture ``the inverse'' of EC; corrected in the 2026-08-18 audit.)
+\item \textbf{$\kap \equiv 1$ on weak columns, structurally}, because the
+  engine stores them unpaired ($\fm \equiv 0$). Verified exactly on 8.8
+  million / 33.2 million (weak column $\times$ relaxed row) samples with
+  $\fp > 0$ \resultsref{2026-07-12}. So weak columns are automatically in any
+  $\{\kap > \text{threshold}\}$ active set --- the 95\% \Ye-coverage gate
+  passes at 1.0000 \emph{structurally} (\S\ref{sec:gate1}).
+\item \textbf{The signal is small and rides on top of large strong-sector
+  activity.} The strong sector moves individual $Y_i$ by $O(1)$ relative
+  amounts while leaving \Ye{} exactly invariant; the weak sector moves \Ye{} by
+  $\sim 10^{-3}$ over a label-length trajectory segment (and by several
+  $\times\,10^{-2}$ over the whole Si-burning-to-collapse evolution;
+  \citealt{heger2001}). A model that gets the strong sector slightly wrong in a
+  way that \emph{leaks} into the charge row destroys the signal. That is
+  Tier~2 \S 0.4's entire argument for conservation-by-construction, and this
+  is the physical reason it bites.
+\end{enumerate}
+
+% =====================================================================
+\subsection{Electron capture in a degenerate plasma --- why it is (nearly) a one-way ratchet}
+\label{sec:ecratchet}
+
+The rate of electron capture on a nucleus depends on the number of electrons
+above the capture threshold. In a degenerate plasma the electrons fill states
+up to \eF, so the rate is controlled by whether \eF{} exceeds the threshold
+energy $Q_{\mathrm{EC}}$ --- and \eF{} rises with density as $\rho^{1/3}$
+(\S\ref{sec:degeneracy}; \citealt[\S IV]{langanke2003a}).
+%
+\begin{equation}
+\lambda_{\mathrm{EC}} \;\propto\; \int_{Q_{\mathrm{EC}}}^{\infty}
+\!\!(E - Q_{\mathrm{EC}})^{2}E^{2}\,f(E,\mu_e,T)\,\dd E
+\quad\xrightarrow[\text{degenerate}]{}\quad
+\lambda \sim \frac{\ln 2}{K}\,\frac{(\eF - Q)^{5}}{(m_ec^2)^5}\ \text{-ish},
+\label{eq:lambdaec}
+\end{equation}
+%
+i.e. a steep (roughly fifth-power) sensitivity to how far the Fermi energy
+exceeds threshold \derivedhere[{from the LMP phase-space integral ---
+\citealt[eq.~5a]{langanke2000}: the exact integrand is
+$w\,p\,(Q + w)^{2}\,F(Z, w)\,S_e$; the $\sim E^{5}$ sensitivity is stated in
+\citealt[\S IV]{langanke2003a}; it is $(\eF - Q)^{5}$ far above threshold and
+$\propto (\eF - Q)^{3}$ just above it; Tier~0 \S 0.1.5 does this properly}].
+The practical consequences:
+
+\begin{itemize}
+\item \textbf{Rising density switches EC on hard.} As the core contracts, \eF{}
+  rises, crosses thresholds one nucleus at a time, and the capture rates jump
+  by orders of magnitude (\citealt{suzuki2016}: 3--4 orders over
+  $\Delta\log_{10}\rho\Ye = 0.02$ at a threshold). \Ye{} falls faster as the
+  collapse proceeds --- the runaway of \S\ref{sec:runaways}.
+\item \textbf{The restoring channels --- $\beta^{-}$ decay and positron capture
+  --- are suppressed}: $\beta^{-}$ decay is \textbf{Pauli-blocked} in a
+  degenerate plasma, since the emitted electron must find an empty state above
+  \eF, and there are few \citep{langanke2003a}. So the restoring force is
+  suppressed exactly where the driving force is strongest.
+\item \textbf{Therefore \Ye{} ratchets downward} --- monotone-non-increasing to
+  a good approximation once $\eF \gg$ typical $Q$. During Si burning at
+  $\rho \sim 10^{7}$--$10^{9}$~\gcc, however, $\beta^{-}$ decay can balance EC
+  for a period (\citealt{heger2001}: $\beta$-decay balances electron capture
+  around $\log(t_b - t) = 3.5$--4.5 in the 15~\Msun{} model, and accounts for
+  about half of the $\dYe = 0.005$--0.015 by which the new models' central
+  \Ye{} at collapse exceeds WW95's), so the strict ratchet is a collapse-phase
+  statement; what the gate arithmetic needs is the \emph{sign} of the bias, not
+  irreversibility (an earlier version said \Ye{} ``essentially never goes back
+  up in this regime''; corrected in the 2026-08-18 audit). Any error in the
+  weak sector accumulates in a preferred direction --- which is precisely the
+  ``systematic'' row of the accumulation trichotomy (Tier~0 \S IV.3) and the
+  reason the per-step gate is set by $N\cdot\delta$ rather than
+  $\sqrt{N}\cdot\delta$ (Tier~2 \S 0.3.4).
+\end{itemize}
+
+\textbf{And this is where the two networks differ most.} \msn{80} contains only
+6 of 9 electron-capture controllers and \textbf{0 of 8} $\beta$-decay partners
+of the \Ye-controller set \resultsref{2026-07-08}. It lacks the $\beta^{-}$
+partners of the named \Ye{} controllers (it does carry 19 $\beta^{-}$ channels
+elsewhere --- RESULTS 2026-07-08 weak-sector breakdown), a more extreme form of
+the asymmetry than the physics itself imposes. Tier~0 \S I.4 asks you to
+predict the bias direction from that; the answer is that \msn{80} should
+over-drive \Ye{} downward relative to \msn{151} in any regime where the
+missing $\beta$-decay partners are populated.
+
+That is a \emph{testable prediction about the dataset} which, as far as these
+notes can tell, has never been run. Registered here as \reg{T-02}.
+
+% =====================================================================
+\subsection{The measured \texorpdfstring{\Ye}{Ye} carriers}
+\label{sec:yecarriers}
+
+On the relaxed manifold, in the high-\Ye{} QSE window, the $|\dd\dot Y_e|$
+budget is extremely concentrated \resultsref{2026-07-12}:
+
+\begin{center}
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{1.3cm} L{4.0cm} L{3.0cm} Y L{2.4cm}@{}}
+\toprule
+\textbf{rank} & \textbf{\msn{80}} & \textbf{share} & \textbf{\msn{151}} &
+  \textbf{share} \\
+\midrule
+1 & \nuc{Ni}{56} EC & 0.62 & \nuc{Ni}{56} EC & 0.28 \\
+2--5 & \nuc{S}{31} EC, \nuc{Fe}{52} EC, p EC & $\to$ 0.96 cumulative &
+  (ditto class) & $\to$ 0.75 \\
+top-20 & & \textbf{1.00} & & \textbf{1.00} \\
+\bottomrule
+\end{tabularx}
+\endgroup
+\end{center}
+
+Twenty channels out of 46/173 weak columns carry essentially the entire \Ye{}
+signal, and one channel carries a majority of it in \msn{80}. Two design
+consequences follow directly and are already in the project's plan:
+
+\begin{itemize}
+\item \textbf{Loss weighting} should be concentrated on those channels (a flat
+  per-column loss would spend almost all its capacity on columns that do not
+  matter for the headline quantity).
+\item \textbf{The \nuc{Ni}{56} EC rate's uncertainty is a first-order term in
+  the emulator's error budget}, on par with everything the model itself does.
+  That is the rate-uncertainty $\to$ \Ye{} propagation flagged as
+  \tierone{VIII.C.1} and still open.
+\end{itemize}
+
+Note the contrast with the \emph{training} distribution, where the \#1 carrier
+is Ne18 $\to$ F18 EC --- a proton-rich fast capture that exists because the
+Sobol compositions are random and proton-loaded, not because it happens in a
+star \resultsref{2026-07-10}. The \Ye{} physics on the training grid is not the
+\Ye{} physics of silicon burning. \S\ref{sec:twodistributions} again.
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-weak}
+
+Answer without scrolling up.
+
+\begin{selfcheck}
+% source 0.10 Q9
+\item Why is $\beta^{-}$ decay unable to undo electron capture in a
+  \emph{strongly} degenerate collapsing core --- and when, during Si burning,
+  does it manage to? What does that imply about how an emulator's \Ye{} error
+  accumulates?
+\end{selfcheck}

@@ -1,0 +1,378 @@
+% =====================================================================
+%  5 -- THE OBSERVABLE END  (source Part 0, section 0.6).
+%
+%  Source: tier3.md lines 1937-2210, in full and in order --
+%          0.6   intro (1937-1941)                    -> \section
+%          0.6.1 56Ni and the light curve (1943-1996)  -> sec:ni56
+%          0.6.2 Isotopic ratios and the neutron excess (1998-2045)
+%                                                      -> sec:isotopicratios
+%          0.6.3 Galactic chemical evolution (2047-2068) -> sec:gce
+%          0.6.4 Remnants: the two objects everyone cites (2070-2093)
+%                                                      -> sec:remnants
+%          0.6.5 (warn glyph) The derivative nobody has assembled
+%                (2095-2151)                           -> sec:missingderivative
+%          0.6.6 The error hierarchy (2153-2208)       -> sec:errorhierarchy
+%
+%  No self-check block belongs to this file.
+%
+%  Re-homings: none.  Rewordings: none.  Every internal "SS0.x.y" pointer
+%  is rendered as a live \ref through the label registry; Tier 2 pointers
+%  ("Tier 2 SS I.5", "Tier 2 SS 0.3.3", "Tier 2 SS 0.3.4", "Tier 2 SS IV.9")
+%  stay as plain text; "tier1.md SS VIII.C.1" -> \tierone{VIII.C.1}.
+%
+%  Source ambiguity resolved: the two "[typical of ...]" tags in 0.6.1 are
+%  rendered with \typical[of ...] (the macro prints "[typical; of ...]").
+% =====================================================================
+
+\section{The observable end}
+\label{part:observables}
+
+The chain has to terminate in something measurable, or the project is
+engineering rather than science. This section is what the measurements are,
+how they connect to \Ye, and --- at the end --- the derivative nobody has
+assembled.
+
+% =====================================================================
+\subsection{\texorpdfstring{\nuc{Ni}{56}}{56Ni} and the light curve}
+\label{sec:ni56}
+
+The supernova's optical display is powered by radioactive decay of the
+iron-peak material the explosion synthesised. The chain:
+%
+\begin{equation}\label{eq:nichain}
+{}^{56}\mathrm{Ni} \xrightarrow{\ t_{1/2} = 6.075\ \mathrm{d}\ } {}^{56}\mathrm{Co}
+\xrightarrow{\ t_{1/2} = 77.24\ \mathrm{d}\ } {}^{56}\mathrm{Fe} .
+\end{equation}
+
+Both steps are weak, and they are \textbf{not the same weak channel}:
+\nuc{Ni}{56} decays by electron capture essentially 100\% (its $\beta^{+}$
+branch is $1.3 \times 10^{-5}$), while \nuc{Co}{56} is $\approx$80\% EC and
+$\approx$20\% $\beta^{+}$ (ENSDF via the IAEA Live Chart: $\beta^{+}$ 19.7\%,
+EC 80.3\%; half-lives 6.075~d and 77.24~d --- ENSDF, retrieved 2026-08-18
+\citep{ensdf}). Given how carefully Tier~2 \S I.5 separates the lepton ledgers
+for $\beta^{+}$ versus EC, this distinction is worth keeping straight.
+
+The specific energy deposition rates are $\varepsilon_{\mathrm{Ni}} \approx 3.9
+\times 10^{10}$ and $\varepsilon_{\mathrm{Co}} \approx 6.8 \times 10^{9}$
+erg\,g$^{-1}$\,s$^{-1}$ at $t = 0$ (\citealt{nadyozhin1994}; re-derived here
+from the ENSDF mean energies per decay, 1.735 and 3.739~MeV: $3.95 \times
+10^{10}$ and $6.70 \times 10^{9}$). \textbf{Arnett's rule} \citep{arnett1982}
+--- the statement that at light-curve peak the luminosity approximately equals
+the instantaneous radioactive energy deposition rate --- then gives, for
+$M(\nuc{Ni}{56}) = 0.07~\Msun$ \typical[of neutrino-driven models above
+$\sim$12~\Msun, \citealt{sukhbold2016}; SN 1987A: 0.072--0.077~\Msun], a peak
+time $\sim$18 days \typical[of stripped-envelope events; \citealt{lyman2016},
+not opened here], and the \emph{mean} lives $\tau = t_{1/2}/\ln 2$
+($\tau_{\mathrm{Ni}} = 8.76$~d, $\tau_{\mathrm{Co}} = 111.4$~d;
+\citet{diehl2015} quote ``$\tau \sim 8$ days'' and ``$\tau \sim 111$ days''):
+%
+\begin{equation}\label{eq:lpeak}
+L_{\mathrm{peak}} \;\approx\; M_{\mathrm{Ni}}\left[\varepsilon_{\mathrm{Ni}}e^{-t/\tau_{\mathrm{Ni}}} + \varepsilon_{\mathrm{Co}}\left(e^{-t/\tau_{\mathrm{Co}}} - e^{-t/\tau_{\mathrm{Ni}}}\right)\right]
+\;\approx\; 1.4\times10^{42}\ \mathrm{erg\ s^{-1}} .
+\end{equation}
+
+\derivedhere[$1.38 \times 10^{42}$ recomputed with the mean lives; using the
+half-lives in the exponents would give $9.8 \times 10^{41}$; right order of
+magnitude for a stripped-envelope event]
+
+\textbf{A qualification that matters and is routinely botched.} Arnett's rule
+applies at \emph{peak} to \textbf{stripped-envelope} supernovae (Types Ib/c),
+where there is no hydrogen envelope and the light curve is
+radioactivity-powered throughout. A 20~\Msun{} progenitor that retains its
+envelope produces a \textbf{Type IIP}, whose plateau is powered by hydrogen
+recombination \citep{popov1993, kasen2009} --- there \nuc{Ni}{56} sets the
+post-plateau radioactive tail and modulates the plateau \emph{length}, not the
+peak luminosity \citep{kasen2009, nakar2016}. Tier~2 \S 0.3.3 makes this point;
+it is repeated here because ``\nuc{Ni}{56} mass sets the peak brightness'' is a
+sentence that will be wrong for most of the events this project's progenitors
+produce.
+
+Either way, the connection to \Ye{} is direct: \textbf{\Ye{} sets how much of
+the ejecta reaches \nuc{Ni}{56} rather than \nuc{Fe}{54} or \nuc{Ni}{58}}
+(\S\ref{sec:endpoint}; \citealt{woosley2007}), so the \nuc{Ni}{56} mass --- a
+comparatively well-determined nucleosynthetic quantity (\citealt{sukhbold2016}
+call the SN 1987A and Crab \nuc{Ni}{56} masses ``fairly well determined'') ---
+is a readout of the neutron excess of the burnt material.
+
+% =====================================================================
+\subsection{Isotopic ratios and the neutron excess}
+\label{sec:isotopicratios}
+
+The sharper observables are ratios, because they cancel much of the dependence
+on the total ejected mass and the mass cut.
+
+\begin{itemize}
+\item \textbf{\nuc{Ni}{57}/\nuc{Ni}{56}} (observed as \nuc{Co}{57}/\nuc{Co}{56}
+  in the late light curve, since $\nuc{Ni}{57} \to \nuc{Co}{57} \to
+  \nuc{Fe}{57}$). \nuc{Ni}{57} has one extra neutron, so its yield relative to
+  \nuc{Ni}{56} increases with the neutron excess $\eta = 1 - 2\Ye$
+  \assumednote{standard}, but it is nonzero at $\eta = 0$ and set by the
+  freeze-out type (\citealt{seitenzahl2014}, Fig.~1, computed at $\Ye = 0.5$
+  exactly). Measured in SN 1987A from the light-curve tail shape
+  (\citealt{seitenzahl2014}: $2.5 \pm 1.1 \times$ solar) and directly from the
+  \nuc{Co}{57} $\gamma$-lines (\citealt{kurfess1992}: $1.5 \pm 0.3 \pm 0.2
+  \times$ solar).
+\item \textbf{\nuc{Ni}{58}/\nuc{Fe}{56}} and \textbf{\nuc{Fe}{54}/\nuc{Fe}{56}}
+  in the solar abundance pattern. The Sun's iron-peak isotopic composition is a
+  stringent constraint on the \emph{average} \Ye{} of all the core-collapse
+  ejecta that ever enriched the interstellar medium. Overproducing the
+  neutron-rich iron-peak isotopes relative to solar is a classic failure mode
+  of supernova nucleosynthesis models (\citealt{woosley2007}: a mass cut deeper
+  than the iron core gives ``unacceptable overproductions of \nuc{Fe}{54,58}''),
+  and it is a direct \Ye{} diagnostic.
+\item \textbf{\nuc{Ti}{44}}, produced in $\alpha$-rich freeze-out
+  (\S\ref{sec:alpharich}; \citealt{the1998}) and observed as $\gamma$-ray lines
+  from Cas~A \citep{grefenstette2014} and SN 1987A \citep{boggs2015}. Sensitive
+  to the freeze-out conditions and hence to the shock energetics and mass cut
+  as well as to \Ye.
+\end{itemize}
+
+The general shape: \textbf{$\eta$ ranges over 0--0.10 across the regime box
+(\S\ref{sec:presnye}), and the neutron-rich isotopic yields are roughly
+proportional to $\eta$.} The amplification follows from $\eta = 1 - 2\Ye$, so
+$\delta\eta = 2\,\delta\Ye$ and
+%
+\begin{equation}\label{eq:etalever}
+\frac{\delta\eta}{\eta} \;=\; \frac{2\,\delta Y_e}{1-2Y_e}
+\;=\; \frac{2Y_e}{1-2Y_e}\cdot\frac{\delta Y_e}{Y_e}
+\;\approx\; 49\times\frac{\delta Y_e}{Y_e}
+\quad\text{at } Y_e = 0.49 .
+\end{equation}
+
+So a \emph{fractional} error in \Ye{} of $10^{-3}$ near $\Ye = 0.49$ (i.e.\
+$\delta\Ye = 4.9 \times 10^{-4}$) is a \textbf{4.9\% error in $\eta$}, and a
+4.9\% error in the yields that depend on it. \emph{That} is the correct way to
+see why absolute \Ye{} accuracy at the $10^{-3}$--$10^{-2}$ level is
+scientifically meaningful: the small quantity is $\eta$, not \Ye, and near the
+neutron-poor end of the box a relative error in \Ye{} is amplified by $\sim$50
+into a relative error in the observable. Solar isotopic ratios are known to
+percent precision; individual-supernova ratios (\nuc{Ni}{57}/\nuc{Ni}{56} in SN
+1987A) to $\sim$20--40\%.
+
+[The $\eta$-linearity claim is an approximation valid for the mildly
+neutron-rich isotopes --- and, since the \nuc{Ni}{57}/\nuc{Ni}{56} ratio is
+nonzero at $\eta = 0$ \citep{seitenzahl2014}, the $49\times$ lever is an upper
+bound on the sensitivity; it is not a substitute for the missing derivative in
+\S\ref{sec:missingderivative}. Tagged \textbf{\derivedhere[approximate]}.]
+
+% =====================================================================
+\subsection{Galactic chemical evolution}
+\label{sec:gce}
+
+Zoom out. Core-collapse supernovae are the dominant source of the $\alpha$
+elements (O, Ne, Mg, Si, S, Ca) and a major source of the iron peak; Type Ia
+supernovae contribute roughly half of the iron-peak elements, on a delayed
+timescale \citep{kobayashi2020}. The observed [$\alpha$/Fe] versus [Fe/H] trend
+in Galactic stars --- a plateau at low metallicity followed by a downturn --- is
+the fingerprint of that timing difference \citep{tinsley1979, kobayashi2020}.
+
+The relevance here: \textbf{GCE models take supernova yields as inputs,
+integrated over an initial mass function} \citep{kobayashi2020}. The yields are
+computed from progenitor models whose pre-supernova structure and composition
+come from stellar-evolution codes running nuclear networks. A systematic error
+in the network's \Ye{} propagates into every yield table, into every GCE model
+that uses it, and into the inferred history of the Galaxy. That is a genuinely
+large lever, and it is the argument that survives even if one is sceptical
+about explodability predictions.
+
+It is also an argument with a specific vulnerability: yield tables are
+dominated by uncertainties in the explosion mechanism and mass cut
+(\S\ref{sec:masscut}), and the composition improvement this project offers sits
+underneath those. The correct claim is \emph{reducing one identified systematic
+in the input}, not \emph{fixing yield tables}.
+
+% =====================================================================
+\subsection{Remnants: the two objects everyone cites}
+\label{sec:remnants}
+
+\textbf{SN 1987A.} The only core-collapse supernova with detected neutrinos
+($\sim$24 events: 11 in Kamiokande II, \citealt{hirata1987}; 8 in IMB,
+\citealt{bionta1987}; 5 in Baksan, \citealt{alekseev1988}; review
+\citealt{janka2017}), which confirmed the basic energetic picture --- total
+neutrino energy of a few $\times 10^{53}$~erg (``some $10^{53}$ erg'',
+\citealt{janka2017}) over $\sim$10~s (the signal spanned about 12~s), matching
+\S\ref{sec:promptshock}'s neutron-star binding energy to within the
+uncertainties. Its light curve gave $M(\nuc{Ni}{56}) \approx 0.07~\Msun$
+\sourcednote{0.072--0.077~\Msun, Utrobin et al.\ via \citealt{sukhbold2016}},
+and its late-time tail constrained \nuc{Ni}{57}/\nuc{Ni}{56}
+\citep{seitenzahl2014}.
+
+\textbf{Cassiopeia A.} A $\sim$350-year-old remnant (explosion date $1681 \pm
+19$, \citealt{fesen2006}), spatially resolved, with X-ray and $\gamma$-ray maps
+of individual elements including \nuc{Ti}{44} \citep{grefenstette2014}. It
+shows that the ejecta are strongly asymmetric \citep{milisavljevic2013,
+grefenstette2014} and that the iron-peak material is not distributed as a
+spherical model would predict --- a reminder that the one-dimensional chain in
+\S\ref{sec:corecollapse} is a caricature of a three-dimensional process.
+
+Both are cited in this project's framing as the observational anchors of the
+\Ye{} chain. Both deserve the caveat that they constrain the \emph{combination}
+of progenitor structure, explosion mechanism and mass cut, and that isolating
+the nuclear-network contribution from them has not been done here.
+
+% =====================================================================
+\subsection{\texorpdfstring{\warnglyph{}~}{}The derivative nobody has assembled}
+\label{sec:missingderivative}
+
+Everything above is qualitative. The quantitative link --- what error in \Ye{}
+changes a scientific conclusion --- has never been assembled in this project,
+and it is the weakest joint in the motivation.
+
+What exists:
+%
+\begin{equation}\label{eq:dmchdye-recall}
+\frac{dM_{\mathrm{ch}}}{dY_e} \;=\; 5.83\ M_\odot \text{ per unit } Y_e \text{ at } Y_e = 0.5
+\qquad\text{(\S\ref{sec:mch}, derived)}
+\end{equation}
+
+and the operative per-step gate, $|\Delta\Ye| \lesssim 3 \times 10^{-6}$, which
+comes from dividing the \textbf{weak-rate-physics shift} ($5 \times 10^{-3}$ to
+$1.5 \times 10^{-2}$ --- \citealt{heger2001}: the amount by which the central
+\Ye{} at core collapse of their LMP + $\beta$-decay models exceeds the WW95/FFN
+models', about half from adding $\beta$-decays and half from the smaller LMP
+capture rates; the project reads it as ``per trajectory'') by $N \approx 1.6
+\times 10^{3}$ steps under a systematic-accumulation assumption (Tier~2
+\S 0.3.4).
+
+Note what that is: \textbf{an input uncertainty used as an output tolerance.}
+The logic --- ``an emulator whose error is below the disagreement between two
+defensible rate libraries is not the limiting factor'' --- is sound as a
+\emph{floor}, and it is the right way to set one. But it says nothing about
+what error would change a conclusion, because
+%
+\begin{equation}\label{eq:missingderivs}
+\frac{\partial M({}^{56}\mathrm{Ni})}{\partial Y_e},\qquad
+\frac{\partial\,\xi_{2.5}}{\partial Y_e},\qquad
+\frac{\partial(\text{explodability})}{\partial Y_e},\qquad
+\frac{\partial(\text{isotopic ratios})}{\partial Y_e}
+\end{equation}
+%
+have not been measured here, cited from the literature, or estimated. The chain
+in \S\ref{sec:corecollapse} stops at ``shock birth radius'' and resumes at
+``observed \nuc{Ni}{56}'' with nothing connecting them numerically.
+
+Why closing it is worth the day it would take:
+
+\begin{itemize}
+\item \textbf{It could move the gate by orders of magnitude in either
+  direction.} If explodability is insensitive to $\delta\Ye$ at $10^{-3}$, the
+  $3 \times 10^{-6}$ per-step gate is over-engineered by a factor of hundreds
+  --- and the project is paying enormously for it (Tier~2 \S IV.9's cost wall
+  is downstream of exactly this demand). If some observable is sensitive at
+  $10^{-4}$, the gate is right and should be defended loudly.
+\item \textbf{It is the referee's first question.} ``You built a $3 \times
+  10^{-6}$-per-step emulator. What observable changes at $3 \times 10^{-6}$?''
+  The current answer routes through an input uncertainty. That is a defensible
+  proxy and it is not an answer.
+\item \textbf{Much of it is sourceable rather than computable.} Progenitor and
+  explosion model grids in the literature vary \Ye{} (usually implicitly,
+  through metallicity, rotation, or rate choices) and report yields. The
+  derivative may be extractable from published tables without running anything.
+\end{itemize}
+
+Carried as \foreignreg{2}{R-14} and as this tier's \reg{T-01}. It is the
+justification for the project's most expensive requirement, and it is missing.
+
+% =====================================================================
+\subsection{The error hierarchy --- what the emulator is actually competing with}
+\label{sec:errorhierarchy}
+
+\S\ref{sec:missingderivative} asks how accurate the emulator needs to be. This
+section asks the complementary and more uncomfortable question: \textbf{how
+accurate is everything else?} An improvement that lands two orders below the
+dominant error term is real engineering and not a scientific result, and the
+only way to know which situation you are in is to assemble the terms.
+
+Ranked by size, for the pre-supernova \Ye{} and composition of a massive-star
+model:
+
+\begingroup\footnotesize
+\begin{longtable}{@{}L{0.5cm} L{4.5cm} L{5.2cm} L{4.2cm}@{}}
+\toprule
+\textbf{\#} & \textbf{error term} & \textbf{size (in \Ye{} or its consequences)} & \textbf{status} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{\#} & \textbf{error term} & \textbf{size (in \Ye{} or its consequences)} & \textbf{status} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{4}{r}{\emph{continued on next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+1 & \textbf{3D convection vs MLT} --- entrainment, shell mergers, the
+    burning/mixing competition \citep{meakin2007, couch2015, muller2016b}
+  & qualitative changes to shell structure and yields; \textbf{not expressible
+    as a $\delta\Ye$}
+  & \S\ref{sec:convection}; unquantified anywhere \\
+2 & \textbf{explosion mechanism + mass cut} (for ejecta quantities only)
+  & dominates all ejecta composition claims
+  & \S\ref{sec:masscut} \\
+3 & \textbf{progenitor parameters} (mass, $Z$, rotation, binarity)
+  & the spread across a progenitor grid
+  & \S\ref{sec:whichstars} \\
+4 & \textbf{weak-rate physics} (WW95/FFN $\to$ LMP + $\beta$-decays)
+  & \textbf{$5 \times 10^{-3}$ -- $1.5 \times 10^{-2}$ per model} in central
+    \Ye{} at collapse (about half from adding $\beta$-decays, half from smaller
+    LMP capture rates)
+  & sourced (\citealt{heger2001}), adopted as the project's floor \\
+5 & \textbf{network size} (approx21 vs \msn{80} / \msn{151})
+  & the term this project removes: the NNN improves \Ye{} over approx21 by
+    377--651\% (\msn{80}) / 277--390\% (\msn{151}); the NNN's own per-step
+    \Ye{} error is $\approx 2.4 \times 10^{-3}$ absolute (0.33--0.54\% relative
+    on \msn{80}), so the approx21 error it improves on is correspondingly
+    (4--7$\times$) larger
+  & \resultsref{2026-07-08}, \S\ref{sec:nnncritical} \\
+6 & \textbf{rate uncertainties within a library} (Hauser--Feshbach factor
+    $\sim$2 on unmeasured channels; \citealt{rauscher2000}: ``within a factor
+    of 1.5--2'')
+  & unpropagated
+  & \tierone{VIII.C.1} \\
+7 & \textbf{emulator target}
+  & $3 \times 10^{-6}$ per step $\to$ $5 \times 10^{-3}$ per trajectory
+  & the gate \\
+8 & \textbf{conservation drift}
+  & $\le 10^{-12}$ per step
+  & measured 0.0 \\
+\end{longtable}
+\endgroup
+
+Read the table honestly and three things follow.
+
+\textbf{(i) The project's gate is set \emph{equal to} term 4 and is therefore
+correctly placed relative to the input physics.} The design logic --- do not be
+the limiting factor --- is sound, and rows 7 and 4 agreeing at the trajectory
+level is exactly the intended relationship. Row 8 being six orders below row 7
+is why conservation is free.
+
+\textbf{(ii) But rows 1--3 are larger and are \emph{not} reduced by anything
+this project does.} The defensible claim is therefore narrow and should be
+stated in this form: \textbf{the project removes term 5 and pushes term 7 below
+term 4.} It does not improve the pre-supernova model's total accuracy, because
+that is dominated by terms 1--3. What it \emph{does} is remove a term that is
+(a) currently large, (b) entirely artificial --- a compute compromise rather
+than a physical uncertainty --- and (c) removable at no accuracy cost, which
+none of terms 1--3 are.
+
+That distinction --- \textbf{artificial versus physical error} --- is the
+strongest framing available and it is not the one the project currently uses.
+An artificial error is one you would not make if compute were free. Removing
+artificial error is exactly what surrogate modelling is \emph{for}, and it does
+not require beating the physical uncertainties to be worth doing.
+
+\textbf{(iii) Term 6 is the one that could embarrass the project.} If
+unmeasured Hauser--Feshbach rates carry factor-2 uncertainties on channels that
+matter for \Ye, then a $3 \times 10^{-6}$ emulator and a $3 \times 10^{-4}$
+emulator produce indistinguishable science, and the gate is over-engineered by
+two orders. \tierone{VIII.C.1} has been open since Tier~1 and the machinery to
+close it (perturb rates, re-integrate, measure $\delta\Ye$) is entirely built
+--- the batch engine evaluates every rate and the reference integrator exists.
+
+\textbf{Term 6 is the cheapest of the three ways to answer ``is the gate
+right?''} --- the other two being \reg{T-01} (the output derivative, partly
+infeasible per \S\ref{sec:explodability}) and \foreignreg{2}{R-11} (the
+operator-split comparison). It should be first.
+
+Registered as \reg{T-20} (assemble the hierarchy as a project document) and it
+promotes \tierone{VIII.C.1} to the top of the cross-tier list.

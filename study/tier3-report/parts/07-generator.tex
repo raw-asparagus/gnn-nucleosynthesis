@@ -1,0 +1,506 @@
+% =====================================================================
+%  7 -- THE LABEL GENERATOR: bbq AND MESA AS OPERATED  (source node S11).
+%
+%  Source: tier3.md Part I -- header (2758-2763), I.1 (2765-2797),
+%          I.3 (2907-2937), I.4 (2939-2986), I.5 (2988-3026),
+%          I.6 (3028-3081), I.6b (3083-3130), I.7 (3132-3150),
+%          I.8 (3152-3200), I.9 self-check (3202-3215, all six).
+%
+%  NOT here (re-homed to 06-host, per the physics-arc architecture):
+%          I.2  "MESA's network solver, in enough detail to read the
+%               config" (2799-2841)            -> sec:netsolver
+%          I.2b "What the network returns -- the interface, as the host
+%               sees it" (2843-2905)           -> sec:netreturns
+%
+%  Cross-reference rewrites performed in this file:
+%   - I.1 "keeps only step 4 of SS0.8.1"        -> \S\ref{sec:mesastep}
+%   - I.1 "carries all the way to Part VII"     -> \S\ref{part:handoff}
+%   - I.4 (ii) "match bbq's defaults"           -> added "(\S\ref{sec:netsolver})"
+%   - I.6 "(Tier 1 SSVI.6, SSIII)"              -> the bare "SSIII" read as
+%          this document's Part III (label pathology) -> \S\ref{part:pathology}
+%  No sentence was reworded; every provenance tag, "corrected in the
+%  2026-08-18 audit" note and "an earlier version ..." note is kept.
+% =====================================================================
+
+\section{The label generator: bbq and MESA as operated}
+\label{part:generator}
+
+\textbf{What produced the data.} Every number in Tiers 0--2 is downstream of a
+label that a Fortran program wrote to a text file. This node is what that
+program is, what it was asked to do, and what the project did when it needed
+data the shipped set did not contain.
+
+% =====================================================================
+\subsection{What a one-zone burner is --- and what it deliberately is not}
+\label{sec:onezone}
+
+A stellar-evolution code solves a coupled boundary-value problem over
+${\sim}10^{3}$ zones. A \textbf{one-zone burner} throws all of that away and
+keeps only step 4 of \S\ref{sec:mesastep}: given $(T, \rho, X)$ and a duration
+$\Delta t$, integrate
+%
+\begin{equation}
+\label{eq:onezone}
+\frac{\dd\mathbf{Y}}{\dd t} \;=\; \nu\,\mathbf{R}(\mathbf{Y};\,T,\rho)
+\end{equation}
+%
+at \textbf{constant} $T$ and $\rho$, and report the final composition plus the
+integrated energy release.
+
+What is deliberately absent, and why each absence is a modelling decision
+rather than an oversight:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.6cm} Y@{}}
+\toprule
+\textbf{absent} & \textbf{consequence} \\
+\midrule
+hydrodynamics & no expansion/compression during the burn; no explosive-burning
+  freeze-out (\S\ref{sec:alpharich}) \\
+the energy equation feeding back on $T$ & \textbf{the burn does not heat the
+  zone} --- no thermonuclear runaway, no self-consistent ignition \\
+mixing & composition is local; no advection of fuel or ash \\
+neighbouring zones & no shell structure; no gradient-driven anything \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The third column of the argument is that this is \emph{exactly} the
+operator-split sub-problem a stellar code solves (\S\ref{sec:mesastep}), so a
+one-zone burner is not a simplified physics model --- it is a \textbf{faithful
+reproduction of one call}. That is what makes it a legitimate label generator
+for an emulator that will be dropped into that same call site.
+
+\textbf{And the caveat that carries all the way to \S\ref{part:handoff}:} the
+split's own error, and the $(T, \rho)$ feedback the split removes, are outside
+everything measured here (\S\ref{sec:mesastep}, \foreignreg{2}{R-11}). An
+emulator can be perfect on this data and still misbehave in the loop.
+
+% =====================================================================
+\subsection{bbq's four modes, and why only one made the shipped trajectories}
+\label{sec:bbqmodes}
+
+\code{bbq} (github.com/rjfarmer/bbq, pinned at commit 9783df31; \citealt{bbq}) is a thin
+driver around MESA's \code{net} module. Its source has five \code{lib\_*.f90}
+files --- a shared burn core \code{lib\_bbq.f90} plus one file per mode --- and
+\code{main.f90:22--29} dispatches on exactly four flags
+(\code{defaults/bbq.defaults:14--17}); choosing among them is the whole of
+ADR~0005's first decision. (An earlier version of this table listed five modes
+with two non-existent flags and mapped \code{use\_input\_file} to the shared
+core; corrected in the 2026-08-18 audit.)
+
+\begingroup\small
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.3cm} L{2.9cm} Y L{4.0cm}@{}}
+\toprule
+\textbf{mode (flag)} & \textbf{file} & \textbf{behaviour} &
+  \textbf{can it produce a trajectory?} \\
+\midrule
+\code{use\_input\_file} & \code{lib\_sampler.f90}
+  (\code{run\_sampler\_from\_file}) &
+  burn each row of an input file \textbf{independently} from that row's own
+  composition, for its own duration &
+  \textbf{no} --- no state carry-over (\code{lib\_sampler.f90:71}) \\
+\code{use\_random\_sampling} & \code{lib\_random.f90} &
+  draw random $(T, \rho, \text{composition})$ states and burn each & no \\
+\code{use\_profile} & \code{lib\_profile.f90} &
+  burn a $(t, \log T, \log\rho)$ list \textbf{carrying composition forward}
+  through the list (\code{:53--57}); header
+  \code{age dt logt logrho <isos>} &
+  \textbf{yes} --- the one mode that follows a \emph{non-constant} $(T, \rho)$
+  track --- but it \textbf{writes no eps\_nuc} (\code{:128, 160--165}), and it
+  was not used for any shipped file \\
+\code{use\_hydrostatic} & \code{lib\_hydrostatic.f90} &
+  burn a sequence of durations at constant $(T, \rho)$ \textbf{carrying
+  composition forward}, one output row each; header
+  \code{age dt eps\_nuc eps\_neu <isos>} (\code{:115}) &
+  \textbf{yes} --- the mode that made every shipped trajectory \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\endgroup
+
+Only \code{use\_hydrostatic} gives all three of (i) composition carry-over
+between rows, (ii) per-row \code{eps\_nuc}, and (iii) exact cadence control,
+because each line of \code{times.txt} is a per-step burn \emph{duration}
+(\code{use\_profile} gives (i) and (iii) but not (ii)). The shipped test
+trajectories have \code{lib\_hydrostatic.f90}'s exact header ---
+\code{age dt eps\_nuc eps\_neu <isos>} --- which is how the project knows which
+mode generated them (bbq commit 9783df31, \code{src/main.f90:22--29},
+\code{defaults/bbq.defaults:14--17}, \code{src/lib\_profile.f90:53--57, 128},
+\code{src/lib\_hydrostatic.f90:115}, \code{src/lib\_sampler.f90:71};
+ADR~0005).
+
+The rejected alternative is instructive: \code{use\_input\_file} with cumulative
+durations would burn each row from the \emph{initial} state rather than
+continuing, so reproducing an $N$-row trajectory would need $N$ sequential bbq
+invocations, each paying full network setup. That is not a small constant
+factor --- network setup dominates a short burn.
+
+% =====================================================================
+\subsection{The inlist as a configuration surface}
+\label{sec:inlist}
+
+\code{scripts/bbq\_campaign/inlist.template} is short enough to read whole and
+every line is a decision:
+
+\begin{srclistingtiny}
+&bbq
+   net_name = '{net}.net'
+   max_steps = 1000000
+   eps = 1d-8            ! solver relative tolerance
+   odescal = 1d-10       ! ODE scaling floor
+   stptry = 0            ! 0 = MESA's 'try in one step'; r23.05.1 overrides stptry internally (net_burn.f90:254)
+   use_hydrostatic = .true.
+/
+&hydrostatic
+   logT = {logT}
+   logRho = {logRho}
+   times_from_file = .true.
+   input_filename = 'times.txt'
+   input_composition_filename = 'comp.txt'
+   output_filename = 'output.txt'
+/
+&nuclear
+   screening_mode = 'chugunov'
+   use_suzuki_weak_rates = .false.
+/
+\end{srclistingtiny}
+
+Three observations worth internalising.
+
+\textbf{(i) \code{eps = 1e-8} is the tolerance the reference integrator
+inherits.} ADR~0006 sets the project's own BDF integrator to rtol $= 10^{-8}$
+explicitly \emph{because} that is bbq's \code{eps} --- so that disagreements
+between the two are physics differences, not tolerance differences. Matching a
+competitor's tolerance before comparing to it is a small discipline with a
+large payoff.
+
+\textbf{(ii) The \code{\&nuclear} block pins what the defaults would have given
+anyway.} \code{screening\_mode} and \code{use\_suzuki\_weak\_rates} are written
+explicitly even though they match bbq's defaults (\S\ref{sec:netsolver}). This
+is the ``pin what you rely on'' habit: a future bbq version changing a default
+would silently change the labels, and an explicit inlist turns that into a
+diff.
+
+\textbf{(iii) Constant (logT, logRho).} Each run is at a single point in the
+regime box. There is no trajectory through $(T, \rho)$ --- the ``trajectory''
+is only in composition (bbq's \code{use\_profile} mode could have followed a
+$(T, \rho)$ track, but no shipped or campaign file used it). Everything this
+project calls a trajectory is a \textbf{constant-$(T, \rho)$ relaxation}, which
+is a specific and limited object; \S\ref{sec:twodistributions} is where that
+limit becomes a measured problem.
+
+% =====================================================================
+\subsection{The shipped-label pipeline, reconstructed}
+\label{sec:shippedpipeline}
+
+The Zenodo dataset (record 14873443, 115~GB uncompressed, 3800 entries) was
+produced by the NNN authors, and reconstructing their pipeline from the
+artifacts was Steps 1--3 of this project. The reconstruction:
+
+\begin{enumerate}
+\item \textbf{A Sobol grid over the regime box.} $2^{20} = 1{,}048{,}576$
+  points in $(\log T, \log\rho, \Ye)$, generated by an \textbf{unseeded
+  scrambled} \code{scipy.stats.qmc} Sobol sampler (\citealt{sobol1967}; SciPy,
+  \citealt{virtanen2020} --- \code{Sobol(d)} defaults to
+  \code{scramble=True, seed=None}; \citealt[\S 2.2]{grichener2025};
+  \code{gridGenerator.py}). This is the single most consequential engineering
+  fact in the dataset: \textbf{it is non-regenerable.} The shipped grid file is
+  the only ground truth, and anything keyed to states must persist explicit
+  \code{state\_id} lists (Tier~0 \S III.4/\S III.5).
+\item \textbf{A composition per grid point}, constructed to hit the target
+  \Ye. Not a physical composition --- random, and free-nucleon-loaded (median
+  $X_{\mathrm{neut}} \approx 1.7\times10^{-2}$). \S\ref{sec:twodistributions}
+  is the consequences.
+\item \textbf{bbq runs} at each state for each of nine timesteps, yielding 18
+  training CSVs (2 networks $\times$ 9 dt), 1,041,400 rows each.
+\item \textbf{Test trajectories} --- 684 (\msn{80}) $+$ 824 (\msn{151}) $=$
+  1508 constant-$(T, \rho)$ hydrostatic runs in total, shipped as
+  \code{output\_T\_<logT>\_rho\_<logRho>.txt}.
+\end{enumerate}
+
+The audits that made this usable, all \resultsref{2026-07-08/09}:
+
+\begingroup\small
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{4.4cm} Y@{}}
+\toprule
+\textbf{audited fact} & \textbf{value} \\
+\midrule
+rows per training CSV & 1,041,400, identical across all 18 \\
+the real dt grid & deviates from nominal by up to ${\sim}5\%$ and
+  \textbf{differs between networks} (the ``1e2'' file is 105.08~s for
+  \msn{80}, 102.93~s for \msn{151}) \\
+row alignment across dt files & byte-identical (logT, logRho) arrays
+  $\Rightarrow$ \code{state\_id} $=$ row index is a valid join key \\
+(logT, logRho) as a join key & \textbf{rejected} --- 154,405 collisions from
+  3-decimal rounding \\
+missing Sobol rows & 7,176 (0.68\%), in \textbf{two contiguous blocks} at the
+  head and tail of the sequence --- lost job-array batches, spatially
+  quasi-uniform ($\chi^{2}/\mathrm{dof} \le 0.1$ on all marginals),
+  \textbf{benign} \\
+\code{final\_*} floor & exactly 1e-15, censored not physical \\
+\epsnu{} normalisation & uniform $\div 10^{16}$ in all 18 files; the hinted
+  alternate $10^{13}$ at dt $\ge 10$~s is \textbf{absent} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\endgroup
+
+That table is what ``read the dataset before trusting it'' produces. Every row
+of it retired an assumption that would otherwise have become a silent bug: a
+join on (logT, logRho) would have silently mixed 15\% of the rows; a nominal dt
+would have introduced a 5\% error in every rate comparison; the 1e-15 floor
+treated as data would have taught the model to predict a clamp.
+
+% =====================================================================
+\subsection{Why a rerun campaign was necessary}
+\label{sec:campaign}
+
+The shipped test trajectories have a defect that Step 5 discovered and Step 6
+diagnosed: they \textbf{stall}. Composition freezes (max $|\Delta X|$ per
+interval $< 10^{-10}$) from median age $2.2\times10^{5}$~s (\msn{80}) /
+$3.9\times10^{4}$~s (\msn{151}), while \code{eps\_nuc} keeps \emph{rising}
+\resultsref{2026-07-10}. \S\ref{sec:stall} is the anatomy; the operational
+consequence was that only pre-stall rows could be used, which left too few
+relaxed states to render a kill-test verdict on.
+
+So Step 6 generated its own: \textbf{209 runs per network}, locally, with bbq.
+
+ADR~0005 settles four points, and each is worth understanding as a
+methodological choice:
+
+\textbf{1. Mode: \code{use\_hydrostatic} with \code{times\_from\_file}} ---
+\S\ref{sec:bbqmodes}.
+
+\textbf{2. Cadence: 40 points per decade, log-spaced ages from $10^{-8}$~s, dt
+capped at $10^{5}$~s}, to $t_{\mathrm{end}} = 10^{4}$~s ($\Tn \ge 5$),
+$10^{6}$~s (3.3--5), $10^{8}$~s ($< 3.3$). This directly attacks the stall
+mechanism: the shipped files used ${\sim}10$ points/decade, letting the output
+dt grow to ${\sim}10^{10}$~s, at which point a single output interval is longer
+than any physical timescale in the problem.
+
+\textbf{3. MESA: stock r23.05.1, NOT 24.08.1.} This is the subtle one. Stock
+r23.05.1 carries the \code{gh-575} multi-body-inverse bug (Tier~1 \S VI.6,
+\S\ref{part:pathology}); 24.08.1 fixes it. Choosing the \emph{buggy} version
+looks perverse until you state the goal: the reruns must be \textbf{comparable
+to the shipped labels}, and the shipped labels were produced by r23.05.1-class
+code. Choosing the fixed version would have produced better physics and a worse
+experiment.
+
+That choice was validated after the fact, and this is the part that makes it
+defensible rather than lucky: stock r23.05.1 bbq reproduces the shipped labels
+to \textbf{0.01 / 0.03 dex} on the two witness states \resultsref{2026-07-11},
+and early-time agreement against shipped trajectories at identical
+(logT, logRho, $X_{0}$) is 0.996 / 0.998 \resultsref{2026-07-11}. The reruns
+are label-grade.
+
+\textbf{4. Three composition families}, covering three different senses of ``a
+state worth burning'':
+
+\begingroup\small
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{1.7cm} Y L{4.3cm} L{0.7cm}@{}}
+\toprule
+\textbf{family} & \textbf{construction} & \textbf{purpose} & \textbf{n} \\
+\midrule
+\code{shipped} & row-0 state of each Step-5 selected shipped trajectory, at the
+  file's exact (logT, logRho) & early-time comparability --- the control & 20 \\
+\code{canonical} & two-isotope Si-burning-like mixes solving
+  $\sum X_i Z_i/A_i = \Ye$: si28+si30 above $\Ye = 0.4667$, si30+ne22 below &
+  \emph{physically plausible} fuel, unlike the Sobol compositions & 63 \\
+\code{sobol} & nearest training-grid states per $(\Tn, \rho, \Ye)$ cell,
+  \code{state\_id}s in the manifest & ties the relaxed manifold back to the
+  training distribution & 126 \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\endgroup
+
+A detail worth noticing, because it is the kind of thing that quietly breaks an
+analysis: the $\Ye = 0.45$ target is \textbf{unreachable} with the three
+Si-burning fuel species the family uses (\nuc{Si}{28}, \nuc{Si}{30},
+\nuc{Ne}{22}), whose $Z/A$ floor is \nuc{Ne}{22} at 0.45455 --- the networks do
+contain neutron-richer species (\nuc{O}{18}, $Z/A = 0.444$, in both nets, the
+only such $A \ge 12$ species in \msn{80}; \msn{151} adds ${\sim}40$ more, e.g.\
+\nuc{Si}{32}, \nuc{Ca}{48}, \nuc{Fe}{58}, \nuc{Ni}{64}) but none is
+silicon-burning fuel (an earlier version called \nuc{Ne}{22} ``the network's
+$Z/A$ floor''; corrected in the 2026-08-18 audit). The campaign substitutes
+0.455 and \textbf{records the substitution in the manifest}. That is the
+sourced/derived/assumed discipline applied to a composition.
+
+% =====================================================================
+\subsection{The campaign's coverage geometry --- and what 209 runs can and
+            cannot say}
+\label{sec:coverage}
+
+The verdict rests on this campaign, so it is worth asking what it covers.
+
+\textbf{The design grid} is 7 \Tn{} values $\times$ 3 $\log\rho$ $\times$ 3
+\Ye{} $=$ 63 cells, populated by three families (\S\ref{sec:campaign}) to 209
+runs per network. Compare with the space it is sampling:
+
+\begingroup\small
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{2.9cm} L{3.6cm} L{3.4cm} Y@{}}
+\toprule
+ & \textbf{campaign} & \textbf{training corpus} & \textbf{the box} \\
+\midrule
+\Tn & 7 discrete values & $2^{20}$ Sobol points, continuous &
+  continuous 1.6--7.9 \\
+$\log\rho$ & 3 discrete values & continuous & continuous 7--9 \\
+\Ye & 3 targets (one substituted) & continuous & continuous 0.45--0.5 \\
+compositions & 3 structured families & 1 random per state & --- \\
+rows used in the verdict & $\le 24$ per trajectory, 4,693 total &
+  1.04M states & --- \\
+\bottomrule
+\end{tabularx}
+\end{center}
+\endgroup
+
+Three honest observations.
+
+\textbf{(i) The relaxed manifold is a lattice, not a sample.} Three densities
+is enough to see a trend and not enough to fit one; the $\rho$-dependence of
+every kill-test statistic is resolved at three points across two decades. Any
+statement of the form ``$\kappa$ structure varies with density'' is an
+interpolation between three values.
+
+\textbf{(ii) The composition families are not a probability distribution.}
+They are three \emph{purposes} --- comparability, plausibility, and
+traceability to the training grid --- which is a good design for a diagnostic
+and a bad one for an estimate. When \S\ref{part:killtest} reports ``the median
+over the relaxed manifold'', the median is over a set whose composition mixture
+was chosen by hand. This does not bias the \emph{structural} results (the empty
+mask, $\kappa \equiv 1$ on weak columns) but it does mean the coverage
+fractions of \S\ref{sec:gate2} are conditional on the family mix.
+
+\textbf{(iii) Nothing checks representativeness against a real track.}
+\foreignreg{2}{R-07} measured that a 20~\Msun{} track sits within 0.12--0.18
+dex of a line in the box; the campaign samples a lattice over the whole box.
+Whether the campaign's cells include the cells a real star actually visits ---
+and with what weight --- was never checked. That is a half-hour of work given
+both datasets exist, and it would convert ``the verdict on the relaxed
+manifold'' into ``the verdict on the part of the manifold a star visits''.
+Registered as \reg{T-13}, and \S\ref{sec:whichstars} / \reg{T-22} is the
+question of whether \emph{one} track is enough to define ``visits''.
+
+\textbf{What the campaign nevertheless establishes securely}, and it is a lot:
+the structural results (weak $\kappa \equiv 1$, empty maskable set,
+$\cond(\Sact)$, the bridge identities, the \rQSE{} negative verdict) are either
+exact or so far from their thresholds that no plausible reweighting moves them.
+The results that are genuinely conditional on the sampling design are the
+\emph{fractions} --- coverage, low-$\kappa$ share, and the concentration shares
+--- and those are exactly the ones \S\ref{sec:verdict} also flags for missing
+error bars. The two caveats compound and should be quoted together.
+
+% =====================================================================
+\subsection{Execution}
+\label{sec:execution}
+
+\resultsref{2026-07-11}: \textbf{418 of 418 runs completed, zero failures.}
+19,486~s wall on 10 workers $\approx$ 54 core-hours; \msn{80} $\approx$
+2--3~min/run, \msn{151} $\approx$ 4--6~min at high \Tn, and low-\Tn{} runs
+(walls at $10^{8}$~s, ${\sim}2600$ output rows) up to ${\sim}1$~h. 1.1~GB of
+text output.
+
+Two engineering points from \code{run\_campaign.py} and
+\code{make\_campaign.py} worth carrying:
+
+\begin{itemize}
+\item \textbf{Completion is defined by an invariant, not by the exit code.} A
+  run counts as complete iff bbq exits 0 \textbf{and} \code{output.txt} has
+  exactly \code{n\_times + 1} rows. bbq aborts a hydrostatic run mid-way if a
+  step hits \code{max\_steps}, exiting cleanly with a truncated file. Checking
+  the row count is the difference between a validated campaign and a silently
+  80\%-complete one.
+\item \textbf{The queue is resumable and priority-ordered} (QSE window first,
+  via \code{T9\_PRIORITY = [3.3, 4.0, 5.0, 6.3, 2.5, 1.6, 7.9]}), with a
+  \code{DONE} sentinel per run directory. A 54-core-hour campaign that cannot
+  resume is a campaign you will run twice.
+\end{itemize}
+
+% =====================================================================
+\subsection{Validation --- four checks, and what each was for}
+\label{sec:validation}
+
+\code{validate\_campaign.py} runs four checks. Reading them as a \emph{design}
+is instructive, because each one is aimed at a specific way the campaign could
+have been worthless.
+
+\textbf{1. Stall census.} Terminal-guard census: 38/209 (\msn{80}) and 56/209
+(\msn{151}) runs frozen before their wall, median frozen-run $\Tn = 7.9$ ---
+fast arrival at the terminal attractor, which is legitimate. Frozen at
+$\Tn < 3.3$: 9 and 7 runs, and these are \textbf{exactly} the canonical-family
+inert-fuel cells at 1.6~GK (si28/si30/ne22 mixes cannot burn there).
+Crucially: \emph{the shipped-class mid-burn output-dt artifact is absent} ---
+every non-inert run either evolves at its stated wall or terminates at an
+attractor. \resultsref{2026-07-11}. The cadence fix worked.
+
+\textbf{2. Terminal $\Tn \ge 5$ states vs true NSE.} Median distance 8.6 / 9.0
+dex, fraction within 0.05 dex $= 0.000$. This \emph{looks} like a failure and
+is not --- it is the displaced pseudo-equilibrium the label-pathology rows
+predict for stock MESA (\S\ref{part:pathology}). The check was designed to
+\emph{report} rather than gate precisely because the expected answer was known
+to be ``far from NSE, for a known reason''. A gate here would have failed the
+campaign for being correct.
+
+\textbf{3. Early-time comparability.} Per-pair species-age agreement within
+$\max(5\%, 10^{-8})$: median 0.9963 / 0.9977, min 0.9508 / 0.9449 over 20
+pairs per network; worst $|\Delta X|$ median $2.3\times10^{-3}$ /
+$1.5\times10^{-3}$. Same code, same config, differing only in output cadence
+--- the reruns are label-grade comparable.
+
+\textbf{4. The \rQSE{} plateau, on clean data.} The Step-5 measurement had been
+deferred on the grounds that the shipped trajectories were anomalous. On clean
+rerun data: intra-group $\mathrm{std}(\rQSE)$ median \textbf{0.87 / 0.80 dex},
+plateau rows ($< 0.1$ dex) \textbf{0 of 303 and 0 of 316} in the QSE window,
+versus non-group spread 2.19 / 1.29 dex. \resultsref{2026-07-11}.
+
+That fourth check deserves emphasis because of what it does: it takes a
+deferral (``we cannot tell, the data is bad'') and converts it into a
+\textbf{negative verdict on clean data}. The intra-Si-group \rQSE{} plateau of
+\citet{hix1996} (their Si group, $A \approx 24$--45, is one of two QSE
+clusters; the \emph{single}-group picture is \citet{bodansky1968}'s) does not
+describe this manifold. Group-\emph{organised} structure exists --- non-group
+spread is 1.5--2.5$\times$ the intra-group spread, which is what a GNN's
+group-aware features would exploit --- but single-cluster \emph{algebraic
+reduction} does not hold.
+
+\begin{warn}
+\textbf{How to read a deferral that comes back negative.} The honest reading is
+narrow: the plateau is absent on \emph{the label manifold}, which is
+constant-$(T, \rho)$, started from unphysical compositions, and (above 5~GK)
+bug-displaced. It is not a statement about silicon burning in a star. The
+project's own \foreignreg{2}{R-18} goes further and asks whether the \rQSE{}
+diagnostic's null distribution is even known --- i.e.\ whether 0.8 dex of
+intra-group spread is large. Until that is answered, the negative verdict is a
+fact about a statistic whose scale has not been calibrated.
+\end{warn}
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-generator}
+
+\begin{selfcheck}
+% source I.9 Q1
+\item Name the four things a one-zone burner deliberately omits, and say for
+  each whether it makes the burner a \emph{worse model of a star} or \emph{not
+  a model of a star at all}.
+% source I.9 Q2
+\item Why is \code{use\_hydrostatic} the only bbq mode that can produce a
+  trajectory?
+% source I.9 Q3
+\item The campaign used the MESA version with a known bug. Give the argument,
+  and the measurement that validated it.
+% source I.9 Q4
+\item \code{run\_campaign.py} does not trust bbq's exit code. What does it
+  check instead and why?
+% source I.9 Q5
+\item The $\Ye = 0.45$ canonical cell was substituted by 0.455. What forced
+  that, and what makes the substitution acceptable practice?
+% source I.9 Q6
+\item Validation check 2 reports a 9-dex distance from NSE and does not fail.
+  Explain in one sentence.
+\end{selfcheck}

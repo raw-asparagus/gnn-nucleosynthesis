@@ -1,0 +1,212 @@
+% =====================================================================
+%  Appendix B -- the concordance.
+%
+%  This is the instrument that makes "no content omitted" checkable
+%  rather than asserted.  Five tables:
+%    B.1  every one of the 152 source headings -> a live \S\ref
+%    B.2  every self-check question that moved, and why
+%    B.3  the source's boxed results -> a live \eqref
+%    B.4  every fenced block in the source -> figure / listing
+%    B.5  every register item T-01..T-42 -> the section anchoring it
+%
+%  check_coverage.py asserts against all five.  The B.1 and B.5 row
+%  bodies live in _concordance_rows.tex and _register_anchor_rows.tex;
+%  regenerate them, do not hand-edit rows.
+% =====================================================================
+
+\section{Concordance with the source document}
+\label{app:concordance}
+
+The re-architecture in this report is a change of \emph{order}, not of content:
+the source's node-by-node parts were re-sequenced into a physics arc
+(\hyperref[sec:edition]{A note on this edition}), which dissolves the S11--S16
+labels, moves the weak sector in front of the iron core, joins MESA's network
+solver and its return contract to the computational setting, and places the two
+audit passes before the register they feed. That makes a concordance necessary
+rather than decorative: a source part's argument can now land in two places, and
+this appendix is where you find them.
+
+Everything below is mechanically checked by
+\code{study/tier3-report/check\_coverage.py}.
+
+% =====================================================================
+\subsection{Headings}
+\label{app:headings}
+
+All 152 headings of \code{study/tier3.md}, in source order, with the line at
+which each begins and the section(s) of this report that carry it (the
+\code{\#} comment line inside the Python fence at source line 3373 is not a
+heading and is not listed). A heading set in \textbf{bold} is one that was
+re-homed across a source part boundary; a heading with more than one target is
+one whose material was split.
+
+\begingroup
+\footnotesize
+\begin{longtable}{@{}L{1.5cm} L{7.3cm} r L{4.3cm}@{}}
+\toprule
+\textbf{Source \S} & \textbf{Heading} & \textbf{Line} & \textbf{Here} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Source \S} & \textbf{Heading} & \textbf{Line} & \textbf{Here} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\input{parts/_concordance_rows}
+\end{longtable}
+\endgroup
+
+\begin{aside}
+Nineteen source headings are unnumbered in the original (the title, the three
+front-matter blocks, the eleven part titles, the two register sub-headings, the
+closing handoff block and the References); they carry ``---'' in the first
+column. The source's irregular identifiers --- \S I.2b, \S I.6b, \S II.1b,
+\S III.4b, \S IV.8b, \S V.5b and \S V.5c --- are reproduced as they stand.
+The four re-homed blocks are the ones set in bold: source \S0.7 (three
+subsections), \S I.2 and \S I.2b, Parts IX and X, and the Part-0 self-check
+whose questions are redistributed (\S\ref{app:selfcheckmoves}).
+\end{aside}
+
+\begin{aside}
+\textbf{The source's own cross-reference conventions.} The source states that
+within it ``Part~0 sections are \S0.x and node sections are \S I.x (S11),
+\S II.x (S12), \ldots''; every such reference in this report has been replaced
+by a live \S-link to the section listed in the table above, and the two
+sentences whose target changed direction under the re-ordering (the opener of
+\S\ref{part:weak} and ``the runaway of \S0.5.2'' in \S\ref{sec:ecratchet}; the
+register pointer in \S\ref{sec:converging}) are reworded to say so, each marked
+with a TeX comment in the source file. No other wording was changed.
+\end{aside}
+
+% =====================================================================
+\subsection{Self-check questions that moved}
+\label{app:selfcheckmoves}
+
+The source has seven self-check blocks with 55 questions in total. Six travel
+whole to the end of the section that now holds their node (S11 $\to$
+\S\ref{sec:selfcheck-generator}, S12 $\to$ \S\ref{sec:selfcheck-trajectories},
+S13 $\to$ \S\ref{sec:selfcheck-pathology}, S14 $\to$
+\S\ref{sec:selfcheck-killtest}, S15 $\to$ \S\ref{sec:selfcheck-target}, S16
+$\to$ \S\ref{sec:selfcheck-baseline}). The Part-0 block (source \S0.10, sixteen
+questions) is split so that each question follows the material it tests:
+
+\begingroup
+\small
+\begin{tabularx}{\textwidth}{@{}L{1.4cm} Y L{3.6cm}@{}}
+\toprule
+\textbf{Source Q} & \textbf{tests} & \textbf{now in} \\
+\midrule
+1 & the virial statement $E_{\mathrm{tot}} = -E_{\mathrm{int}}$ (\S0.1.2) & \S\ref{sec:selfcheck-engine} \\
+2 & $T_c \propto M^{2/3}\rho^{1/3}$ (\S0.1.3) & \S\ref{sec:selfcheck-engine} \\
+3 & why \nuc{Si}{28} does not fuse with \nuc{Si}{28} (\S0.2.1) & \S\ref{sec:selfcheck-engine} \\
+4 & energy per gram vs the stage emulated (\S0.2.2) & \S\ref{sec:selfcheck-engine} \\
+5 & the coolant and the $T^9$ scaling (\S0.2.3) & \S\ref{sec:selfcheck-engine} \\
+6 & the collapse instability and 4/3 (\S0.5.1) & \S\ref{sec:selfcheck-collapse} \\
+7 & the dissociation cost of $0.5\,\Msun$ (\S0.5.6) & \S\ref{sec:selfcheck-collapse} \\
+8 & the five places \Ye{} enters (\S0.5.7) & \S\ref{sec:selfcheck-collapse} \\
+9 & $\beta^-$ decay vs electron capture in a degenerate core (\S0.7.2) & \S\ref{sec:selfcheck-weak} \\
+10 & the two weakest gates in the mapping table (\S0.9) & \S\ref{sec:selfcheck-host} \\
+11 & the Damk\"ohler numbers (\S0.2.5) & \S\ref{sec:selfcheck-engine} \\
+12 & mixing and correlated error over 300 zones (\S0.2.5) & \S\ref{sec:selfcheck-engine} \\
+13 & the NSE transition, three consequences (\S0.3.6) & \S\ref{sec:selfcheck-siburn} \\
+14 & Amdahl's law and the $1/f$ ceiling (\S0.8.5) & \S\ref{sec:selfcheck-host} \\
+15 & the two non-composition outputs a host needs (\S0.8.6) & \S\ref{sec:selfcheck-host} \\
+16 & the timestep controller's lost signal (\S0.8.6) & \S\ref{sec:selfcheck-host} \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Question numbering inside each report block restarts at 1; the source number
+is recorded as a comment beside every item in the \code{.tex} source.
+
+% =====================================================================
+\subsection{Boxed results}
+\label{app:boxed}
+
+The source numbers no equations; it marks three headline identities with a box.
+All three survive, boxed and numbered:
+
+\begin{center}
+\begin{tabularx}{0.9\textwidth}{@{}Y L{2.2cm} L{2.6cm}@{}}
+\toprule
+\textbf{identity} & \textbf{source line} & \textbf{here} \\
+\midrule
+the virial identity $-3\int (P/\rho)\,\dd m = E_{\mathrm{grav}}$ & 318 & \eqref{eq:virial} \\
+$\Mch = 5.83\,\Ye^2\,\Msun$ & 1327 & \eqref{eq:mch} \\
+the composition route to energy, $E_{\mathrm{comp}}$ from mass excesses & 3300 & \eqref{eq:ecomp} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+% =====================================================================
+\subsection{Diagrams and listings}
+\label{app:diagrams}
+
+The source has eleven fenced blocks. Three are diagrams and become TikZ figures;
+eight are code, configuration or file-format excerpts and are set verbatim.
+The full section list is set verbatim with its unicode ASCII-ised (superscript
+isotopes as digits, the warning glyph as ``!'', Greek spelled out); the two
+listings that carried non-ASCII characters (the file-format sketch's ellipsis
+and arrow, the refusal's $\kappa/\delta$) are set with ASCII equivalents.
+
+\begingroup
+\small
+\begin{longtable}{@{}L{1.4cm} L{9.4cm} L{4.2cm}@{}}
+\toprule
+\textbf{Line} & \textbf{Block} & \textbf{Here} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Line} & \textbf{Block} & \textbf{Here} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+124 & the DERIVE / READ / ORACLE / SEE study loop & Fig.~\ref{fig:studyloop} \\
+167 & the collapsed full section list & \S\ref{app:sourcelist}, verbatim \\
+1268 & the onion diagram (H envelope \ldots\ Fe core) & Fig.~\ref{fig:onion} \\
+2944 & \code{scripts/bbq\_campaign/inlist.template} & \S\ref{sec:inlist}, verbatim \\
+3229 & the trajectory file format & \S\ref{sec:fileformat}, verbatim \\
+3371 & the \code{TRAJ\_EPS\_CONVENTION} pin & \S\ref{sec:pin}, verbatim \\
+3881 & \code{strata.py} bin edges & \S\ref{sec:instruments}, verbatim \\
+3914 & \code{manifold.py}'s unscreened-run refusal & \S\ref{sec:instruments}, verbatim \\
+4627 & the NNN MLP architecture & Fig.~\ref{fig:nnnarch} \\
+4645 & the log-softmax output transform & \S\ref{sec:nnnis}, verbatim \\
+4658 & the NNN loss & \S\ref{sec:nnnis}, verbatim \\
+\end{longtable}
+\endgroup
+
+% =====================================================================
+\subsection{Register anchors}
+\label{app:registeranchors}
+
+Every item of the open register (\S\ref{sec:register}) names, in its ``derived
+in'' column, the source section that derives it. Those anchors resolve here to:
+
+\begingroup
+\small
+\begin{longtable}{@{}L{1.4cm} L{12cm}@{}}
+\toprule
+\textbf{Item} & \textbf{derived in} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Item} & \textbf{derived in} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\input{parts/_register_anchor_rows}
+\end{longtable}
+\endgroup
+
+\begin{aside}
+\warnglyph{}~\textbf{Register numbers across tiers.} Tier~3's own items are
+T-01 \ldots T-42 and collide with nothing. The source also cites Tier~2's
+R-01 \ldots R-25 (nineteen distinct ids) and Tier~1's \S VIII.x anchors; those
+are foreign items whose content lives in \code{study/tier2.md} \S VI and
+\code{study/tier1.md} \S VIII, and they are always rendered as
+\foreignreg{2}{R-xx} and \tierone{VIII.x} --- never as links into this
+report's register.
+\end{aside}

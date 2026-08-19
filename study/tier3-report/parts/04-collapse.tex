@@ -1,0 +1,875 @@
+% =====================================================================
+%  4 -- THE IRON CORE, AND ITS COLLAPSE.
+%
+%  Source: tier3.md lines 1261-1935 in full and in order --
+%          0.4   "The onion, the iron core, and the shell that builds it"
+%                (1261-1494): 0.4.1 (1263-1310), 0.4.2 (1312-1381),
+%                0.4.3 (1383-1417), 0.4.4 (1419-1459), 0.4.5 (1461-1494);
+%          0.5   "Core collapse, derived end to end" (1498-1935):
+%                0.5.1 (1504-1541), 0.5.2 (1543-1621), 0.5.3 (1623-1649),
+%                0.5.4 (1651-1701), 0.5.5 (1703-1735), 0.5.6 (1737-1793),
+%                0.5.7 (1795-1849), 0.5.8 (1851-1878), 0.5.9 (1880-1935).
+%  Plus, re-homed from the source's Part 0 self-check block (0.10,
+%          lines 2714-2755): questions 6, 7, 8 (2731-2735) ->
+%          sec:selfcheck-collapse.
+%  The onion ASCII diagram (1268-1288) is redrawn as a TikZ figure
+%          (fig:onion); its [typical: ...] annotation is carried
+%          verbatim in the caption.
+%  Cross-references reworded: none.  Cross-references retargeted only
+%          through the label registry ("SS0.6.5" -> \S\ref{sec:missingderivative}
+%          etc.); "Tier 0 SSI.2", "Tier 2 SS0.3.1", "Tier 2 SSV.2",
+%          "Tier 2 SS0.3.2", "Tier 2 SS0.3.5" stay as plain text.
+% =====================================================================
+
+\section{The iron core, and its collapse}
+\label{part:collapse}
+
+% =====================================================================
+\subsection{The onion, the iron core, and the shell that builds it}
+\label{sec:ironcore}
+
+\subsubsection{The structure at the end}
+\label{sec:onion}
+
+A massive star at the end of its life has an onion structure: each burning
+stage leaves its ash behind and moves outward as a shell.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small,
+  shell/.style={draw, line width=0.7pt, rounded corners=3pt},
+  lab/.style={anchor=west, font=\small, inner sep=1pt}]
+
+% ---- nested shells, outermost first ----
+\draw[shell, fill=pointrule!3]  (0,0)      rectangle (9.5,7.5);
+\node[lab] at (0.25,7.15) {H envelope \hspace{2.2cm} (if not stripped)};
+\draw[shell, fill=pointrule!6]  (0.5,0.5)  rectangle (9.0,6.75);
+\node[lab] at (0.75,6.40) {He shell};
+\draw[shell, fill=pointrule!9]  (1.0,1.0)  rectangle (8.5,6.0);
+\node[lab] at (1.25,5.65) {C/O shell};
+\draw[shell, fill=pointrule!12] (1.5,1.5)  rectangle (8.0,5.25);
+\node[lab] at (1.75,4.90) {O/Ne/Mg};
+\draw[shell, fill=pointrule!16] (2.0,2.0)  rectangle (7.5,4.5);
+\node[lab] at (2.25,4.15) {Si/S shell};
+\draw[shell, fill=warnrule!10, line width=0.9pt] (3.3,2.3) rectangle (6.2,3.7);
+\node[align=center, font=\small] at (4.75,3.0)
+  {\textbf{Fe CORE}\\ $\sim$1.2--2.0 \Msun};
+
+% ---- the annotation arrow: silicon shell burning feeds the core ----
+\draw[{Latex[length=2.6mm]}-, line width=0.9pt]
+  (7.5,4.15) -- (10.6,4.15);
+\node[anchor=west, align=left, font=\small] at (10.7,4.15)
+  {\textbf{SILICON SHELL BURNING}\\ feeds the core};
+\end{tikzpicture}
+\caption{The onion structure of a massive star at the end of its life:
+each burning stage leaves its ash behind and moves outward as a shell;
+silicon shell burning feeds the inert iron core. Redrawn from the source's
+ASCII diagram. Fe core mass $\sim$1.2--2.0~\Msun{}
+\typical[O'Connor \& Ott 2011 Table~1 spans 1.24--2.08~\Msun; Sukhbold,
+Woosley \& Heger 2018 max $\approx 2.0$].}
+\label{fig:onion}
+\end{figure}
+
+Two features drive everything downstream.
+
+\paragraph{(i) The iron core is inert and grows.} Nothing exothermic happens in
+it. It is supported by degenerate electrons and it is being \emph{fed} by the
+silicon shell burning just outside it, which converts silicon to iron-peak
+material and deposits it onto the core (\citealt{timmes1996}: the iron core
+``does not grow by radiative diffusion, but by a series of convective shell
+burning episodes''; \citealt{suwa2018}). The core mass is therefore a
+monotonically increasing function of time, approaching a limit it cannot
+exceed.
+
+\paragraph{(ii) The shell is where the interesting nuclear physics happens, and
+it is not in a steady state.} Silicon shell burning is episodic --- the shell
+ignites, burns, exhausts, contracts, reignites (TWW96: ``usually there are just
+one or two such episodes''; \citealt{heger2001} place ``the most important
+period for determining core structure'' in silicon shell burning) --- and its
+conditions sweep through the regime box rather than sitting at a point. The
+project's per-state, imposed-$(T, \rho)$ framing is a model of \emph{one call
+inside one zone inside one timestep} of that process.
+
+% ---------------------------------------------------------------------
+\subsubsection{The effective Chandrasekhar mass}
+\label{sec:mch}
+
+The core collapses when it exceeds the mass its degenerate electrons can
+support. Tier~0 \S I.2 and Tier~2 \S 0.3.1 derive the zero-temperature result;
+the version that actually applies has at least two corrections
+(\citealt{timmes1996} list finite entropy, GR, Coulomb corrections and the
+surface boundary pressure).
+
+The cold, fully relativistic limit (\citealt{chandrasekhar1931,
+chandrasekhar1939}; \citealt[eq.~3.3.17]{shapiro1983}):
+%
+\begin{equation}
+\Mch \;=\; 4\pi\left(\frac{K'}{\pi G}\right)^{3/2}\!\!\left(-\xi_1^2\theta'(\xi_1)\right),
+\qquad K' = \frac{\hbar c}{4}(3\pi^2)^{1/3}\left(\frac{\Ye}{m_u}\right)^{4/3},
+\label{eq:mch-general}
+\end{equation}
+%
+with the $n = 3$ Lane--Emden constant $-\xi_1^2\theta'(\xi_1) = 2.018$, giving
+%
+\begin{equation}
+\boxed{\;\Mch \;=\; 5.83\,\Ye^{2}\,\Msun.\;}
+\label{eq:mch}
+\end{equation}
+%
+(the coefficient recomputes to 5.825 with CODATA constants;
+\citealt[eq.~1]{timmes1996} and \citealt{heger2001} write $5.83\,\Ye^2$).
+Numerically: 1.46~\Msun{} at $\Ye = 0.5$, 1.18 at 0.45, 1.03 at 0.42, 0.71 at
+0.35 (an earlier version printed three decimals inconsistent with 5.83 at the
+0.1\% level; corrected in the 2026-08-18 audit). \derivedhere{} The derivative
+is
+%
+\begin{equation}
+\frac{\dd\Mch}{\dd\Ye} \;=\; 11.66\,\Ye\,\Msun \;=\; 5.83\,\Msun\ \text{per unit } \Ye \text{ at } \Ye = 0.5,
+\label{eq:dmchdye}
+\end{equation}
+%
+so \textbf{$\delta\Ye = 10^{-3}$ moves \Mch{} by $5.8 \times 10^{-3}$~\Msun},
+and $\delta\Ye = 10^{-2}$ moves it by 0.058~\Msun. Hold onto those two
+numbers; \S\ref{sec:missingderivative} needs them.
+
+\paragraph{Correction 1 --- finite entropy raises it.} A hot core supports more
+mass, because thermal pressure adds to degeneracy pressure:
+%
+\begin{equation}
+\Mcheff \;\approx\; 5.83\,\Ye^{2}\left[1 + \left(\frac{s_e}{\pi \Ye}\right)^{2}\right] \Msun ,
+\label{eq:mcheff}
+\end{equation}
+%
+with $s_e$ the electron entropy per baryon in units of $k$
+(\citealt[eq.~6]{timmes1996}, following \citealt{baron1990}; the same expression
+is eq.~1 of \citealt{heger2001} and is used by \citealt{suwa2018}). At
+$s_e \approx 1$ and $\Ye = 0.45$ the bracket is 1.5 --- a 50\% correction, not
+a small one ($s_e$ ranges 0.4--1 across a 15~\Msun{} iron core, TWW96, so 50\%
+is an upper-end illustration). So the core mass at collapse is a
+\emph{two-parameter} function (\Ye{} and entropy), and the entropy is set by
+the burning history too (\citealt{heger2001}: ``the entropy can be just as
+important as \Ye'').
+
+\paragraph{Correction 2 --- general relativity, Coulomb corrections and the
+surrounding pressure lower it} (\citealt{timmes1996}: SR/GR alone reduce
+$5.83\,\Ye^2$ to 1.42~\Msun{} at $\Ye = 0.5$). The real collapse threshold is
+not a clean crossing of \Mch; it is a stability question about a core embedded
+in a star, with GR corrections, and it is decided by the equation of state's
+adiabatic index (\S\ref{sec:gamma43}).
+
+The honest summary: \textbf{$\Mch \propto \Ye^2$ is the correct scaling and the
+right way to see why \Ye{} matters, but the pre-supernova core mass in a real
+model is a several-parameter outcome of the whole burning history, of which
+\Ye{} is the one that nuclear burning most directly controls.} Overselling the
+formula is a real risk in this project's framing; \S\ref{sec:missingderivative}
+is where that risk gets named as an open item.
+
+% ---------------------------------------------------------------------
+\subsubsection{Compactness: the structural predictor}
+\label{sec:compactness}
+
+The observable-facing quantity in the modern literature is not the core mass
+but the \textbf{compactness parameter} (\citealt{oconnor2011}, ApJ 730, 70):
+%
+\begin{equation}
+\xi_{M} \;=\; \frac{M/\Msun}{R(M_{\mathrm{bary}}=M)/1000\ \mathrm{km}}\bigg|_{t=\text{bounce}},
+\qquad \text{usually } M = 2.5\,\Msun .
+\label{eq:compactness}
+\end{equation}
+%
+It measures how much mass sits inside a given radius --- i.e.\ how steeply the
+density falls outside the core (\citealt{sukhbold2016} evaluate it at collapse
+onset instead, with little difference). Its usefulness: it correlates with
+whether the neutrino-driven mechanism succeeds (\S\ref{sec:delayed}):
+\citet{oconnor2011} find explosion the likely outcome for $\xic \lesssim 0.45$
+and black-hole formation above; the two-parameter criterion of
+\citet{ertl2016} refines it. High compactness $\to$ a lot of material raining
+onto the shock at high rate $\to$ harder to explode $\to$ black hole. Low
+compactness $\to$ the accretion rate drops sharply after the core $\to$ the
+shock revives $\to$ neutron star and a supernova.
+
+The compactness is set by the mass and entropy structure of the carbon/oxygen
+(and silicon) shells at collapse, and it is famously \textbf{non-monotonic in
+progenitor mass} --- the migration of the C- and O-burning shells with mass,
+and convective-versus-radiative core burning, produce large changes in \xic{}
+for small changes in initial mass (\citealt[\S 4.6]{oconnor2011};
+\citealt[\S 7.1]{sukhbold2016}; \citealt{sukhbold2018}), and hence in the
+predicted outcome. That sensitivity is \emph{why} the composition and
+energetics of late shell burning are worth computing accurately, and it is the
+strongest available argument for this project's existence that does not route
+through \Mch.
+
+It is also, honestly, an argument the project does not currently make with
+numbers. Nobody here has computed $\partial\xic/\partial\Ye$ or
+$\partial\xic/\partial(\text{network size})$. \S\ref{sec:missingderivative} and
+register item \reg{T-01} are that gap.
+
+% ---------------------------------------------------------------------
+\subsubsection{What pre-supernova \texorpdfstring{\Ye}{Ye} actually looks like}
+\label{sec:presnye}
+
+For orientation \typical[pinned in the 2026-08-18 audit to the central-\Ye{}
+time series of the 15 and 25~\Msun{} models of Heger et al.\ 2001
+(Tables~1--2, Figs~3--5), the iron-core $\Ye(m)$ profile of Timmes, Woosley \&
+Weaver 1996 (0.42 at the centre rising to 0.48 at the core edge), and the MESA
+15~\Msun{} $Y_{e,c} \approx 0.43$ of Farmer et al.\ 2016]:
+
+\begin{itemize}
+\item \textbf{$\Ye = 0.5$ exactly} only for material that has never had a weak
+  interaction and started from equal $N$ and $Z$. Not realistic anywhere in a
+  real star: even the initial metallicity (\nuc{N}{14} $\to$ \nuc{Ne}{22}
+  through He burning; \citealt{woosley2007}) introduces neutron excess.
+\item \textbf{$\Ye \approx 0.85$--0.87} in a surviving hydrogen envelope ---
+  hydrogen has $Z/A = 1$, so any H-rich layer sits nowhere near 0.5. The
+  figures below are for the CO core and inward, i.e.\ everything the network
+  is ever called on; the envelope is outside the regime box entirely and is
+  only mentioned so the number is not misread.
+\item \textbf{$\Ye \approx 0.498$--0.499} in the He-burnt but otherwise
+  unprocessed layers (the \nuc{Ne}{22}-bearing C/O material; 0.498 at
+  O-depletion in \citealt{heger2001}).
+\item \textbf{$\Ye \approx 0.49$--0.50} in the oxygen shell (0.495 at the
+  O-shell epoch, \citealt{heger2001}).
+\item \textbf{$\Ye \approx 0.42$--0.49} in the silicon-burning region and the
+  iron core, with the central value lowest (0.489 at Si ignition $\to$
+  0.44--0.45 at core contraction in \citealt{heger2001}; $0.42 \to 0.48$
+  across the iron core in \citealt{timmes1996}).
+\item \textbf{$\Ye \approx 0.42$--0.43} at the centre at collapse onset in the
+  $\sim$15~\Msun{} models (the 25--40~\Msun{} LMP models of \citealt{heger2001}
+  end at 0.445--0.447).
+\end{itemize}
+
+The project's regime box specifies \textbf{$0.45 < \Ye < 0.5$}, which brackets
+the silicon-burning and iron-core range and stops just above the most extreme
+central values. The neutron excess $\eta = 1 - 2\Ye$ is the more natural
+variable for the weak-sector physics: $\eta = 0$ at $\Ye = 0.5$, 0.02 at 0.49,
+0.06 at 0.47, 0.10 at 0.45. \textbf{The box spans $\eta$ from 0 to 0.1} ---
+i.e.\ the entire dynamic range of the quantity runs from zero to ten percent,
+which is why relative errors in \Ye{} are a bad figure of merit and absolute
+ones are the right ones. \code{CLAUDE.md}'s gates are absolute
+($|\dYe| \lesssim 3 \times 10^{-6}$ per step, $5 \times 10^{-3}$ per
+trajectory); that is the correct choice and this is the reason.
+
+% ---------------------------------------------------------------------
+\subsubsection{Which stars are these, actually?}
+\label{sec:whichstars}
+
+Every number in \S\ref{sec:ironcore} is quoted for ``a massive star'', and the
+project's one real-track comparison (Tier~2 \S V.2 / \foreignreg{2}{R-07}) uses
+a \textbf{single 20~\Msun{} model}. That is one point in a parameter space with
+at least four axes, and the axes matter for which observable in
+\S\ref{part:observables} even applies.
+
+\paragraph{Mass.} The pre-supernova core mass, compactness and the burning
+history are all non-monotonic in initial mass (\S\ref{sec:compactness};
+\citealt{ertl2016}; \citealt{sukhbold2018}). A conclusion drawn from a
+20~\Msun{} track does not automatically transfer to 12 or 30~\Msun, and the
+\emph{shape} of the $(T, \rho)$ locus in the regime box --- which is what
+\foreignreg{2}{R-07} measures --- is a function of the progenitor.
+
+\paragraph{Metallicity.} Metallicity sets the initial CNO abundance, hence the
+\nuc{Ne}{22} produced during helium burning, hence the \textbf{initial neutron
+excess} of the material entering carbon burning (\citealt{woosley2007}). So
+$\eta$ at the start of silicon burning is not zero and is
+metallicity-dependent. It also sets the line-driven mass-loss rate, hence
+whether the hydrogen envelope survives (\citealt{heger2003}: ``the principal
+physics connecting the final evolution of a star to its metallicity is its mass
+loss'').
+
+\paragraph{Rotation.} Rotation induces chemical mixing (rotational instabilities
+feeding composition across boundaries), enlarges cores, and changes the shell
+structure and hence the compactness (\citealt{heger2003}; \citealt{heger2000}).
+It also produces the angular momentum that some explosion mechanisms need.
+
+\paragraph{Binarity --- the axis that changes the observable.} The majority of
+massive stars are in binaries that interact (\citealt{sana2012}: $> 70\%$ of
+Galactic O stars will exchange mass with a companion). Interaction strips the
+hydrogen envelope, which converts a Type IIP into a Type Ib/c
+(\citealt[Table~1]{heger2003}, for the envelope-mass classification). And
+\S\ref{sec:ni56}'s Arnett-rule reading of \nuc{Ni}{56} mass \textbf{applies to
+the stripped case and not to the H-rich case} --- so the progenitor's binary
+history decides which of the two observational readings of the same nuclear
+quantity is the right one.
+
+\paragraph{Why this belongs in a study document about a network emulator.} Two
+reasons, both about scope discipline.
+
+\begin{enumerate}
+\item \textbf{The single-track comparison is a sample of size one.}
+  \foreignreg{2}{R-07}'s finding --- that the 20~\Msun{} track sits within
+  0.12--0.18~dex of a \emph{line} in the regime box, and that only 35\% / 62\% /
+  82\% of the box is within 0.1 / 0.2 / 0.3~dex of a visited point (numbers
+  from Tier~2 \S V.2 \derivedthere; not yet a RESULTS.md row) --- is a
+  statement about one star. Whether the union over a progenitor grid fills the
+  box, or merely traces a family of nearby lines, is the question that decides
+  whether the box's uniform sampling measure is defensible. Nobody has run it,
+  and it needs no new physics --- just more tracks. Registered as \reg{T-22}.
+\item \textbf{``Which observable'' is progenitor-dependent}, so a motivation
+  chain that ends at ``the \nuc{Ni}{56} mass sets the peak luminosity'' has
+  silently assumed a stripped-envelope progenitor. \S\ref{sec:ni56} flags this;
+  \S\ref{sec:whichstars} is where the assumption actually enters.
+\end{enumerate}
+
+% =====================================================================
+\subsection{Core collapse, derived end to end}
+\label{sec:corecollapse}
+
+This is the longest derivation in Part~0, and it is here because the project's
+entire justification is that \Ye{} propagates through it. You cannot judge
+whether $3 \times 10^{-6}$ per step is a sane requirement without knowing what
+the number feeds.
+
+% ---------------------------------------------------------------------
+\subsubsection{The instability: \texorpdfstring{$\Gamma_1 < 4/3$}{Gamma1 < 4/3}}
+\label{sec:gamma43}
+
+A self-gravitating sphere is dynamically stable against radial perturbations if
+its pressure responds to compression strongly enough. The condition, derivable
+from a linear perturbation analysis of the hydrostatic equations, is on the
+\textbf{adiabatic index}
+%
+\begin{equation}
+\Gamma_1 \;\equiv\; \left(\frac{\partial \ln P}{\partial \ln \rho}\right)_{s} ,
+\qquad\text{stability requires}\qquad \bar\Gamma_1 \;>\; \frac{4}{3}.
+\label{eq:gamma1}
+\end{equation}
+%
+(the pressure-averaged form is textbook --- \citealt[\S 6.7]{shapiro1983} ---
+and the criterion as the trigger of collapse is \citealt{janka2012}.) The 4/3
+is not arbitrary. \S\ref{sec:virial} derived it: for a $\gamma = 4/3$ gas the
+virial theorem gives $E_{\mathrm{tot}} = 0$, so the star is marginally bound
+and an infinitesimal compression neither costs nor releases net energy. Above
+4/3 compression costs energy and the star springs back; below, compression
+releases energy and the collapse runs away.
+
+An iron core is supported by \textbf{relativistic} degenerate electrons, for
+which $\Gamma_1 \to 4/3$ in the ideal limit (\citealt[\S 2.3]{shapiro1983}). A
+real core sits a little above that --- partial degeneracy, finite temperature
+and the residual electron mass all push $\Gamma_1$ up by a few percent
+\provtag{[textbook; magnitude assumed]} --- while general relativity pushes the
+\emph{threshold} up by $O(GM/Rc^2)$ (\S\ref{sec:mch}'s Correction 2;
+\citealt{chandrasekhar1964}; \citealt{janka2012, janka2017} --- rotation lowers
+it slightly). \textbf{Both margins are small, and the point survives: the
+pre-collapse iron core is balanced on a knife edge}, not stable-with-margin,
+and any physical process that reduces $\Gamma_1$ below the threshold anywhere
+in the core tips it.
+
+Two such processes are present, and they are the two runaways; which dominates
+depends on the core's entropy (\citealt{muller2016a}: electron capture for the
+degenerate low-mass cores, with photodisintegration contributing for the
+higher-entropy massive ones).
+
+% ---------------------------------------------------------------------
+\subsubsection{The two runaways}
+\label{sec:runaways}
+
+\paragraph{(a) Photodisintegration of the iron peak.} Above $T \approx 7$--10~GK
+(strongly density-dependent, and \emph{above} the project's regime box;
+\citealt{janka2017} places the onset of substantial disintegration where the
+central temperature approaches $1~\mathrm{MeV} \approx 10^{10}$~K) the thermal
+photon bath dismantles iron-peak nuclei:
+%
+\begin{equation}
+{}^{56}\mathrm{Fe} \;\to\; 13\,{}^{4}\mathrm{He} + 4n
+\qquad Q = -124.4\ \mathrm{MeV} \;=\; -2.22\ \mathrm{MeV/nucleon},
+\label{eq:fe56photo}
+\end{equation}
+%
+and then, at higher $T$ still, \nuc{He}{4} $\to 2p + 2n$. That second step
+costs 7.07~MeV per \emph{helium} nucleon, which is $13 \times 28.30/56 = 6.57$~MeV
+per \textbf{iron} nucleon, so the two steps chain to
+%
+\begin{equation}
+2.22 + 6.57 \;=\; 8.79\ \mathrm{MeV/nucleon}
+\;=\; \frac{B({}^{56}\mathrm{Fe})}{56},
+\label{eq:dissbudget}
+\end{equation}
+%
+the total cost of taking iron all the way to free nucleons --- which is of
+course just \nuc{Fe}{56}'s binding energy per nucleon, and the check that the
+bookkeeping is right. \derivedhere[from AME2020 \citep{wang2021} binding energies:
+$B(\nuc{Fe}{56}) = 492.26$~MeV, $B(\nuc{He}{4}) = 28.30$~MeV]
+
+This is \emph{endothermic}. It consumes thermal energy, so the temperature (and
+hence the thermal contribution to pressure) fails to rise as fast as adiabatic
+compression would demand. In the $\Gamma_1$ language: energy that should have
+gone into pressure goes into breaking nuclei instead, and $\Gamma_1$ drops
+below 4/3 (\citealt{janka2017}: ``converts thermal energy to rest-mass energy
+\ldots\ causes a reduction of the effective adiabatic index \ldots\ below the
+critical value of 4/3'').
+
+\begin{warn}
+\textbf{A caution the study notes should carry}, because it is easy to get
+wrong. This dismantling is a \emph{collapse} phenomenon, not a silicon-burning
+one. Silicon burning at 3--4~GK \textbf{produces} the iron peak, and the full
+dissociation to free nucleons that drives $\Gamma_1$ below 4/3 requires
+temperatures above the regime box. Tier~0 \S I.2 flags exactly this trap.
+
+\textbf{But do not over-read that into ``the whole box is iron-peak
+dominated''.} The top of the box is iron-peak dominated only at its
+\emph{high-density} edge. NSE favours the high-entropy, many-particle state as
+density falls, so at ($\Tn = 7.9$, $\rho = 10^7$) the equilibrium is already
+$\alpha$-rich --- \S\ref{sec:alpharich}'s freeze-out regime --- and this file's
+own witness state 646 ($\Tn = 7.78$, $\rho = 2.0 \times 10^7$) measures
+\code{he4} = 0.521 against \code{fe56} = 0.378 under fixed MESA
+(\S\ref{sec:witness}). The distinction that matters for \S\ref{sec:runaways} is
+that neither corner has dissociated to \emph{free nucleons}, which is the step
+that costs 8.79~MeV/nucleon.
+\end{warn}
+
+\paragraph{(b) Electron capture.} Free protons liberated by (a), and iron-peak
+nuclei directly, capture electrons (\citealt{langanke2003a}: both channels
+``control the neutronization of the matter''):
+%
+\begin{equation}
+e^- + p \to n + \nu_e, \qquad e^- + (Z,A) \to (Z-1,A) + \nu_e .
+\label{eq:ecreactions}
+\end{equation}
+%
+Each capture does two damaging things at once: it \textbf{removes a
+pressure-supporting electron} (lowering $P$ at fixed $\rho$), and it emits a
+neutrino that --- until trapping sets in (\S\ref{sec:trapping}) ---
+\textbf{leaves the star entirely}, carrying away energy and entropy
+(\citealt{janka2007}; \citealt{janka2017}). \Ye{} drops, so $\Mch \propto \Ye^2$
+drops (\citealt{janka2012}: the inner core ``scales with the instantaneous
+Chandrasekhar mass''), so the core that was marginally supportable no longer
+is.
+
+The two reinforce: dissociation makes free protons, which are the best EC
+targets per particle --- though in aggregate captures on \emph{nuclei} dominate
+during infall, because $Y_p \sim 10^{-6}$ (\citealt{langanke2003a};
+\citealt{janka2007}: ``what matters is the product of abundance times capture
+rate''); EC lowers the pressure, accelerating contraction, raising $T$,
+accelerating dissociation. Collapse becomes dynamical.
+
+% ---------------------------------------------------------------------
+\subsubsection{The free-fall timescale}
+\label{sec:freefall}
+
+Once pressure support is lost, the core falls essentially freely. The
+characteristic time is
+%
+\begin{equation}
+\tff \;=\; \sqrt{\frac{3\pi}{32\,G\rho}} ,
+\label{eq:tff}
+\end{equation}
+%
+giving \derivedhere[the textbook homogeneous-sphere free-fall time --- Janka
+2017 quotes the order-of-magnitude form $\tff \sim 0.004\,\rho_{12}^{-1/2}$~s]
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{$\rho$ [g\,cm$^{-3}$]} & \textbf{\tff} \\
+\midrule
+$10^{9}$  & 66 ms \\
+$10^{10}$ & 21 ms \\
+$10^{12}$ & 2.1 ms \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The whole collapse takes a few hundred milliseconds}
+\typical[$\sim 10^2$--$10^3$~ms in simulations from the onset at
+$\rho \sim 10^{10}$~g\,cm$^{-3}$, Janka 2017]. Compare with the
+silicon-burning episode that set the initial conditions: the ratio is
+$\sim 10^5$--$10^7$ (a day to two weeks of silicon burning against 0.1--0.3~s of
+collapse \typical). This extreme separation is why the collapse can be treated
+as taking the composition as an initial condition --- the nuclear network has
+no time to do anything the weak reactions do not do --- and it is why the
+accuracy of the \emph{pre-collapse} \Ye{} is what matters.
+
+% ---------------------------------------------------------------------
+\subsubsection{Neutrino trapping --- derived, with numbers}
+\label{sec:trapping}
+
+Early in the collapse, neutrinos from electron capture stream out freely and
+\Ye{} falls fast. At some density they stop escaping, and the \emph{lepton
+fraction} \Yl{} freezes (\Ye{} itself keeps falling slightly as $e^- \to \nu_e$
+inside the trapped core; \citealt{janka2017}). Deriving where that happens is
+worth doing because the trapped lepton fraction is the number that sets the
+homologous core mass.
+
+The relevant opacity is \textbf{coherent neutral-current scattering off nuclei}
+(\citealt{freedman1974}; \citealt{langanke2003a}; \citealt{janka2017}), whose
+cross-section is enhanced by $A^2$ (more precisely $\propto N^2$) because the
+whole nucleus scatters in phase when the neutrino wavelength exceeds the
+nuclear size:
+%
+\begin{equation}
+\sigma_{\mathrm{coh}} \;\approx\; \frac{\sigma_0}{16}\left(\frac{E_\nu}{m_ec^2}\right)^{2} N^{2},
+\qquad \sigma_0 = 1.761\times10^{-44}\ \mathrm{cm}^2 ,
+\label{eq:sigmacoh}
+\end{equation}
+%
+(\citealt{janka2017}; the coherent-scattering idea is \citealt{freedman1974};
+the full form $A^2[1 - Z/A + (4 \sin^2\theta_W - 1) Z/A]^2$ in place of $N^2$
+is textbook --- \citealt[\S 18.4]{shapiro1983} --- not in Janka 2017. An
+earlier version of this section wrote $(\sigma_0/4)(E_\nu/m_ec^2)^2 A^2/6$, a
+form found in no source and 2.3--2.7$\times$ too large for \nuc{Fe}{56};
+corrected in the 2026-08-18 audit.) For $A = 56$, $N = 30$ and $E_\nu = 20$~MeV
+this gives $\sigma \approx 1.5 \times 10^{-39}$~cm$^2$ ($1.3 \times 10^{-39}$
+with the full factor). The mean free path is $\lambda = 1/(n_A \sigma)$ with
+$n_A = \rho N_A/A$, and the neutrinos random-walk out of a core of radius
+$R \approx 100$~km in a diffusion time $t_{\mathrm{diff}} \approx 3R^2/(\lambda c)$
+($R$ held fixed for the estimate; a 0.5~\Msun{} core has $R \approx 130$~km at
+$10^{11}$ and 60~km at $10^{12}$~g\,cm$^{-3}$). Trapping happens when
+$t_{\mathrm{diff}}$ exceeds the dynamical time \tff:
+
+\begin{center}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{$\rho$ [g\,cm$^{-3}$]} & \textbf{$\lambda$ [cm]} &
+\textbf{$t_{\mathrm{diff}}$ [s]} & \textbf{\tff{} [s]} & \textbf{trapped?} \\
+\midrule
+$10^{11}$ & $6.1 \times 10^{5}$ & 0.016 & 0.0066 & yes (marginally) \\
+$10^{12}$ & $6.1 \times 10^{4}$ & 0.16  & 0.0021 & firmly \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\derivedhere[an order-of-magnitude calculation with fixed $A = 56$,
+$E_\nu = 20$~MeV and $R = 100$~km; trapping sets in at a few
+$\times\,10^{11}$~g\,cm$^{-3}$ (Janka 2017; Langanke \& Mart\'inez-Pinedo 2003)
+and is complete by $\sim 10^{12}$~g\,cm$^{-3}$ (Janka et al.\ 2007; M\"uller
+2016), which this reproduces.] \textbf{The $A = 56$ choice biases the answer in
+a known direction}: nuclei in the collapsing core are heavier
+\typical[$A > 65$ by $\sim 10^{12}$~g\,cm$^{-3}$, Janka et al.\ 2007], and since
+$\sigma \propto N^2$ while $n_A \propto \rho/A$, the mean free path goes roughly
+as $1/(\rho A)$. Using the real $A$ shortens $\lambda$ and traps
+\emph{earlier}, so the densities in the table are upper bounds.
+
+\textbf{Consequences.}
+
+\begin{enumerate}
+\item \textbf{The lepton fraction freezes at trapping.} Its value there ---
+  $\Yl \approx 0.29$--0.30 with modern capture rates ($Y_{e,c} \approx 0.25$--0.27;
+  \citealt{janka2012}; \citealt{muller2016a}); the classic \citealt{bethe1990}
+  figure $\Yl \approx 0.36$--0.39 predates the LMP rates (Tier~2 \S 0.3.2) ---
+  is the \emph{lepton fraction} \Yl{} that the inner core carries through the
+  rest of the collapse (the trapped neutrinos contribute their own pressure,
+  and the relevant conserved quantity becomes $\Yl = \Ye + Y_\nu$;
+  \citealt{janka2017}). An earlier version of this item put the value ``around
+  0.35''; corrected in the 2026-08-18 audit.
+\item \textbf{The homologous core mass is set by that trapped value}, through
+  the same $M \propto \Yl^2$ relation (\S\ref{sec:homologous};
+  \citealt{janka2012}; \citealt{langanke2003a} --- the sources write the
+  scaling in \Ye).
+\item \textbf{Everything the network does before trapping matters; nothing
+  after does.} The chain from silicon burning to explosion runs through a
+  single number, evaluated once, at the moment the core stops being able to
+  talk to the outside.
+\end{enumerate}
+
+That is the sharpest available statement of why this project cares about \Ye.
+
+% ---------------------------------------------------------------------
+\subsubsection{The homologous core and the bounce}
+\label{sec:homologous}
+
+During collapse the inner part of the core --- where the infall velocity is
+subsonic and proportional to radius, $v \propto r$ --- moves
+\textbf{homologously}: it collapses self-similarly, maintaining its shape
+(\citealt{goldreich1980}; \citealt{yahil1983}; \citealt{janka2017}). Outside a
+sonic point the infall is supersonic and cannot communicate; that outer
+material simply rains down.
+
+The homologous core's mass is again set by a Chandrasekhar-like relation, now
+evaluated at the trapped lepton fraction:
+%
+\begin{equation}
+\Mhom \;\approx\; 5.83\,\Yl^{2}\,\Msun \;\times\;(\text{corrections}),
+\label{eq:mhom}
+\end{equation}
+%
+which at $\Yl \approx 0.3$ gives $\approx 0.5$~\Msun{} \derivedhere[Janka 2012,
+2017 and M\"uller 2016 give 0.4--0.5~\Msun{} for the shock-formation mass; the
+older 0.7--0.8~\Msun{} corresponds to Bethe-1990-era \Yl, and an earlier version
+of this section used 0.7~\Msun{} --- corrected in the 2026-08-18 audit].
+Collapse continues until the central density reaches nuclear saturation,
+$\rho \approx 2.7 \times 10^{14}$~g\,cm$^{-3}$ (\citealt{janka2012, janka2017}),
+at which point the nuclear force provides sudden, enormous stiffness:
+$\Gamma_1$ jumps well above 4/3 (\citealt{janka2012}).
+
+The inner core overshoots, halts, and \textbf{bounces}. The bounce launches a
+shock at the \emph{edge of the homologous core} --- i.e.\ at a mass coordinate
+of $\approx 0.4$--0.5~\Msun{} (\citealt{janka2012}) --- inside material that is
+still falling in at $\sim 0.1c$ near the sonic point and up to $\sim 0.3c$
+further out (\citealt{janka2017}).
+
+\textbf{This is where the whole \Ye{} chain lands.} The shock's birth radius,
+and how much overlying material it must traverse, are set by \Mhom, which is
+set by \Yl, which is set by \Ye{} at collapse onset, which is set by silicon
+burning. $\Mhom \propto \Yl^2$ is the squared link; the
+$\Yl \leftarrow Y_{e,\mathrm{onset}}$ link is $O(1)$ and set by infall electron
+capture (\citealt{janka2017}: \Ye{} drops from $\sim 0.46$ to $< 0.3$ during
+infall).
+
+% ---------------------------------------------------------------------
+\subsubsection{Why the prompt shock fails --- the energy budget}
+\label{sec:promptshock}
+
+The naive picture (a ``prompt'' explosion: the bounce shock propagates out and
+blows the star apart) does not work (\citealt{janka2012, janka2017}), and the
+arithmetic showing why is short and worth doing.
+
+The shock must traverse the outer iron core --- of order 0.5--1~\Msun{} of
+iron-peak material outside the $\sim$0.4--0.5~\Msun{} homologous core
+\typical[Janka 2012, 2017]; in fact it stagnates after traversing only
+0.3--0.35~\Msun{} (\citealt{janka2012}) or at an enclosed mass of around
+1~\Msun{} (\citealt{janka2017}) --- and it \textbf{dissociates every nucleus it
+passes through}, because the post-shock temperature is far above the
+dissociation threshold (\citealt{janka2017}: ``roughly 8.8~MeV per nucleon or
+$1.7 \times 10^{51}$~erg per 0.1~\Msun''). The cost, from
+\S\ref{sec:runaways}, is 8.79~MeV per nucleon, illustrated for 0.5~\Msun:
+%
+\begin{equation}
+E_{\mathrm{diss}} \;=\; \frac{0.5\,\Msun}{m_u}\times 8.79\ \mathrm{MeV}
+\;=\; 8.4\times10^{51}\ \mathrm{erg}.
+\label{eq:ediss}
+\end{equation}
+%
+\derivedhere{} Compare with the energy available to the shock --- a few
+$\times\,10^{51}$~erg \typical[inferred from Janka 2012:
+$\sim 1.7 \times 10^{51}$~erg per 0.1~\Msun{} dissociated and stagnation after
+0.3--0.35~\Msun; the classic estimate is Bethe 1990] --- and with the observed
+explosion energy of a typical core-collapse supernova, $\sim 10^{51}$~erg
+(\citealt{burrows2021}; \citealt{woosley2007}). \textbf{The dissociation cost
+alone exceeds the shock's entire energy budget by a factor of a few --- the
+shock's initial energy is spent after only 0.3--0.35~\Msun{}
+(\citealt{janka2012})} (an earlier version said ``by roughly an order of
+magnitude''; corrected in the 2026-08-18 audit). On top of that, the
+dissociated free nucleons are excellent electron-capture targets, so the
+shocked material rapidly deleptonises and emits a burst of neutrinos that
+carries away more energy still (the ``neutronisation burst'',
+$\sim 2 \times 10^{51}$~erg within $\sim 20$~ms at a peak luminosity near
+$4 \times 10^{53}$~erg\,s$^{-1}$; \citealt{janka2017}). Whether the burst is
+causal for the stall is disputed between the review authorities:
+\citet{janka2012} argues stagnation happens before breakout, so the burst is
+not causal; \citet{burrows2021} rank the burst first and dissociation second.
+
+The prompt shock \textbf{stalls}, typically within tens of milliseconds, at a
+radius of $\sim$100--200~km (\citealt{janka2007}; \citealt{burrows2021}), and
+becomes a standing accretion shock: material continues to fall through it and
+pile onto the proto-neutron star.
+
+For context, the energy reservoir that exists but is not being used: the
+gravitational binding energy of the newly formed neutron star is
+%
+\begin{equation}
+E_{\mathrm{bind}} \;\approx\; \frac{3}{5}\frac{GM^{2}}{R} \;\approx\; 2.6\times10^{53}\ \mathrm{erg}
+\qquad (M = 1.4\,\Msun,\ R = 12\ \mathrm{km}),
+\label{eq:ebind}
+\end{equation}
+%
+i.e.\ $\sim 96$~MeV per baryon, or $\sim 10\%$ of the rest mass.
+\derivedhere[the same Newtonian estimate is Janka 2017's
+$E_b \approx 3.6 \times 10^{53}\,(M/1.5\,\Msun)^2\,(R/10~\mathrm{km})^{-1}$~erg,
+and GR estimates give $\sim 2.8$--$3 \times 10^{53}$~erg, \citealt{lattimer2001}] \textbf{The explosion needs $< 1\%$ of that (\citealt{janka2007};
+$\approx 0.4\%$ for $10^{51}/2.6 \times 10^{53}$ \derivedhere)} --- though
+\citet{burrows2021} caution that this ``1\% tolerance'' framing misleads: over
+the $\sim 1$~s during which the explosion energy is set, 4--10\% of the emitted
+neutrino energy is absorbed in the gain region. The entire core-collapse
+supernova problem is the question of how to transfer that small fraction of
+the available energy from the neutron star to the overlying material.
+
+% ---------------------------------------------------------------------
+\subsubsection{The delayed neutrino-driven mechanism}
+\label{sec:delayed}
+
+The standard answer (\citealt{wilson1985}; \citealt{bethe1985} --- the neutrino
+idea goes back to \citealt{colgate1966}; reviews \citealt{janka2007},
+\citealt{janka2012}): the proto-neutron star radiates its binding energy as
+neutrinos of all flavours over $\sim 10$~s (the SN~1987A signal lasted
+$\sim 12$~s, and Bayesian fits to it give a total neutrino energy of a few
+$\times\,10^{53}$~erg, \citealt{loredo2002}; tens of seconds to full
+transparency --- \citealt{janka2017}; \citealt{janka2007}). A small fraction of
+those neutrinos --- a few percent of the luminosity during the accretion phase
+(\citealt{janka2012}: ``several percent''; \citealt{burrows2021} quote 4--10\%)
+--- is \textbf{reabsorbed} in the semi-transparent region behind the stalled
+shock (the ``gain region'', \citealt{bethe1985}), through
+%
+\begin{equation}
+\nu_e + n \to p + e^-, \qquad \bar\nu_e + p \to n + e^+ .
+\label{eq:gainreactions}
+\end{equation}
+%
+The absorbed energy heats the gain region, raising its pressure, and if the
+heating exceeds the cooling for long enough, the shock is revived and the
+explosion succeeds (\citealt{janka2007}; \citealt{muller2016a} for the
+$\tau_{\mathrm{adv}} > \tau_{\mathrm{heat}}$ criterion). Modern simulations
+show the process is aided substantially by multi-dimensional hydrodynamic
+instabilities (convection in the gain region --- \citealt{herant1994};
+\citealt{burrows1995} --- and the standing accretion shock instability,
+\citealt{blondin2003}) that increase the dwell time of material in the heating
+region (\citealt{janka2012}).
+
+\paragraph{Where \Ye{} enters, five separate times.} Worth enumerating because
+the project's motivation chain usually names only the first:
+
+\begin{enumerate}
+\item \textbf{Pre-collapse core mass} --- $\Mch \propto \Ye^2$ (\S\ref{sec:mch}),
+  setting how much iron there is to collapse.
+\item \textbf{The homologous core mass and shock birth radius} --- via \Yl{} at
+  trapping (\S\ref{sec:homologous}; \citealt{janka2012}: shock formation at
+  0.4--0.5~\Msun{} for $\Yl \approx 0.29$--0.30).
+\item \textbf{The mass the shock must traverse} --- the difference between the
+  iron core mass (1) and the homologous core mass (2) is precisely the material
+  whose dissociation drains the shock (\S\ref{sec:promptshock}).
+\item \textbf{The accretion rate history and compactness} --- set by the shell
+  structure the same burning produced (\S\ref{sec:compactness}), which decides
+  whether the delayed mechanism has time to work (\citealt{burrows2021};
+  \citealt{ertl2016}; \citealt{boccioli2024} on the Si/Si--O interface).
+\item \textbf{The ejecta composition} --- the neutron excess of what actually
+  escapes, which is what telescopes measure (\S\ref{part:observables}).
+\end{enumerate}
+
+Items 1--4 are why the emulator matters for \emph{whether the star explodes};
+item 5 is why it matters for \emph{what comes out}. The project's gates are
+written against item 5's proxy (\Ye{} itself), because 1--4 have no assembled
+derivative --- \S\ref{sec:missingderivative}.
+
+% ---------------------------------------------------------------------
+\subsubsection{The mass cut, and the honest caveat}
+\label{sec:masscut}
+
+The \textbf{mass cut} is the mass coordinate separating what falls onto the
+neutron star from what is ejected. It is not a free parameter of nature but it
+\emph{is} effectively a free parameter of piston/thermal-bomb nucleosynthesis
+calculations (\citealt{boccioli2024} call it ``an arbitrary quantity''),
+because it emerges from a multi-dimensional simulation nobody runs inside a
+nucleosynthesis study; calibrated-engine grids such as \citet{sukhbold2016}
+compute it, and \citet{woosley2007} argue it is bracketed by the iron-core
+edge and by nucleosynthesis and neutron-star-mass constraints. Material just
+inside the cut is the most neutron-rich (deepest, most processed), so the cut's
+location strongly affects the ejected iron-peak composition and the
+\nuc{Ni}{56} mass (\citealt{woosley2007}; \citealt{the1998} for \nuc{Ti}{44}).
+
+\paragraph{Why this matters for how the project frames its claims.} A chain of
+the form
+
+\begin{quote}
+better network $\to$ better \Ye{} $\to$ better \Mch{} $\to$ better
+explodability $\to$ better \nuc{Ni}{56} prediction
+\end{quote}
+
+has, at the ``explodability'' and ``\nuc{Ni}{56}'' links, dependencies on the
+explosion mechanism and mass cut that are \emph{larger and less well
+constrained} than the composition improvement being sold. The defensible
+framing is narrower and still strong:
+
+\begin{result}
+A stellar-evolution code currently uses a network too small to get the
+pre-collapse \Ye{} and shell structure right, and \emph{knows} it
+(\S\ref{sec:costmodel}). An emulator that removes that compromise improves the
+\textbf{initial condition} every downstream calculation starts from, whatever
+mechanism the downstream calculation then assumes.
+\end{result}
+
+That version survives referee contact. The longer chain is a motivation, not a
+claim, and the study notes should keep the distinction visible --- which is
+exactly what Tier~2 \S 0.3.5 / \foreignreg{2}{R-14} is about.
+
+% ---------------------------------------------------------------------
+\subsubsection{What ``explodability'' actually means operationally}
+\label{sec:explodability}
+
+\reg{T-01} asks for $\partial(\text{explodability})/\partial\Ye$. Before that
+can be a well-posed request you have to know what computes explodability, and
+the answer explains why the derivative is hard to get and why it may not be the
+right thing to ask for.
+
+\paragraph{What a modern core-collapse simulation is.} The state of the art
+couples relativistic hydrodynamics to \textbf{neutrino transport} --- the hard
+part, since the neutrinos are the energy carrier (\S\ref{sec:delayed}) and
+their transport is a 6-dimensional Boltzmann problem (3 space + 2 angle + 1
+energy) per flavour (\citealt{muller2016a}; \citealt{couch2020}). Practical
+schemes truncate it: two-moment (M1) closures, ray-by-ray approximations, IDSA,
+or full Boltzmann in reduced dimensionality (also leakage and flux-limited
+diffusion; \citealt{muller2016a} \S on neutrino transport). A 3D simulation of
+one progenitor to $\sim 1$~s post-bounce costs millions of node-hours, i.e.\
+$\gtrsim 10^7$ core-hours (\citealt{couch2020}; \citealt{burrows2021}: ``a year
+on a supercomputer''). \textbf{You cannot run a grid of those.}
+
+\paragraph{So explodability is computed by proxies}, and there are three
+families:
+
+\begingroup\small
+\begin{tabularx}{\textwidth}{@{}L{3.4cm} Y L{3.6cm}@{}}
+\toprule
+\textbf{method} & \textbf{what it does} & \textbf{what it costs} \\
+\midrule
+\textbf{1D with a calibrated parametrisation} (PUSH, STIR, ``neutrino
+light-bulb'' / calibrated inner-boundary engines) &
+run 1D with an added, calibrated ingredient --- extra heating (PUSH,
+\citealt{perego2015}; light-bulb / calibrated engines, \citealt{ugliano2012},
+\citealt{sukhbold2016}) or MLT-turbulence terms fitted to 3D (STIR,
+\citealt{couch2020}) --- so that models explode when the calibration set says
+they should &
+grids of $\sim 200$ progenitors are routine (\citealt{sukhbold2016};
+\citealt{couch2020}) [per-model cost of hours: assumed] \\
+\textbf{semi-analytic criteria} &
+compare a heating timescale with an advection timescale
+(\citealt{muller2016a}), or evaluate a critical-luminosity condition
+(\citealt{burrows1993}; \citealt{pejcha2015}); the \textbf{compactness} \xic{}
+(\S\ref{sec:compactness}; \citealt{oconnor2011}) is the crudest of these &
+seconds \\
+\textbf{full multi-D} & the real calculation &
+$\gtrsim 10^7$ core-hours each (\citealt{couch2020}) \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+\textbf{The crucial structural fact: explodability is a threshold on a
+non-monotonic function.} 1D simulations of most progenitors do \emph{not}
+explode without help (except the lowest-mass, ECSN-like cores;
+\citealt{janka2012}; \citealt{couch2020}; \citealt{burrows2021}); whether a
+given star explodes depends on whether the accretion rate drops fast enough at
+the right moment, which depends on the shell structure, which is non-monotonic
+in progenitor mass (\citealt{ertl2016}; \citealt{sukhbold2018}). The outcome
+map ``initial mass $\to$ explodes or not'' is famously \textbf{islands, not a
+boundary} (\citealt{ugliano2012}; \citealt{ertl2016}; \citealt{sukhbold2016}
+--- though the island locations disagree between methods,
+\citealt{boccioli2024}).
+
+Two consequences for the project's motivation.
+
+\paragraph{(i) $\partial(\text{explodability})/\partial\Ye$ is not a derivative
+of a smooth function.} Near a threshold it is a delta function; away from one
+it is zero. The scientifically meaningful quantity is not the derivative but
+something like \emph{the probability that a $\delta\Ye$ perturbation flips the
+outcome}, integrated over a progenitor population --- which requires a grid,
+which requires the parametrised 1D methods, which are themselves calibrated.
+That is a real research programme, not a literature lookup. \textbf{T-01 should
+therefore be split}: the \nuc{Ni}{56} and isotopic-ratio derivatives are
+extractable from published yield tables (cheap, do it); the explodability
+derivative is not (expensive, and the honest move is to stop claiming it).
+
+\paragraph{(ii) The parametrised-1D grids are exactly where the emulator would
+be used.} Those grids consume presupernova model sets that were run to core
+collapse hundreds of times (\citealt{sukhbold2016} and \citealt{couch2020} both
+use the same $\sim 200$ KEPLER progenitors) --- i.e.\ someone pays the network
+cost hundreds of times, in the phase where it dominates
+(\S\ref{sec:costmodel}). \textbf{That is the deployment story with the clearest
+economics}, and it is better than the vaguer ``improve the initial condition''
+framing of \S\ref{sec:masscut}, because it names a workload that exists, is
+compute-bound, and is run by people who would notice a 20$\times$ speedup. It
+should be in the project's motivation and is not. Registered as \reg{T-23}.
+
+% =====================================================================
+\subsection{Self-check}
+\label{sec:selfcheck-collapse}
+
+Answer without scrolling up.
+
+\begin{selfcheck}
+% source 0.10 Q6
+\item State the collapse instability condition and explain why 4/3 appears in
+  both it and the virial theorem.
+% source 0.10 Q7
+\item The bounce shock has $\sim 10^{51}$~erg. Compute the cost of dissociating
+  0.5~\Msun{} of iron and say what follows.
+% source 0.10 Q8
+\item Name the five distinct places \Ye{} enters the collapse-to-explosion
+  chain.
+\end{selfcheck}

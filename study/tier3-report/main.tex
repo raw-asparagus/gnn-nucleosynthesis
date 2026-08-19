@@ -1,0 +1,333 @@
+% =====================================================================
+%  Tier 3 -- Astrophysics and the Verdict.  Standalone report.
+%
+%  Source:  study/tier3.md  (literature audit 2026-08-18)
+%  Build:   latexmk -pdf -cd study/tier3-report/main.tex
+%
+%  This file re-architects the Markdown source from its node-by-node
+%  order (Part 0 astrophysics -> I (S11) bbq/MESA -> II (S12) trajectories
+%  -> III (S13) label pathology -> IV (S14) kill-test -> V (S15) target
+%  -> VI (S16) baseline -> VII handoff -> VIII register -> IX boundary
+%  audit -> X emulator as an object) into a PHYSICS ARC in which the
+%  S11--S16 curriculum labels are dissolved and the argument runs in the
+%  order the physics does:
+%
+%      1  the star as a thermodynamic engine and its last day
+%      2  silicon burning
+%      3  where Y_e comes from -- the weak sector          (source 0.7, moved up)
+%      4  the iron core and its collapse
+%      5  the observable end
+%      6  the computational setting: the host, the call site, the gates
+%         (source 0.8 + I.2 + I.2b + 0.9)
+%      7  the label generator: bbq and MESA as operated
+%      8  trajectories and the eps_nuc pin
+%      9  silicon burning on real histories, and the label pathology
+%     10  the kill-test
+%     11  the ML target, decided
+%     12  the baseline
+%     13  beyond the map: the boundary audit, the emulator as an object
+%     14  the open register
+%     15  what Tier 3 hands forward
+%
+%  Measured numbers stay attached to the derivation that produces them;
+%  the front matter carries an index of them instead of a results part.
+%
+%  No content is omitted.  Appendix B is the concordance that proves it,
+%  and check_coverage.py is the mechanical audit.
+% =====================================================================
+\documentclass[11pt,a4paper]{article}
+
+% ---------- fonts and encoding (pdfLaTeX) ----------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+% The .tex sources here are ASCII (accents are written \'e, \"u); utf8 is
+% loaded for future-proofing rather than necessity.
+\usepackage{mathpazo}                % Palatino text + math; same design as
+                                     % TeX Gyre Pagella, and what docs/qse uses
+\usepackage[scaled=0.85]{beramono}   % Bitstream Vera Mono, DejaVu Sans Mono's
+                                     % ancestor, so \code{} keeps its texture
+
+% ---------- layout ----------
+\usepackage[a4paper,margin=2.4cm,bottom=2.8cm]{geometry}
+\usepackage{microtype}
+\usepackage{parskip}
+\linespread{1.04}
+\emergencystretch=3em
+\setcounter{tocdepth}{3}
+\setcounter{secnumdepth}{3}
+
+% ---------- maths ----------
+\usepackage{amsmath}
+\usepackage{amssymb}   % \checkmark, \gtrsim, \lesssim, \simeq, \varnothing
+\usepackage{mathrsfs}  % \mathscr for the affinity and the flux cone
+\allowdisplaybreaks
+
+% ---------- tables ----------
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\renewcommand{\arraystretch}{1.18}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}[1]{>{\hsize=#1\hsize\raggedright\arraybackslash}X}
+
+% ---------- lists ----------
+\usepackage{enumitem}
+\setlist{itemsep=2pt,topsep=4pt,parsep=0pt}
+
+% ---------- graphics ----------
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,
+                backgrounds,calc,decorations.pathmorphing}
+\usepackage{float}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf,skip=6pt}
+
+% ---------- callouts ----------
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{breakable,skins}
+
+% ---------- citations (inline author-year, backed by \cite) ----------
+\usepackage[authoryear,round]{natbib}
+\bibpunct{(}{)}{;}{a}{}{,}
+\setlength{\bibsep}{2pt plus 0.4ex}
+
+% ---------- hyperref must load last ----------
+\usepackage[hidelinks,unicode]{hyperref}
+\hypersetup{
+  pdftitle={Tier 3 -- Astrophysics and the Verdict: the star this project is
+            about, the data that came out of it, and the decision Phase 0 was
+            built to make, for a conservation-by-construction GNN emulator of
+            silicon burning},
+  pdfsubject={Personal study material; not project spec},
+  pdfkeywords={silicon burning, core collapse, electron fraction, MESA, bbq,
+               nuclear reaction network, label pathology, kill-test,
+               flux-space target, emulator baseline, open register}}
+
+% =====================================================================
+%  Notation macros.  Repo convention: superscript isotopes in prose,
+%  lowercase handles (si28) in anything code-adjacent.
+% =====================================================================
+\newcommand{\nuc}[2]{\ensuremath{{}^{#2}\mathrm{#1}}}
+\newcommand{\Ye}{\ensuremath{Y_{e}}}
+\newcommand{\dYe}{\ensuremath{\Delta Y_{e}}}
+\newcommand{\Tn}{\ensuremath{T_{9}}}
+% \code inserts zero-width breakpoints after / _ . : - so that long
+% identifiers (tests/test_conservation.py::test_exported_random_flux_drift)
+% wrap instead of running into the margin.
+\ExplSyntaxOn
+\tl_new:N \l__code_tl
+\NewDocumentCommand{\code}{m}{%
+  \tl_set:Nn \l__code_tl {#1}
+  \regex_replace_all:nnN { \c{_} }  { \c{_}\c{allowbreak} }  \l__code_tl
+  \regex_replace_all:nnN { / }      { /\c{allowbreak} }      \l__code_tl
+  \regex_replace_all:nnN { \. }     { .\c{allowbreak} }      \l__code_tl
+  \regex_replace_all:nnN { : }      { :\c{allowbreak} }      \l__code_tl
+  \texttt{\tl_use:N \l__code_tl}%
+}
+\ExplSyntaxOff
+\newcommand{\msn}[1]{\texttt{mesa\_#1}}
+\newcommand{\Msun}{\ensuremath{M_{\odot}}}
+\newcommand{\gcc}{\ensuremath{\mathrm{g\,cm^{-3}}}}
+\newcommand{\enuc}{\ensuremath{e_{\mathrm{nuc}}}}
+\newcommand{\dd}{\mathrm{d}}
+\newcommand{\Tr}{^{\mathsf{T}}}
+\newcommand{\arxiv}[1]{\href{https://arxiv.org/abs/#1}{arXiv:#1}}
+\DeclareMathOperator{\asinh}{asinh}
+\DeclareMathOperator{\artanh}{artanh}
+\DeclareMathOperator{\cond}{cond}
+\DeclareMathOperator{\image}{image}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator*{\Var}{Var}
+\newcommand{\degree}{\ensuremath{^{\circ}}}
+% ticks and warning glyphs used inline in the source
+\newcommand{\yes}{\ensuremath{\checkmark}}
+\newcommand{\no}{\ensuremath{\times}}
+
+% ---------- Tier 2 notation ----------
+% The source's two "fluxes" -- see the convention table in the front matter.
+\newcommand{\fp}{\ensuremath{f^{+}}}
+\newcommand{\fm}{\ensuremath{f^{-}}}
+\newcommand{\netflux}{\ensuremath{\varphi}}          % net INSTANTANEOUS flux
+\newcommand{\Phifl}{\ensuremath{\Phi}}               % time-INTEGRATED flux
+\newcommand{\kap}{\ensuremath{\kappa}}
+\newcommand{\aff}{\ensuremath{\mathscr{A}}}          % thermodynamic affinity
+\newcommand{\nut}{\ensuremath{\tilde\nu}}            % extended stoichiometry
+\newcommand{\Yt}{\ensuremath{\tilde Y}}
+\newcommand{\uG}{\ensuremath{u_{G}}}
+\newcommand{\up}{\ensuremath{u_{p}}}
+\newcommand{\un}{\ensuremath{u_{n}}}
+\newcommand{\Mch}{\ensuremath{M_{\mathrm{ch}}}}
+\newcommand{\kB}{\ensuremath{k_{B}}}
+\newcommand{\dex}{\,\text{dex}}
+\newcommand{\Sact}{\ensuremath{S_{\mathrm{active}}}}
+\newcommand{\Mslow}{\ensuremath{\mathcal{M}_{\mathrm{slow}}}}
+\newcommand{\rQSE}{\ensuremath{r_{\mathrm{QSE}}}}
+% ---------- Tier 3 notation ----------
+\newcommand{\Da}{\ensuremath{\mathrm{Da}}}
+\newcommand{\Mhom}{\ensuremath{M_{\mathrm{hom}}}}
+\newcommand{\Mcheff}{\ensuremath{M_{\mathrm{ch,eff}}}}
+\newcommand{\Yl}{\ensuremath{Y_{L}}}
+\newcommand{\xic}{\ensuremath{\xi_{2.5}}}
+\newcommand{\Phihat}{\ensuremath{\hat\Phi}}
+\newcommand{\eF}{\ensuremath{E_{F}}}
+\newcommand{\epsnu}{\ensuremath{\varepsilon_{\nu}}}
+\newcommand{\epsnuc}{\ensuremath{\varepsilon_{\mathrm{nuc}}}}
+\newcommand{\tff}{\ensuremath{t_{\mathrm{ff}}}}
+\newcommand{\Tign}{\ensuremath{T_{\mathrm{ign}}}}
+\newcommand{\EG}{\ensuremath{E_{G}}}
+\newcommand{\dYdt}{\ensuremath{\dot Y_{e}}}
+\newcommand{\eps}{\ensuremath{\varepsilon}}
+\newcommand{\Snet}{\ensuremath{S_{\mathrm{net}}}}
+\newcommand{\Stot}{\ensuremath{S_{\mathrm{total}}}}
+% Register items.  Tier 3's own register is T-01..T-42 (unique across tiers).
+% The source also cites Tier 2 R-xx items (nineteen distinct ids) and Tier 1
+% SS VIII.x anchors; those must always be rendered through \foreignreg /
+% \tierone and must never be \ref'd into this report's register.
+\newcommand{\foreignreg}[2]{\textbf{Tier~#1 #2}}
+\newcommand{\tierone}[1]{\code{tier1.md}~\S#1}
+% Tier 3's own register items, rendered as a live link to the register.
+\newcommand{\reg}[1]{\hyperref[sec:register]{\textbf{#1}}}
+
+% =====================================================================
+%  Provenance tags.
+%
+%  The source carries five provenance markers:
+%
+%    [derived here]      -- reproducible from the numbers given in the
+%                           source, but NOT a RESULTS.md row.  Often carries
+%                           a long bracketed note; \derivedhere[note].
+%    [RESULTS <date>]    -- a measured project number whose source of truth
+%                           is RESULTS.md, with script + commit + data
+%                           provenance.  If a number here disagrees with
+%                           RESULTS.md, RESULTS.md wins.
+%    [typical]           -- representative of a model class, not measured
+%                           (pre-SN core masses, explosion energies, Ni56).
+%    [assumed ...]       -- an internal estimate with a retirement plan.
+%    [sourced: ...]      -- a citation with the locus stated.
+%    [derived there]     -- derived in an earlier tier, not re-derived here.
+%
+%  All must survive the conversion; check_coverage.py counts them.
+% =====================================================================
+\definecolor{provrule}{HTML}{6B6151}
+\newcommand{\provtag}[1]{\,{\footnotesize\textcolor{provrule}{#1}}}
+\NewDocumentCommand{\derivedhere}{o}{%
+  \IfNoValueTF{#1}{\provtag{\textsc{[derived here]}}}%
+                  {\provtag{[\textsc{derived here} --- #1]}}}
+\newcommand{\resultsref}[1]{\provtag{[\textsc{results}~#1]}}
+\NewDocumentCommand{\typical}{o}{%
+  \IfNoValueTF{#1}{\provtag{\textsc{[typical]}}}%
+                  {\provtag{[\textsc{typical}; #1]}}}
+\newcommand{\assumednote}[1]{\provtag{[\textsc{assumed} --- #1]}}
+\newcommand{\sourcednote}[1]{\provtag{[\textsc{sourced}: #1]}}
+\NewDocumentCommand{\derivedthere}{o}{%
+  \IfNoValueTF{#1}{\provtag{\textsc{[derived there]}}}%
+                  {\provtag{[\textsc{derived there}, #1]}}}
+
+% =====================================================================
+%  Callout environments.
+%  Five kinds, plus a repo-pointer box; all breakable, all accepting \par.
+% =====================================================================
+\definecolor{resultrule}{HTML}{1F5C8B}
+\definecolor{warnrule}  {HTML}{A33A16}
+\definecolor{rulerule}  {HTML}{4A3B77}
+\definecolor{exrule}    {HTML}{1E6B4F}
+\definecolor{asiderule} {HTML}{5A5A5A}
+\definecolor{pointrule} {HTML}{6B6151}
+
+\newcommand{\warnglyph}{\textbf{\textcolor{warnrule}{!\!}}}
+
+\tcbset{
+  calloutbase/.style={
+    breakable, enhanced, sharp corners,
+    boxrule=0pt, leftrule=2.2pt, colback=white,
+    left=8pt, right=6pt, top=5pt, bottom=5pt,
+    parbox=false, before skip=8pt, after skip=8pt}}
+
+\newtcolorbox{result}  {calloutbase, colframe=resultrule,
+                        colback=resultrule!4!white}
+\newtcolorbox{warn}    {calloutbase, colframe=warnrule,
+                        colback=warnrule!5!white}
+\newtcolorbox{invariant}{calloutbase, colframe=rulerule,
+                        colback=rulerule!5!white}
+\newtcolorbox{exercise} {calloutbase, colframe=exrule,
+                        colback=exrule!4!white}
+\newtcolorbox{aside}    {calloutbase, colframe=asiderule,
+                        colback=asiderule!4!white}
+
+% Repo pointers: "In the code:", "Files:", "Oracle:", "Notebook:".
+\newtcolorbox{repopointer}[1][]{
+  breakable, enhanced, sharp corners, boxrule=0pt, leftrule=1.4pt,
+  colframe=pointrule, colback=pointrule!5!white,
+  left=7pt, right=6pt, top=4pt, bottom=4pt, fontupper=\small,
+  parbox=false, before skip=7pt, after skip=7pt, #1}
+
+% =====================================================================
+%  Self-check environment.  55 questions in total across the document,
+%  every one preserved from the source's seven blocks; the physics-arc
+%  architecture splits Part 0's block across five sections, and
+%  Appendix B records every relocation.
+% =====================================================================
+\newlist{selfcheckenum}{enumerate}{1}
+\setlist[selfcheckenum]{label=\arabic*., leftmargin=1.9em,
+                        itemsep=4pt, topsep=4pt}
+\newenvironment{selfcheck}
+  {\par\addvspace{6pt}\noindent
+   {\bfseries\sffamily\small SELF-CHECK}\par\addvspace{2pt}
+   \begin{selfcheckenum}}
+  {\end{selfcheckenum}\par\addvspace{6pt}}
+
+% =====================================================================
+%  Verbatim listings that must keep their exact spacing (code excerpts,
+%  measurement dumps, config fragments, ASCII layouts).
+% =====================================================================
+\usepackage{fancyvrb}
+\DefineVerbatimEnvironment{srclisting}{Verbatim}
+  {fontsize=\small, xleftmargin=1.2em, samepage=false}
+\DefineVerbatimEnvironment{srclistingtiny}{Verbatim}
+  {fontsize=\footnotesize, xleftmargin=0.6em, samepage=false}
+
+% =====================================================================
+\begin{document}
+
+\include{parts/00-front}
+
+% ---- 1  the star as an engine and its last day -----------------------
+\include{parts/01-engine}
+% ---- 2  silicon burning ----------------------------------------------
+\include{parts/02-siburning}
+% ---- 3  where Y_e comes from: the weak sector ------------------------
+\include{parts/03-weak}
+% ---- 4  the iron core and its collapse -------------------------------
+\include{parts/04-collapse}
+% ---- 5  the observable end -------------------------------------------
+\include{parts/05-observables}
+% ---- 6  the host, the call site, and the gates -----------------------
+\include{parts/06-host}
+% ---- 7  the label generator ------------------------------------------
+\include{parts/07-generator}
+% ---- 8  trajectories and the eps_nuc pin -----------------------------
+\include{parts/08-trajectories}
+% ---- 9  real histories and the label pathology -----------------------
+\include{parts/09-pathology}
+% ---- 10 the kill-test ------------------------------------------------
+\include{parts/10-killtest}
+% ---- 11 the ML target, decided ---------------------------------------
+\include{parts/11-target}
+% ---- 12 the baseline -------------------------------------------------
+\include{parts/12-baseline}
+% ---- 13 beyond the map -----------------------------------------------
+\include{parts/13-beyond}
+% ---- 14 the open register --------------------------------------------
+\include{parts/14-register}
+% ---- 15 what Tier 3 hands forward ------------------------------------
+\include{parts/15-handoff}
+
+\appendix
+\include{parts/A-sectionmap}
+\include{parts/B-concordance}
+
+\include{parts/bibliography}
+
+\end{document}

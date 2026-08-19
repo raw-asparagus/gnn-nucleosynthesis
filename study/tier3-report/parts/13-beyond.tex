@@ -1,0 +1,984 @@
+% =====================================================================
+%  13 -- BEYOND THE MAP: THE BOUNDARY AUDIT, AND THE EMULATOR AS AN OBJECT
+%
+%  Source: tier3.md lines 5204-5912, in full and in order --
+%          Part IX header + intro (5204-5210)      -> sec:boundaryaudit
+%          IX.1 (5212-5237)                        -> sec:swept
+%          IX.2 (5239-5262)                        -> sec:noareas
+%          IX.3 (5264)                             -> sec:threedeveloped
+%            IX.3.1 (5266-5303)                    -> sec:multiplicity   (\paragraph)
+%            IX.3.2 (5305-5348)                    -> sec:artifact       (\paragraph)
+%            IX.3.3 (5350-5373)                    -> sec:nucleardata    (\paragraph)
+%          IX.4 (5375-5400)                        -> sec:axescovered
+%          IX.5 (5402-5426)                        -> sec:converging
+%          Part X header + intro (5429-5439)       -> sec:emulatorobject
+%          X.1 (5440-5522) .. X.11 (5860-5912)     -> sec:fixedpoints .. sec:convergingnow
+%
+%  Cross-reference rewordings (each also marked inline with % [edition]):
+%    - IX intro "the reason several sections of Part 0 exist"
+%        -> \S\ref{part:engine}--\S\ref{part:host}
+%    - IX.5 "the current register's cheapest and highest-ranked items (T-24,
+%      T-03, T-08)" -> "the register's cheapest and highest-ranked items
+%      (\S\ref{sec:ranked}; \reg{T-24}, ...)" -- the register FOLLOWS this
+%      section in the report.
+%    - X intro "SSIX.5" -> \S\ref{sec:converging}; "SSX.11" -> \S\ref{sec:convergingnow}
+%    - X.11 "(SSVII.2)" -> \S\ref{sec:retired} (forward reference; wording kept)
+%    - X.11 "Pass 3 (Part IX)" -> \S\ref{sec:boundaryaudit}
+%  All other section pointers into tier3.md are live \S\ref{...} per the
+%  label registry; pointers into Tier 0/1/2 stay as plain text.
+%  Blockquotes: 5623-5626 result; 5789-5794 aside; 5831-5834 plain quote
+%  (from docs/reports/consolidated-gnn-architecture.md); 5883-5887 result.
+% =====================================================================
+
+\section{Beyond the map: the boundary audit, and the emulator as an object}
+\label{part:beyond}
+
+% =====================================================================
+\subsection{Prerequisites outside the map: a cross-tier audit}
+\label{sec:boundaryaudit}
+
+The tier map (S0--S16, plus the sketched S17--S22) organises the project by
+\emph{where the physics lives}. This part asks the orthogonal question:
+\textbf{what is prerequisite to this project that the map has no node for at
+all?} It is a second-pass audit across all four written tiers, and it is the
+reason several sections of \S\ref{part:engine}--\S\ref{part:host} exist.
+% [edition] reworded cross-ref: "the reason several sections of Part 0 exist"
+
+% ---------------------------------------------------------------------
+\subsubsection{What was swept, and how}
+\label{sec:swept}
+
+Three passes over different axes, deliberately chosen to be ones the map does not
+organise by:
+
+\begin{itemize}
+\item \textbf{Pass A --- the physical setting outside the burning zone.}
+  Everything a stellar-evolution model does that is \emph{not} the network:
+  transport, structure, the progenitor's history, and the collapse's numerics.
+  Produced \reg{T-19} (mixing), \reg{T-21} (the NSE transition), \reg{T-22}
+  (the progenitor grid), \reg{T-23} (what actually runs these calculations).
+\item \textbf{Pass B --- the interface.} What consumes the emulator's output, in
+  the concrete sense of a function signature. Produced \reg{T-24} (the
+  bottleneck fraction and Amdahl), \reg{T-25} (host-side derivatives),
+  \reg{T-26} (the lost convergence signal), \reg{T-27} (per-call latency and
+  interop).
+\item \textbf{Pass C --- the mathematics of the answer, and the practice of
+  producing it.} The geometry of the output space, the statistics of the
+  claims, and the lifecycle of the artifact. Produced \reg{T-28} (float32 vs
+  cancellation), \reg{T-30} (the simplex), \reg{T-31} (multiplicity),
+  \reg{T-32} (the artifact lifecycle), plus \reg{T-20} (the error hierarchy)
+  and \reg{T-29} (the fixed-point audit) as methodological items.
+\end{itemize}
+
+Each pass asked the same three questions of its axis: \emph{what does the
+project assume here? what would a practitioner in this area immediately ask? and
+is there any test that could currently fail?}
+
+% ---------------------------------------------------------------------
+\subsubsection{The areas with no study node anywhere}
+\label{sec:noareas}
+
+\begingroup
+\footnotesize
+\begin{longtable}{@{}L{2.9cm} L{4.6cm} L{4.0cm} L{2.6cm}@{}}
+\toprule
+\textbf{area} & \textbf{prerequisite because} & \textbf{nearest existing coverage} & \textbf{now at} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{area} & \textbf{prerequisite because} & \textbf{nearest existing coverage} & \textbf{now at} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+
+\textbf{Convection and mixing} &
+  the network's output is immediately mixed; the burning/mixing competition
+  decides whether \Ye{} errors average out &
+  Tier~0 \S 0.7's timescale row + a one-line caveat &
+  \S\ref{sec:convection}, \reg{T-19} \\
+\textbf{The NSE transition} &
+  the host replaces the network with a table exactly where the labels are
+  pathological &
+  \tierone{VIII.E.6} (``the handoff is unspecified'') &
+  \S\ref{sec:nsetransition}, \reg{T-21} \\
+\textbf{Progenitor diversity} &
+  every real-track statement rests on one 20\,\Msun{} model &
+  Tier~2 \S V.2 (that one model) &
+  \S\ref{sec:whichstars}, \reg{T-22} \\
+\textbf{What computes explodability} &
+  \reg{T-01} asks for a derivative of it &
+  nothing &
+  \S\ref{sec:explodability}, \reg{T-23} \\
+\textbf{The error hierarchy} &
+  decides whether the improvement is scientifically visible &
+  scattered; never assembled &
+  \S\ref{sec:errorhierarchy}, \reg{T-20} \\
+\textbf{The runtime fraction $p$} &
+  the project's founding premise; Amdahl caps everything &
+  Tier~0 \S I.3 derives the \emph{scaling}, never the fraction &
+  \S\ref{sec:bottleneck}, \reg{T-24} \\
+\textbf{The call-site contract} (7 items) &
+  an emulator that cannot be installed is not a result &
+  \foreignreg{2}{R-11} covers 2 of the 7 &
+  \S\ref{sec:callsite}, \S\ref{sec:netreturns}, \reg{T-25}/\reg{T-26}/\reg{T-27} \\
+\textbf{Simplex geometry / compositional data} &
+  it is the space the output lives in, with a mature literature &
+  Tier~2 \S I.7b (positivity, as a physics worry) &
+  \S\ref{sec:simplex}, \reg{T-30} \\
+\textbf{Experiment design \& multiplicity} &
+  18 cells $\times$ 6 metrics makes ``we win'' cheap &
+  nothing &
+  \S\ref{sec:multiplicity}, \reg{T-31} \\
+\textbf{Artifact lifecycle} &
+  what ships, and whether it reproduces &
+  \foreignreg{2}{R-25} (shelf life, physics side only) &
+  \S\ref{sec:artifact}, \reg{T-32} \\
+\end{longtable}
+\endgroup
+
+Ten areas. Note the shape: \textbf{one is physics-internal (mixing), four are
+about the physical setting the project sits inside, three are about the
+interface, and two are about the practice of producing and shipping the result.}
+The map's blind spot is not the physics --- Tiers 0--2 are thorough --- it is
+everything on the boundary of the physics.
+
+% ---------------------------------------------------------------------
+\subsubsection{Three developed here, having no home section}
+\label{sec:threedeveloped}
+
+\paragraph{Experiment design and the multiplicity problem}
+\label{sec:multiplicity}
+
+The project will compare an emulator against a baseline across
+\textbf{2 networks $\times$ 9 $\Delta t$ $\times$ 6 metrics = 108 cells}, and
+it has already done exactly that once, for the reproduction
+(\resultsref{2026-07-08}, ``ratio 1.000 in all 108 comparisons''). For a
+\emph{reproduction} that is a strength --- 108 exact matches is overwhelming
+evidence. For a \emph{comparison} it is a trap.
+
+\textbf{The arithmetic.} If two models are genuinely equivalent and each cell is
+a coin flip, the probability that one wins \textbf{at least 60 of 108} cells is
+about 15\% (at least 63 of 108: about 5\% --- corrected in the 2026-08-18 audit;
+the earlier text put 5\% at 60), and the probability of winning at least one
+cell ``by a lot'' is essentially 1. With per-cell noise from training seeds and
+test-set sampling, a table of 108 numbers will always contain a flattering
+subset. \derivedhere[binomial]
+
+\textbf{What the project needs and does not have:}
+
+\begin{enumerate}
+\item \textbf{A pre-registered primary metric.} One number, chosen before
+  training, against which the claim is made. Everything else is secondary and
+  labelled as such. The obvious candidate is absolute $|\dYe|$ p99 on the
+  relaxed manifold in the QSE window --- it is the project's own quantity, on
+  the deployment distribution, in the regime it claims.
+\item \textbf{Seed replication.} \code{CLAUDE.md} already requires three seeds
+  for the \emph{learned-mask regression} trigger, which shows the instinct is
+  present; it is not required for the headline comparison. Without $\ge 3$
+  seeds there is no way to distinguish a model improvement from an
+  initialisation.
+\item \textbf{Correction for multiplicity} on the secondary table --- or, more
+  honestly, the discipline of reporting the whole table and claiming nothing
+  from individual cells.
+\item \textbf{A pre-declared definition of ``beating''}
+  (\S\ref{sec:protocol}'s open decision 3), because deciding it after seeing the
+  numbers is how a null result becomes a paper.
+\end{enumerate}
+
+None of this is exotic; it is standard experimental practice imported from
+fields that had a replication crisis. The project's \code{RESULTS.md} discipline
+--- every number dated, scripted, and provenanced --- is \emph{exactly} the
+infrastructure that makes pre-registration cheap, and it is one line of policy
+away from having it. Registered as \reg{T-31}.
+
+\paragraph{The artifact lifecycle --- what actually ships}
+\label{sec:artifact}
+
+\foreignreg{2}{R-25} asks what a rate-library or MESA version bump does to a
+trained emulator. That is the \emph{physics} half of a larger question the
+project has not posed: \textbf{what is the deliverable, and can someone else run
+it in five years?}
+
+Six components, with the project's current status:
+
+\begingroup
+\small
+\begin{tabularx}{\textwidth}{@{}Y L{6.4cm}@{}}
+\toprule
+\textbf{component} & \textbf{status} \\
+\midrule
+the trained weights & n/a (pre-training) \\
+the \textbf{exact $\nu$, $C$, isotope order, and column order} the weights were
+  trained against &
+  \textbf{excellent} --- exported deterministically with content hashes,
+  \code{disposition\_sha256} in the npz \\
+the rate configuration (REACLIB snapshot, weaklib ordering, screening) &
+  \textbf{excellent} --- pinned, reconciled, measured \\
+a \textbf{serving artifact} with no Python in the loop &
+  \textbf{nonexistent} (\S\ref{sec:callsite} item~5, \reg{T-27}) \\
+\textbf{determinism} across thread counts, devices, and batch sizes &
+  \textbf{unspecified} (\tierone{VIII.E.4}) \\
+\textbf{model identity recorded in the consumer's output} &
+  \textbf{unspecified} (\S\ref{sec:callsite} item~7) \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+The first three are as good as any project of this kind. The last three are
+absent, and they are the ones that decide whether the work is \emph{usable}
+rather than merely \emph{correct}.
+
+Two specific traps worth naming because they are cheap to avoid in advance and
+expensive to fix later:
+
+\begin{itemize}
+\item \textbf{Batch-size-dependent output.} Many frameworks produce
+  bitwise-different results at different batch sizes (different GEMM kernels,
+  different reduction orders) \provtag{[engineering, assumed --- no source
+  opened]}. A stellar code that batches a variable number of zones per timestep
+  will therefore get different answers for the same zone depending on how many
+  neighbours were in the batch --- and, worse, a \emph{retry}
+  (\S\ref{sec:callsite} item~4) may batch differently. This must be a declared,
+  tested contract, not a hope.
+\item \textbf{The conservation guarantee must survive export.}
+  $\dd Y = \nu\netflux$ in float64 is exact; the same computation in a float32
+  inference graph is not. The conservation map has to be pinned to float64
+  \emph{in the exported artifact}, which is a concrete constraint on how the
+  model is compiled, and \code{CLAUDE.md}'s ``float32 in model internals only''
+  rule is the policy that anticipates it --- but nothing tests it end to end.
+\end{itemize}
+
+Registered as \reg{T-32}. It is an ADR plus a test, not a research programme.
+
+\paragraph{Nuclear-data uncertainty is probably the binding term --- promote it}
+\label{sec:nucleardata}
+
+This is not a new area; it is \tierone{VIII.C.1} (rate uncertainty $\to$ \Ye{}
+propagation) and \S VIII.C.5 (mass/$Q$ provenance). The audit's contribution is
+to argue that they should be \textbf{first}, not twelfth.
+
+The argument, in three steps:
+
+\begin{enumerate}
+\item \S\ref{sec:errorhierarchy}'s hierarchy puts the emulator's target
+  ($3\times10^{-6}$/step) \emph{below} the weak-library shift
+  ($5\times10^{-3}$/trajectory) by design. That is the intended relationship ---
+  but it is a comparison against \textbf{one} known systematic.
+\item The \emph{unknown} systematics are the Hauser--Feshbach rate uncertainties
+  on unmeasured channels, which Tier~1 \S 1.3.3 puts at factor-of-two scale for
+  the experimentally inaccessible ones (\citealt{rauscher2000} estimate their
+  rates ``within a factor of 1.5--2''), and the mass/$Q$ differences, which
+  Tier~1 \S VIII.C.5 notes enter as $e^{-Q/kT}$ with $Q/kT \approx 20$--50 for
+  individual channels ($Q \approx 7$--13\,MeV at $kT \approx 0.26$--0.43\,MeV;
+  hundreds to ${\sim}2000$ only for total binding energies in the Saha exponent)
+  --- a 100\,keV $Q$ difference is a \textbf{47\% rate difference} at
+  $kT = 0.26$\,MeV.
+\item Nobody has propagated either to \Ye. If the propagated uncertainty is
+  $10^{-3}$ per trajectory, the gate is well placed. If it is $10^{-2}$, the
+  gate is over-engineered by orders and \textbf{the entire cost wall of Tier~2
+  \S IV.9 is being paid for nothing.}
+\end{enumerate}
+
+\textbf{Everything needed to answer it exists}: the batch engine evaluates every
+rate in milliseconds, the reference integrator produces trajectories, and the
+outlier census (135 channels, all class-explained) already identifies which
+channels are uncertain. A Monte Carlo over rate perturbations on a few hundred
+states in the QSE window is a day's compute.
+
+It is the cheapest of the three routes to answering \emph{``is $3\times10^{-6}$
+the right gate?''} --- the others being \reg{T-01} (the output derivative,
+partly infeasible per \S\ref{sec:explodability}) and \foreignreg{2}{R-11} (the
+split-error comparison, which needs an experiment). The audit's recommendation
+is to do this one first and let it inform the other two.
+
+% ---------------------------------------------------------------------
+\subsubsection{Axes checked and found already covered}
+\label{sec:axescovered}
+
+Listed so the sweep is auditable rather than merely asserted:
+
+\begingroup
+\small
+\begin{tabularx}{\textwidth}{@{}L{6.4cm} Y@{}}
+\toprule
+\textbf{axis} & \textbf{covered by} \\
+\midrule
+plasma EOS, degeneracy, Coulomb coupling & Tier~0 \S 0.1 \\
+statistical mechanics, detailed balance & Tier~0 \S 0.2, Tier~1 \S III \\
+rate theory, Gamow, Hauser--Feshbach & Tier~1 \S I \\
+screening & Tier~1 \S IV, with the two-$\kappa$ rule as executable policy \\
+the weak sector, EC in a degenerate plasma & Tier~1 \S V \\
+stoichiometry, conservation, projection & Tier~2 \S I \\
+cancellation, $\kappa$, entropy production & Tier~2 \S II \\
+NSE/QSE algebra & Tier~2 \S III \\
+stiff integration, the augmented state & Tier~2 \S IV \\
+dataset identity, join keys, censoring & Tier~0 \S III, \S\ref{sec:shippedpipeline} here \\
+CRN theory, flux cones, deficiency & Tier~2 \S I.2b \\
+the speedup ceiling under fallback & Tier~2 \S 0.5b \\
+$e^{+}e^{-}$ pairs at the hot corner & Tier~1 \S VIII.C.6 (promoted to a decision) \\
+isomers, ground-state vs stellar rates & Tier~1 \S VIII.C.2, \S VIII.C.8 \\
+neutrino loss channels & Tier~0 \S 0.4, Tier~1 \S V.8 \\
+learning theory / operator learning & \foreignreg{2}{R-24} (sketch) \\
+rollout accumulation theory & Tier~0 \S IV.3 \\
+GNN architecture specifics & Tier~4 sketch, \tierone{VIII.E.1} \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Eighteen axes, all genuinely covered. The audit's yield (ten new areas) came
+entirely from asking about the \emph{boundary} of the physics rather than its
+interior.
+
+% ---------------------------------------------------------------------
+\subsubsection{Is the audit converging?}
+\label{sec:converging}
+
+Honestly: \textbf{the physics audit has converged; the boundary audit has not.}
+
+Evidence for the first: passes A--C found exactly one physics-internal gap
+(mixing), and it was already flagged as a caveat in Tier~0 --- the audit
+upgraded a known approximation to a quantified one rather than discovering
+something unknown. Four tiers of derivation have found essentially everything a
+physicist would ask.
+
+Evidence against the second: pass B (the interface) found four items from four
+questions, at a 100\% hit rate, and pass C found four more. \textbf{A pass that
+finds something every time it looks has not converged}, and the reason is
+structural: the project has no artifact yet, so there has been nothing to ask
+interface questions \emph{of}. Those questions will keep producing answers until
+an emulator exists and is called from something.
+
+The practical reading: \textbf{expect another audit's worth of items when the
+first model is deployed, and budget for it.} The right response is not to try
+to enumerate them now --- that is how you get a speculative list --- but to
+notice that the register's cheapest and highest-ranked items
+(\S\ref{sec:ranked}; \reg{T-24}, \reg{T-03}, \reg{T-08}) are all \emph{scoping}
+decisions that would make the eventual interface work smaller.
+% [edition] reworded cross-ref: "the current register's cheapest and highest-ranked items (**T-24**, **T-03**, **T-08**)" -- the register follows this section in the report
+Doing scope before capability is the correct order and the register already
+reflects it.
+
+% =====================================================================
+\subsection{The third pass: the emulator as an object}
+\label{sec:emulatorobject}
+
+\S\ref{sec:converging} predicted that another audit's worth of items would
+appear once there was an artifact to ask questions of, and that the interface
+axis had not converged. This part is that prediction tested early --- a third
+pass run \emph{without} waiting for a model, by asking what one would measure
+\textbf{of} a trained emulator and what a stellar code would do \textbf{with}
+it.
+
+It found ten more. They are not scattered: \textbf{nine of the ten are about the
+model as a dynamical object or about its interaction with a host solver}, which
+is the same region pass B found. That localisation is the useful result ---
+\S\ref{sec:convergingnow}.
+
+% ---------------------------------------------------------------------
+\subsubsection{The emulator has its own fixed points, and nobody has asked what they are}
+\label{sec:fixedpoints}
+
+This is the strongest item in the pass, and it is a direct generalisation of the
+tier's own headline finding.
+
+\textbf{The true map's fixed-point structure.} At constant $(T,\rho)$ the
+one-step map $\Phi_{\Delta t}$ is the time-$\Delta t$ flow of an autonomous ODE,
+and its fixed points are that ODE's equilibria. For the strong/EM sector that is
+\textbf{NSE at the current \Ye} --- a one-parameter family, since the strong
+sector cannot move \Ye{} (\S\ref{sec:yeidentity}; the \Ye-parametrised NSE of
+\citealt{hix1996} --- physics reasoning here, not a quoted result). Include the
+weak sector and the family collapses to a single point ($\beta$-equilibrium),
+but only on timescales far longer than anything here. So:
+%
+\begin{equation}
+\label{eq:nseprojection}
+\Phi_{\Delta t}(X) \;\xrightarrow[\ \Delta t \gg \tau_{\text{strong}}\ ]{}\;
+X_{\mathrm{NSE}}\big(T,\rho,Y_e(X)\big) ,
+\end{equation}
+%
+i.e.\ \textbf{at large $\Delta t$ the true map is very nearly a projection onto
+a one-dimensional attracting manifold indexed by \Ye.}
+
+\textbf{The learned map's fixed-point structure is whatever the weights make
+it.} $\Phihat_{\Delta t}$ is some smooth function; its fixed set
+$\{X : \Phihat(X) = X\}$ is determined by parameters fitted to minimise a
+per-step loss. Nothing in the training objective mentions fixed points. There is
+no reason for the learned attractor to be the NSE manifold, to be
+one-dimensional, to be indexed by \Ye, or to exist at all.
+
+Four consequences, in increasing order of how much they should worry someone:
+
+\begin{enumerate}
+\item \textbf{A long rollout converges to the learned attractor, not the
+  physical one.} Per-step accuracy controls the transient; the fixed-point
+  structure controls the destination. For $N \approx 10^{3}$ steps in a strongly
+  contracting system, the destination is most of the answer.
+\item \textbf{Per-step loss is nearly blind to it.} Near an attracting fixed
+  point the true increment is \emph{small}, so a model can have tiny per-step
+  error there and still put its own fixed point somewhere else entirely --- the
+  errors that relocate an attractor are exactly the ones a small-increment loss
+  weighs least.
+\item \textbf{This is the same failure the labels have.} \S\ref{part:pathology}
+  found the \emph{label generator} sitting at a displaced fixed point and called
+  it a pathology. A trained emulator can acquire a displaced fixed point of its
+  own, from a different cause, with the same consequence --- and it would be
+  invisible to every gate the project currently specifies.
+\item \textbf{\Ye{} is the parameter of the true attractor manifold.} If the
+  learned attractor does not depend on \Ye{} in the right way, the model gets
+  the \emph{endpoint} of silicon burning wrong as a function of the very
+  quantity the project exists to predict (\S\ref{sec:endpoint}).
+\end{enumerate}
+
+\textbf{And it is trivially measurable, with tools already built.} Iterate the
+trained map to convergence at fixed $(T,\rho)$ from many starting compositions,
+and compare the limit against \code{qse.solve\_nse}:
+%
+\begin{equation}
+\label{eq:fixedpointcensus}
+X_\infty \;=\; \lim_{k\to\infty}\hat\Phi_{\Delta t}^{\,k}(X_0)
+\quad\text{(iterate until } \|\Delta X\| < \mathrm{tol}\text{)},
+\qquad
+d \;=\; \big\|\log X_\infty - \log X_{\mathrm{NSE}}\big(T,\rho,Y_e(X_\infty)\big)\big\|_\infty ,
+\end{equation}
+%
+sweeping $X_0$ over many starting compositions to find how many distinct
+attractors exist and how far each sits from the Saha solution.
+
+That is \code{scripts/step6\_label\_nse\_census.py} pointed at a model instead
+of at a dataset --- the same census, the same reference solver, the same
+statistics. It is also the direct extension of \reg{T-29}'s fixed-point audit
+from datasets to models, and it should be a standing gate, not a one-off.
+
+\textbf{It also suggests a training term nobody has proposed.} Add a fixed-point
+consistency penalty $\|\Phihat(X_{\mathrm{NSE}}) - X_{\mathrm{NSE}}\|$
+evaluated at Saha solutions --- free supervision (the Saha solver is cheap and
+exact), aimed precisely at the property the per-step loss cannot see. It pins
+the model's attractor to the physical one without touching the conservation map.
+
+Note how this sits against \foreignreg{2}{R-13}: a second-law-consistent
+emulator cannot \emph{diverge} --- the Helmholtz free energy bounds the fast
+sector --- but a Lyapunov bound says nothing about \textbf{which} fixed point
+the descent reaches. R-13 gives stability; this gives correctness of the
+destination. They are complementary and only the first is on the register.
+Registered as \reg{T-33}.
+
+% ---------------------------------------------------------------------
+\subsubsection{The learned Jacobian --- does stiffness survive learning?}
+\label{sec:jacobian}
+
+The companion diagnostic, equally cheap and equally absent.
+
+\textbf{What the true map's Jacobian looks like.} If $J = \nu\,\partial R/\partial Y$
+is the ODE Jacobian with eigenvalues $\lambda_i$ (Tier~0 \S V.3: spread
+$10^{12}$--$10^{15}$), then the flow map's Jacobian has eigenvalues
+$\approx e^{\lambda_i \Delta t}$ (the standard linearisation of a stiff flow,
+\citealt{hairer1996}). With most $\lambda_i$ strongly negative and $\Delta t$
+large:
+%
+\begin{equation}
+\label{eq:flowspectrum}
+\text{spec}\!\left(\frac{\partial \Phi_{\Delta t}}{\partial X}\right)
+\;\approx\; \big\{\,e^{\lambda_i \Delta t}\,\big\}
+\;\longrightarrow\; \{\underbrace{\approx 0,\dots,\approx 0}_{\text{the stiff directions}},\ \underbrace{O(1)}_{\text{the slow manifold}}\} .
+\end{equation}
+
+\textbf{The true one-step map is severely rank-deficient}: it annihilates almost
+every direction and preserves a handful. That is the same statement as
+``stiff'', as ``QSE'', and as ``the reachable set has effective dimension
+3.4 / 8.6'' (\foreignreg{2}{R-02}, Tier~2 \S I.10b \derivedthere) --- this
+tier's \S\ref{sec:mechanism} list of four names for one mechanism, now seen
+through the flow map's spectrum.
+
+\textbf{What that demands of the emulator, as two failure modes with opposite
+signs:}
+
+\begingroup
+\small
+\begin{tabularx}{\textwidth}{@{}L{3.6cm} L{3.6cm} Y@{}}
+\toprule
+\textbf{failure} & \textbf{signature} & \textbf{consequence} \\
+\midrule
+\textbf{under-contraction} --- learned singular values $> 1$ where the true map
+  has $\approx 0$ &
+  the model preserves directions physics destroys &
+  rollout amplifies its own error along stiff directions: the classic
+  autoregressive blow-up \citep{brandstetter2022}, and precisely what S20's
+  pushforward loss \citep{brandstetter2022} and noise injection
+  \citep{sanchezgonzalez2020} are \emph{heuristics} for \\
+\textbf{over-contraction} --- learned singular values $\approx 0$ where the true
+  map has $O(1)$ &
+  the model collapses the slow manifold too &
+  it destroys the \Ye{} signal and the bridge flow --- the physics --- while
+  looking beautifully stable \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Both are measurable in one line with autodiff, against a reference the project
+already produces: \code{fluxes/integrate.py} can supply the true
+$\partial\Phi/\partial X$ by forward sensitivity, and its analytic
+$\partial R/\partial Y$ is already implemented (\code{ADR 0006}).
+
+\textbf{Why this matters more than a diagnostic usually would.} S20 is currently
+specified entirely in terms of \emph{training tricks} --- pushforward losses,
+noise injection restricted to non-equilibrated channels, the Ono \& Sugimura
+governor --- with no measurement that says whether the trained map is
+contracting on the right subspace. A spectral comparison turns rollout stability
+from a hoped-for property into a checked one, and it does so \textbf{before} an
+expensive rollout study rather than after. Registered as \reg{T-34}.
+
+% ---------------------------------------------------------------------
+\subsubsection{The fallback gate is a discontinuity in the host's implicit solve}
+\label{sec:dispatcher}
+
+A specific and serious interaction that no document anticipates.
+
+MESA's structure solve is a \textbf{Newton iteration} over the whole stellar
+model (\citealt[\S 6]{paxton2011}; \citealt{jermyn2023} --- the partial
+derivatives are now supplied by automatic differentiation), and the network's
+output enters the residual (through \enuc, the composition, and the EOS's
+dependence on $\bar A$ and $\bar Z$). Newton needs a residual function that is
+smooth in the iterates.
+
+Now insert S22's design: an OOD detector computes a score $s(X, T, \rho)$ and
+\textbf{dispatches} to either the emulator or the real solver. As Newton adjusts
+the state during its iteration, $s$ changes; if it crosses the dispatch
+threshold, the residual function \textbf{jumps} by the emulator-vs-solver
+difference --- which is precisely the quantity the gate exists because it is
+large.
+
+The consequences are the standard ones for a discontinuous residual, and they
+are not subtle: Newton fails to converge, or cycles between two branches, or
+converges to a spurious point on one side. The host responds by \textbf{cutting
+the timestep}, which changes the state, which may flip the dispatch again. This
+is a well-known pathology with discontinuous EOS tables and phase transitions
+(MESA blends its EOS and opacity tables, \citealt{paxton2011}, and had to
+handle the discontinuous derivatives of the Skye crystallisation transition
+explicitly, \citealt{jermyn2023}), and it is exactly reproduced here.
+
+\textbf{Three mitigations, none currently specified:}
+
+\begingroup
+\small
+\begin{tabularx}{\textwidth}{@{}L{7.2cm} Y@{}}
+\toprule
+\textbf{mitigation} & \textbf{cost} \\
+\midrule
+\textbf{freeze the dispatch for the duration of one Newton solve} (decide once
+  from the incoming state) &
+  free; probably the right default \\
+\textbf{blend continuously in a band} --- a weighted average of emulator and
+  solver over a threshold interval &
+  pays the solver's cost across the whole band, worsening the effective $f$ of
+  the $1/f$ ceiling \\
+\textbf{require agreement to within solver tolerance in the switching band}
+  --- i.e.\ only switch where it does not matter &
+  strongest, but constrains where the gate is allowed to fire \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+\textbf{Credit where it is due, and the distinction.}
+\code{docs/reports/consolidated-gnn-architecture.md} \S 5 already identifies
+that \emph{mask membership flips} inject discontinuities in $\dd Y$ and \enuc{}
+that destabilise \textbf{the rollout gradient}, and proposes churn penalties,
+annealed gates and hysteresis. That is the same mathematics one level up,
+applied to training. What is new here is that the same problem appears
+\textbf{at the host's Newton solve at deployment}, where the switch is not the
+mask but the \emph{fallback dispatcher}, and where the remedies available during
+training (annealing, soft gates) are unavailable. Registered as \reg{T-35}.
+
+% ---------------------------------------------------------------------
+\subsubsection{\texorpdfstring{$\rho$}{rho} is not a free input dimension}
+\label{sec:rhoinput}
+
+An architecture insight that falls out of the rate structure and that nothing in
+the project uses.
+
+Write the ODE by reaction order. At fixed $T$, with $Y$-dependence factored out:
+
+\begingroup
+\small
+\begin{tabularx}{\textwidth}{@{}L{5.2cm} Y L{2.6cm}@{}}
+\toprule
+\textbf{sector} & \textbf{contribution to $\dd Y/\dd t$} & \textbf{$\rho$-dependence} \\
+\midrule
+one-body (photodisintegration, $\beta$-decay) & $\lambda(T)\cdot Y$ & \textbf{none} \\
+two-body (captures) & $\rho\, N_A\langle\sigma v\rangle(T)\cdot Y_aY_b$ & \textbf{$\propto \rho$} \\
+three-body (triple-$\alpha$ and friends) & $\rho^{2}\ldots\cdot Y_aY_bY_c$ & \textbf{$\propto \rho^{2}$} \\
+tabulated weak (EC) & $\lambda(T, \rho\Ye)\cdot Y$ & through \textbf{$\rho\Ye$} \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+Change variables to $\tau = \rho t$. Then the two-body sector becomes
+$\rho$-free, the three-body sector carries one power of $\rho$, the one-body
+sector carries $\rho^{-1}$, and the tabulated sector carries whatever the table
+does. So:
+
+\begin{result}
+\textbf{If the network contained only two-body reactions, the map would be
+exactly invariant under $(\rho, \Delta t) \to (\lambda\rho, \Delta t/\lambda)$.}
+$\rho$ would not be an independent input at all --- only the product
+$\rho\Delta t$ would matter. (With screening off: the screening enhancement
+depends on $\rho$ through $\Gamma$ and breaks the invariance.)
+\end{result}
+
+The real network is not two-body-only, and the symmetry-breaking terms are
+\emph{exactly the physically interesting ones} --- photodisintegration is what
+creates the equilibrium (\S\ref{sec:ignition}), and electron capture is what
+moves \Ye. That is the point rather than an objection, and it yields three
+usable consequences:
+
+\begin{enumerate}
+\item \textbf{A better conditioning variable.} The model is currently
+  conditioned on $\log\rho$ and $\log\Delta t$ as separate features.
+  \textbf{$\rho\Delta t$} captures the entire two-body sector --- the numerical
+  majority of columns (ch.~4--5 alone are 397/979 of the reactions
+  \resultsref{2026-07-08}; ch.~6--7 are two-body too) --- in one variable,
+  leaving the network to learn only the \emph{departure} from that scaling.
+  This composes with \foreignreg{2}{R-10}'s $\Delta t/\tau$ proposal rather
+  than competing with it: R-10 says condition on how many relaxation times the
+  step covers, and this says the density enters that relaxation through a known
+  power law.
+\item \textbf{An exact consistency test.} Evaluate the trained model at
+  $(\rho, \Delta t)$ and at $(\lambda\rho, \Delta t/\lambda)$ and compare
+  against the same pair evaluated on the reference integrator. The
+  \emph{reference} violates the invariance by a known, computable amount (the
+  one- and three-body contributions); the model's violation should match it. A
+  model whose violation is the wrong size has learned the wrong decomposition,
+  and this test needs no labels.
+\item \textbf{A physical diagnostic for free.} The measured degree of invariance
+  violation, per stratum, \textbf{is} a measure of how much of the local
+  dynamics is photodisintegration-driven --- i.e.\ an independent, rate-free
+  probe of exactly the QSE onset that \S\ref{sec:ignition} derives from $Q/kT$.
+\end{enumerate}
+
+Registered as \reg{T-36}.
+
+% ---------------------------------------------------------------------
+\subsubsection{What ``calibrated'' means for a deterministic map}
+\label{sec:calibrated}
+
+\reg{T-26} concluded that S22 needs a \emph{calibrated continuous error
+estimate} rather than a binary flag. That conclusion has a literature and an
+assumption problem, neither of which is in any document.
+
+\textbf{The specified approach is deep ensembles}, and it has two independent
+difficulties here:
+
+\begin{itemize}
+\item \textbf{Economics.} An ensemble of size $k$ costs $k\times$ per call, and
+  every call --- not just the fallbacks. Tier~2 \S 0.5b's cost model puts
+  $t_{\mathrm{det}}$ on the critical path and shows a detector costing 10\% of
+  the solver caps the speedup at $10\times$ before a single fallback happens.
+  An ensemble is the most expensive UQ there is, in a setting where
+  \foreignreg{2}{R-12} shows the detector's cost is a first-order term.
+\item \textbf{Statistics.} All UQ methods, deep ensembles
+  \citep{lakshminarayanan2017} included, \textbf{lose calibration under
+  distribution shift} --- ensembles degrade least in the benchmark of
+  \citet{ovadia2019} but still substantially --- and distribution shift is not
+  a risk here --- it is a \emph{measured fact} (\S\ref{sec:twodistributions}).
+  (The earlier wording ``worst-calibrated under shift'' inverted the source;
+  corrected in the 2026-08-18 audit.) The consolidated architecture report
+  already names this as a load-bearing risk (``a jointly-overconfident ensemble
+  could fail the OOD gate silently exactly where the transfer fails''), which
+  is the right worry and has no proposed remedy.
+\end{itemize}
+
+\textbf{The tool the project has not named is conformal prediction}
+\citep{vovk2005, angelopoulos2021}, which gives distribution-free,
+finite-sample-valid prediction intervals from a calibration set. Its assumption
+is exchangeability, and here the assumption fails in two \emph{known} ways,
+which is the useful part:
+
+\begingroup
+\small
+\begin{tabularx}{\textwidth}{@{}L{3.6cm} L{3.4cm} Y@{}}
+\toprule
+\textbf{failure} & \textbf{already measured as} & \textbf{the conformal variant that handles it} \\
+\midrule
+rows within a trajectory are correlated &
+  ICC 0.22--0.70 (\reg{T-05}) &
+  block / cluster conformal --- calibrate over \textbf{trajectories}
+  \assumednote{e.g.\ the block-conformal methods of \citealt{chernozhukov2018},
+  not opened here} \\
+the deployment measure $\ne$ the training measure &
+  \S\ref{sec:twodistributions}, \foreignreg{2}{R-07}, \reg{T-13} &
+  \textbf{weighted} conformal \citep{tibshirani2019}, which needs the
+  likelihood ratio between the two measures --- its covariate-shift form
+  assumes $P(Y|X)$ unchanged, true for a deterministic emulator target \\
+\bottomrule
+\end{tabularx}
+\endgroup
+
+The second row is the striking one: \textbf{weighted conformal prediction
+requires exactly the density ratio that R-07 / T-13 set out to measure.} A
+sampling-measure study filed under ``is the Sobol grid representative?'' turns
+out to be the input to a principled UQ method. Two open items that looked
+unrelated are the same measurement.
+
+\textbf{And there is a cheap alternative the project owns and has not connected
+to S22.} It already computes several \emph{physics residuals} that require no
+ensemble and cost essentially nothing:
+
+\begin{itemize}
+\item the \textbf{entropy-production sign} check (\foreignreg{2}{R-05}: a
+  learned $\hat\varphi$ can violate the second law and pass every current
+  gate);
+\item the \textbf{energy-consistency} residual between the flux route and the
+  composition route;
+\item \textbf{positivity} violations (\foreignreg{2}{R-04});
+\item the \textbf{fixed-point distance} of \S\ref{sec:fixedpoints}.
+\end{itemize}
+
+Each is a scalar, deterministic, single-forward-pass validity score derived from
+physics rather than from statistics --- which is precisely the ``cheap UQ'' that
+Tier~2 \S 0.5b argues is structurally preferred on economic grounds. \textbf{The
+project has been building OOD scores for two tiers without labelling them as
+such.} Registered as \reg{T-37}, and it is a reframing rather than a new
+measurement.
+
+% ---------------------------------------------------------------------
+\subsubsection{Rates as inputs --- the capability nobody claimed}
+\label{sec:ratesinputs}
+
+A design question with a scientific payoff, unasked.
+
+The emulator's inputs are $(T, \rho, X)$. The \emph{rates} are baked into the
+weights. Suppose instead the model took a low-dimensional rate-perturbation
+vector $\theta$ --- multipliers on a chosen set of channels, or a categorical
+selector over weak-rate library families (FFN / Oda / LMP). Then autodiff gives
+%
+\begin{equation}
+\label{eq:ratederiv}
+\frac{\partial X'}{\partial \theta}, \qquad \frac{\partial Y_e'}{\partial \theta}
+\end{equation}
+%
+\textbf{for free, at inference time.} That is exactly \S\ref{sec:nucleardata}'s
+rate-uncertainty $\to$ \Ye{} propagation --- currently a day of compute per
+study --- reduced to a milliseconds-per-state gradient evaluation, and it is the
+kind of thing surrogate models are uniquely good for.
+
+\textbf{Honest assessment of the cost.} Training data would have to \emph{vary}
+the rates, which means regenerating labels under perturbed rate sets. For a full
+continuous $\theta$ that is prohibitive. But two restricted versions are
+affordable and useful:
+
+\begin{itemize}
+\item \textbf{A categorical library selector} with 2--3 values (the FFN/LMP pair
+  being the obvious one, since that shift \emph{is} the project's accuracy
+  floor, \S\ref{sec:errorhierarchy} row 4). This costs one extra label campaign
+  per library and would let a user ask ``how much of my \Ye{} is the rate
+  library?'' directly.
+\item \textbf{A handful of scalar multipliers on the top-20 \Ye{} carriers}
+  (\S\ref{sec:yecarriers}), which are few, identified, and dominate the budget.
+\end{itemize}
+
+Whether to do this in Phase 1 is a scope call and probably ``no''. Whether to
+\emph{say} it is a scope call is not --- because it changes what the artifact is
+\textbf{for}: from ``a fast network'' to ``a differentiable model of the
+network's dependence on its own inputs''. That is a stronger scientific product
+and it is not in any plan. Registered as \reg{T-38}.
+
+% ---------------------------------------------------------------------
+\subsubsection{Which \texorpdfstring{$\Delta t$}{dt} does the host actually use?}
+\label{sec:hostdt}
+
+The emulator is trained on nine values spanning $10^{-6}\ldots10^{2}$\,s,
+inherited from the NNN's grid, which its authors chose to bracket the timesteps
+of their three MESA test-case tracks (\citealt[\S 2.2 and Fig.~1]{grichener2025})
+and extended ``several orders of magnitude'' below them ``which might be needed
+for hydrodynamical simulations''. \textbf{Nobody has measured the distribution
+of $\Delta t$ that MESA actually takes during silicon burning} --- the paper's
+Fig.~1 is three tracks, not a per-phase histogram.
+
+If the host spends most of its steps in $10^{-2}\ldots10^{0}$\,s, then three of
+the nine decades are training capacity spent on regions never visited, and the
+extrapolation risk lives at a different end of the grid than assumed. If the
+host takes steps \emph{shorter} than $10^{-6}$\,s --- the NNN authors say the
+grid's low end already lies below MESA's steps, so this would need a
+hydrodynamic phase --- the emulator is being extrapolated from its first step,
+and \S\ref{sec:realtrajectory}'s finding that even the shortest label is a full
+stiff relaxation acquires a sharper edge.
+
+\textbf{This is the same MESA run as \reg{T-24}}, so it is free once that
+profiling exists: histogram \code{dt} by evolutionary phase alongside the
+\code{net} timing. Registered as \reg{T-39}, and it should be done in the same
+afternoon.
+
+% ---------------------------------------------------------------------
+\subsubsection{Sample complexity --- a million points in 82 dimensions}
+\label{sec:samplecomplexity}
+
+A framing that the project's own measurements make sharp, and that nothing
+states.
+
+The training corpus is ${\sim}10^{6}$ states per network, with inputs of
+dimension $n + 2 = 82$ / 153. The naive covering estimate for a smooth function
+on a $d$-dimensional set at resolution $\varepsilon$ is $\varepsilon^{-d}$
+samples; at $d = 82$ the number is not worth writing down. \textbf{Uniform
+coverage is not merely infeasible, it is absurd by seventy orders of magnitude.}
+
+The reason it can nonetheless work is that the \emph{deployment} set is much
+smaller than the input space: \foreignreg{2}{R-02} measures the effective
+dimension of visited compositions at 3.4 / 8.6. At $d = 8.6$ and
+$\varepsilon = 0.1$ the covering estimate is ${\sim}10^{8.6} \approx 4\times10^{8}$
+--- still \textbf{two to three orders above the corpus}, though this is a
+worst-case bound that smoothness and the map's near-projection structure
+(\S\ref{sec:jacobian}) both improve substantially.
+
+But the real point is a \emph{capacity allocation} argument, distinct from the
+distribution-shift argument of \S\ref{sec:twodistributions} and, as far as these
+notes can tell, not made anywhere:
+
+\begin{aside}
+The training compositions are \textbf{random}, hence spread over the full
+high-dimensional simplex. The deployment compositions lie on a ${\sim}3$--9
+dimensional manifold. So the model spends the overwhelming majority of its
+capacity, and of the corpus, learning behaviour on states it will never be asked
+about --- while the manifold it \emph{will} be asked about is covered by
+whatever small fraction of the corpus happens to lie near it.
+\end{aside}
+
+That is an argument for trajectory-derived training data on grounds of
+\textbf{sample efficiency}, independent of whether the distributions match. It
+also predicts that a modest number of on-manifold states could be worth a great
+many off-manifold ones --- which, if true, makes the $10^{3}$--$10^{4}$-state
+$\Phifl$-label budget of \S\ref{sec:phisupervision} look much less like a
+compromise and much more like the right design. Registered as \reg{T-40}.
+
+% ---------------------------------------------------------------------
+\subsubsection{Two smaller ones}
+\label{sec:twosmaller}
+
+\textbf{Network switching mid-run.} MESA can change nets during an evolution
+(\code{star\_job} \code{change\_net} / \code{new\_net\_name}, r23.05.1
+\code{star\_job.defaults:2364}; a star does not need an iron-peak network during
+hydrogen burning). An emulator trained on \msn{80} has nothing to say about the
+step at which the host switches nets, and the composition must be mapped between
+species lists at that point. Minor, but it is a real code path and it interacts
+with the size-transfer story. Folded into \reg{T-32}.
+
+\textbf{Licensing, attribution, and data reuse.} The project redistributes
+nothing but depends on Zenodo 14873443 (someone else's data and trained models),
+MESA, bbq and pynucastro, and will publish a head-to-head comparison against the
+NNN using the NNN authors' own shipped artifacts. The licence terms, the citation
+obligations, and the norms around benchmarking someone's published model with
+their own weights are a genuine publication prerequisite that appears in no
+document. It is half an hour of checking and it is the kind of thing that is
+embarrassing rather than fatal --- which is exactly why it gets skipped. Folded
+into \reg{T-32}.
+
+% ---------------------------------------------------------------------
+\subsubsection{One unretired premise, found while sweeping}
+\label{sec:unretired}
+
+Not an area, but a finding, and it is the same \emph{class} as the ``6--8
+orders'' timescale figure that \S\ref{sec:gates378} retired.
+
+\code{docs/reports/consolidated-gnn-architecture.md} \S 1 states, as inherited
+design basis:
+
+\begin{quote}
+``the net flow between the silicon and iron-peak groups is carried predominantly
+by the single bottleneck reaction \textbf{\nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46}}
+(\textbf{$\approx$75\% of the flow} at the proton-rich $Z = 21$ edge), which is
+therefore the reaction whose flux the Phase-0 kill-test instruments.''
+\end{quote}
+
+The measurement \resultsref{2026-07-12} says: \nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46}
+is \textbf{rank 2 of 251} inter-group carriers (\msn{151}) with \textbf{share
+0.10--0.12} under the \code{a24\_46} boundary on the full relaxed manifold
+(0.094 on the 2026-07-10 pre-stall high-\Ye{} QSE-window subset), and the
+\textbf{top-20 columns carry 0.88} (the \msn{80} bridge figure,
+\resultsref{2026-07-12}).
+
+Both the verdict document and \S\ref{sec:twoclusters} of this file report that
+as \textbf{CONFIRMED} --- and it is, as a confirmation that the reaction is a
+leading carrier, which is a genuine and pleasing independent recovery of a
+literature claim. But \textbf{the magnitude the design leaned on is off by a
+factor of six or seven}, and nothing retires it. ``Predominantly carried by a
+single reaction'' and ``top-20 carry 0.88, of which the leader has 0.11'' are
+different physical pictures, and they imply different architectures: the first
+justifies a bottleneck-focused design, the second justifies exactly the
+concentrated-but-not-singular loss weighting the project actually adopted.
+
+Three things should happen: pin the 75\% figure to what it actually measures ---
+it \emph{is} sourced (\citealt{woosley1973}, via \citealt{hix1996}: WAC
+``contended that this linkage was dominated by a single reaction,
+\nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46}, with perhaps a quarter of the flow going
+through less important reactions''; \citeauthor{hix1996}'s own value is
+$\approx$70\% of the flux \emph{into the iron-peak group} at $\Tn = 5$,
+$\rho = 10^{7}$, $\Ye = 0.498$, integrated while $X$(Si group) falls
+$0.95 \to 0.85$), but it is a different quantity at a different state from
+``share of all inter-group carriers on the relaxed manifold under
+\code{a24\_46}''; retire the transplanted magnitude in \code{RESULTS.md} with
+the measured replacement, exactly as the timescale figure was retired; and
+audit the remaining inherited design premises for others of the same kind. The
+two found so far share a pattern worth naming: \textbf{a magnitude attached to a
+correct qualitative claim, either unsourced (the 6--8 orders) or sourced for a
+different quantity and state (the 75\%)} (corrected in the 2026-08-18 audit).
+Registered as \reg{T-41}, and it is a \code{referee}-subagent task.
+
+% ---------------------------------------------------------------------
+\subsubsection{Is the audit converging \emph{now}?}
+\label{sec:convergingnow}
+
+Better than after pass 3, and the reason is the shape of the yield rather than
+its size.
+
+\textbf{Pass 3} (\S\ref{sec:boundaryaudit}) found ten areas spread across four
+axes: physics-adjacent (mixing), setting (progenitors, NSE handoff,
+explodability), interface (four items), and practice (three items). Spread
+means \emph{not localised} means \emph{not converging}.
+
+\textbf{This pass} found ten items of which \textbf{nine sit in one place}: the
+emulator considered as a dynamical system (\S\ref{sec:fixedpoints},
+\ref{sec:jacobian}, \ref{sec:rhoinput}, \ref{sec:samplecomplexity}), and its
+coupling to a host solver (\S\ref{sec:dispatcher}, \ref{sec:calibrated},
+\ref{sec:ratesinputs}, \ref{sec:hostdt}). The tenth (\S\ref{sec:unretired}) is
+a documentation finding, not an area. That is what localisation looks like, and
+it supports a specific prediction:
+
+\begin{result}
+\textbf{The remaining unexplored prerequisite is essentially one subject: the
+theory and practice of a learned flow map --- its fixed points, its spectrum,
+its conditioning symmetries, its calibration, and the numerics of embedding it
+in an implicit solver.} That is a Tier-4 Part 0, and it is exactly the ``no
+study node at all'' gap \tierone{VIII.E.1} identified from the architecture
+side.
+\end{result}
+
+Two further observations that make the convergence claim honest rather than
+convenient:
+
+\begin{itemize}
+\item \textbf{Diminishing novelty, not diminishing count.} This pass found as
+  many items as the last, but they are far more homogeneous, and four of them
+  (\S\ref{sec:fixedpoints}, \ref{sec:jacobian}, \ref{sec:calibrated},
+  \ref{sec:samplecomplexity}) are \emph{reframings of things already measured}
+  rather than new territory: the fixed-point census is \S\ref{part:pathology}'s
+  method aimed at a model; the spectral test is stiffness seen through the flow
+  map; conformal weighting needs R-07's density ratio; sample complexity needs
+  R-02's effective dimension. \textbf{The project increasingly already owns the
+  inputs to its own open questions.}
+\item \textbf{The one thing that would genuinely change the picture is having
+  an artifact.} Every item in \S\ref{sec:fixedpoints}--\ref{sec:calibrated} is
+  a measurement \emph{of a trained model}, and none can be run before one
+  exists. So the correct reading is not ``keep auditing'' but ``the audit has
+  identified what to measure the moment there is something to measure, and that
+  list should be a gate on the first training run rather than a
+  retrospective.''
+\end{itemize}
+
+\textbf{The recommendation the two passes converge on}, stated once:
+\emph{before the first training run, write the Tier-4 Part 0 and the
+measurement plan it implies.} Sections \S\ref{sec:fixedpoints}--\ref{sec:calibrated}
+and \foreignreg{2}{R-03}, \textbf{R-05}, \textbf{R-13}, \textbf{R-21}, \textbf{R-24} are
+its contents; four of the eight
+open Phase-0 checklist rows are its measurements; and two of the four
+architecture components have retired premises waiting there
+(\S\ref{sec:retired}).
+% [edition] cross-ref "(SSVII.2)" -> \S\ref{sec:retired}, a forward reference in this report

@@ -1,0 +1,210 @@
+% =====================================================================
+%  15 -- WHAT TIER 3 HANDS FORWARD  (source Part VII + closing section).
+%
+%  Source: tier3.md Part VII in full and in order -- header (4911),
+%          VII.1 (4913-4936), VII.2 (4938-4954), VII.3 (4956-4970),
+%          VII.4 (4972-5001), VII.5 (5003-5024);
+%          plus the closing "Where Tier 3 hands off" (5915-5930), which
+%          in the source follows Part X and is re-homed here as the last
+%          subsection of the report body (sec:handsoff).
+%
+%  Cross-reference rewrites: "Part IX" -> \S\ref{sec:boundaryaudit};
+%  "SS III" / "SS I.8" / "SS IV.7" / "SS IV.5" / "SS III.6" / "SS IV.8" /
+%  "SS V.4" -> live refs via the label registry.  No wording changed.
+% =====================================================================
+
+\section{What Tier 3 hands forward}
+\label{part:handoff}
+
+% =====================================================================
+\subsection{What Phase 0 established}
+\label{sec:established}
+
+Positively, and in order of how load-bearing each is:
+
+\begin{enumerate}
+\item \textbf{Conservation by construction works and costs nothing.}
+  $\dd Y = \nu\Phi$ through a fixed integer matrix gives exactly-zero column
+  drifts and random-flux drift within $\max(10^{-12}s,\,10^{-13}G)$ over random
+  fluxes spanning twelve decades within each draw, at overall $\varphi$ scales
+  $10^{0}\ldots10^{-20}$, with $\dd\Ye$ surviving through the weak columns. The
+  gate blocks training and has never failed since the export was fixed.
+  \resultsref{2026-07-08/09}
+\item \textbf{The rate pipeline is trustworthy to 0.004 dex} against an
+  independent Fortran code, with every one of 135 severe outliers
+  class-explained or open-flagged. \resultsref{2026-07-10}
+\item \textbf{The reference integrator produces valid $\Phi$ labels} with
+  machine-precision internal identities and an energy residual three orders
+  inside the 1\% gate --- for $\Tn < 5$, at 4--40 core-days for a useful
+  subset. \resultsref{2026-07-12}
+\item \textbf{The bridge structure is real and concentrated.} Top-20
+  inter-group columns carry 0.88 of the flux (\msn{80}); the literature
+  bottleneck \nuc{Sc}{45}(p,$\gamma$)\nuc{Ti}{46}
+  \citep{woosley1973, hix1996} is recovered independently at rank 2/251
+  (\msn{151}). \resultsref{2026-07-12} That the quasi-equilibrium picture of
+  \citet{bodansky1968} survives on relaxed states is the author's gloss on
+  those rows, not a RESULTS statement.
+\item \textbf{Target A is viable and is the decision}, unconditionally below
+  4~GK.
+\end{enumerate}
+
+% =====================================================================
+\subsection{What Phase 0 retired}
+\label{sec:retired}
+
+Four assumptions died, and a project that had gone straight to training would
+have discovered them as unexplained training failures, or not at all:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{5.4cm} Y L{1.6cm}@{}}
+\toprule
+\textbf{retired} & \textbf{replaced by} & \textbf{where} \\
+\midrule
+``the training labels are clean'' (Step 4 premise) &
+  labels are Appendix-B displaced at $\Tn \gtrsim 5$, with a wrong \Ye{}
+  evolution & \S\ref{part:pathology} \\
+``the single-Si-cluster QSE plateau describes this regime'' &
+  not confirmed on clean rerun data: 0/303 and 0/316 rows below the plateau
+  criterion & \S\ref{sec:validation} \\
+``6--8 orders of timescale separation'' (unsourced working figure) &
+  per-stratum medians $-12.2 \ldots +1.4$; \textbf{no separated fast sector} &
+  \S\ref{sec:gates378} \\
+``there is a maskable equilibrium set to exploit'' &
+  median and p90 $= 0$ columns at every $\varepsilon$ & \S\ref{sec:gate5} \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+The fourth invalidates the specified Component B hybrid; the third invalidates
+the specified Component C rollout governor's premise. \textbf{Two of the four
+architecture components have had a stated premise retired by measurement, and
+neither has been redesigned.} That is the state Tier 4 inherits, and it is the
+most important sentence in this section.
+
+% =====================================================================
+\subsection{The four escalations}
+\label{sec:escalations}
+
+Decisions that were correctly \emph{not} made inside a results log:
+
+\begin{enumerate}
+\item \textbf{Benchmark versus physics at $\Tn \gtrsim 5$}
+  (\S\ref{sec:epistemics}). Train on labels that reproduce a bug, or on
+  corrected physics that breaks comparability? Third option: declare a
+  validity domain (\reg{T-03}).
+\item \textbf{External communication about the NNN's labels}
+  (\S\ref{sec:epistemics}). The published baseline was trained on the same
+  labels. A person, not a script, decides how that is said.
+\item \textbf{Backporting the \code{gh-575} fix} into r23.05.1 --- a drafted,
+  dry-run-clean patch that is deliberately not applied, because applying it
+  would change what ``the label configuration'' means.
+\item \textbf{Whether to accept the $[4.0, 5.0)$ conditional verdict} or
+  narrow the claimed domain further (\S\ref{sec:verdict},
+  \S\ref{sec:phisupervision}).
+\end{enumerate}
+
+% =====================================================================
+\subsection{The state Tier 4 inherits}
+\label{sec:inherits}
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{6.4cm} Y@{}}
+\toprule
+\textbf{decided} & \textbf{open / retired} \\
+\midrule
+Target A, full-width & Component B's mask: the prior is \textbf{empty} \\
+conservation in the decode step & Component C's governor: premise
+  \textbf{false} \\
+$(Z, N)$ node features & $\Delta t$ conditioning variable ($\Delta t/\tau$?
+  \foreignreg{2}{R-10}) \\
+$K = 5$ message-passing rounds & rollout accumulation slope
+  \textbf{unmeasured} (\foreignreg{2}{R-21}) \\
+loss weighting $\to$ top-20 weak $+$ top-20 bridge columns &
+  $\Phi$ supervision: $\Tn < 5$ only \\
+unscreened $\kappa$ for equilibrium detection & validity domain: undeclared
+  (\reg{T-03}) \\
+float64 at the conservation map & evaluation protocol vs the NNN: unspecified
+  (\reg{T-18}) \\
+ & OOD / fallback target rate: underivable without $S_{\mathrm{target}}$
+  (\foreignreg{2}{R-12}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+and, from the boundary audit (\S\ref{sec:boundaryaudit}) --- requirements the
+plan does not know it has:
+
+\begin{center}
+\begin{tabularx}{\textwidth}{@{}L{5.6cm} Y@{}}
+\toprule
+\textbf{requirement} & \textbf{status} \\
+\midrule
+the runtime fraction $p$ & \textbf{unmeasured}, and Amdahl caps everything at
+  $\min(1/(1-p),\,1/f)$ (\reg{T-24}) \\
+$\partial\enuc/\partial\ln T$, $\partial\enuc/\partial\ln\rho$ & an output
+  nobody specified; \textbf{MESA's fully-coupled route cannot run without it}
+  (its \code{op\_split\_burn} route zeroes it) (\reg{T-25}) \\
+the timestep controller's lost convergence signal & respecifies S22 as a
+  \emph{calibrated error estimate} rather than a flag (\reg{T-26}) \\
+per-call latency at the real batch size & uncosted (\reg{T-27}) \\
+positivity vs linear conservation & structurally in tension (\reg{T-30}) \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\textbf{Read the right-hand column as one thing.} Four of its entries are
+decided elsewhere in the project's plan and merely unfinished; the five
+boundary items are different --- they are requirements the plan does not know
+it has. An emulator can satisfy every left-hand entry perfectly and still be
+uninstallable.
+
+Four of the eight open Phase-0 checklist rows are Tier-4 measurements,
+including the accumulation slope --- the single number that moves the
+project's operative gate by two orders of magnitude.
+
+% =====================================================================
+\subsection{The three ideas to carry, if you carry nothing else}
+\label{sec:threeideas}
+
+\textbf{One.} \emph{Silicon burning is a rearrangement, and everything
+algebraic in this project is a consequence.} \nuc{Si}{28} does not fuse
+appreciably with \nuc{Si}{28} at any temperature the star survives, so the
+flow proceeds by disassembly and reassembly through a light-particle
+reservoir. Fast near-balanced pairs plus slow bridges \emph{is} $\kappa$,
+\emph{is} stiffness, \emph{is} QSE, \emph{is} catastrophic cancellation ---
+four names for one mechanism.
+
+\textbf{Two.} \emph{\Ye{} is the whole point, and the strong sector cannot
+change it.} The left null space of the strong/EM columns is exactly
+$\mathrm{span}\{A, Z\}$, so every bit of \Ye{} evolution runs through 46/607
+or 173/1518 weak columns, of which twenty carry essentially all of it. That is
+why the weak sector is never maskable, why conservation must be structural
+rather than penalised, and why the gates are absolute rather than relative.
+
+\textbf{Three.} \emph{The training distribution and the deployment
+distribution are different worlds, and it is measured.} $\kappa \approx 1$
+everywhere on the Sobol grid; a $\kappa$-continuum from $10^{-3}$ to
+$10^{-1}$ on the relaxed manifold. Relaxation \emph{onto} the slow manifold
+and motion \emph{along} it are different functions, not a covariate shift. No
+architecture fixes that; only data from the right distribution does.
+
+% =====================================================================
+%  Source lines 5915-5930: the closing section of tier3.md, re-homed
+%  here from after Part X.
+% =====================================================================
+\subsection{Where Tier 3 hands off}
+\label{sec:handsoff}
+
+Tier~0 gave the substrate, Tier~1 the microphysics, Tier~2 the algebra,
+Tier~3 the astrophysics and the verdict. What remains is \textbf{Tier~4 ---
+the emulator}, which has no study node at all (\tierone{VIII.E.1} sketches
+S17--S22).
+
+It inherits a decided target, a conservation map that provably costs nothing,
+a loss-weighting map, two architecture components whose stated premises have
+been retired by measurement, an unmeasured accumulation slope that moves the
+operative gate by $100\times$, an undeclared validity domain, and a training
+distribution that is measurably not the deployment distribution.
+
+That is a good position to be in. Every one of those is \emph{known}, and
+every one was found before a single model was trained.
